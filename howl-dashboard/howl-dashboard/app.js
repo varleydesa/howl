@@ -188,6 +188,7 @@ const SCORE_OPTIONS = [
 ];
 
 let activeRoute = "dashboard";
+let mobileMenuOpen = false;
 let selectedStartupId = "agrosense";
 let selectedMonthIndex = 3;
 let activeJourney = "conceito";
@@ -603,12 +604,22 @@ function appShell(content) {
   const allowedStartups = accessibleStartups();
   return `
     <div class="shell">
-      <aside class="sidebar">
+      <aside class="sidebar ${mobileMenuOpen ? "menu-open" : ""}">
         <div class="brand">
           <div class="mark">H</div>
-          <div><strong>HOWL Dashboard</strong><span>Diagnóstico mensal de maturidade</span></div>
+          <div class="brand-copy"><strong>HOWL Dashboard</strong><span>Diagnóstico mensal de maturidade</span></div>
+          <button
+            class="mobile-menu-toggle"
+            type="button"
+            aria-label="${mobileMenuOpen ? "Recolher menu" : "Expandir menu"}"
+            aria-expanded="${mobileMenuOpen}"
+            aria-controls="main-navigation"
+            onclick="toggleMobileMenu()"
+          >
+            <span class="mobile-menu-icon" aria-hidden="true"></span>
+          </button>
         </div>
-        <nav class="nav">
+        <nav class="nav" id="main-navigation">
           ${nav
             .map(
               ([route, icon, label]) =>
@@ -639,7 +650,16 @@ function appShell(content) {
                 .map((s) => `<option value="${s.id}" ${s.id === selectedStartupId ? "selected" : ""}>${s.name}</option>`)
                 .join("")}
             </select>
-            ${isAdmin() ? `<button class="btn icon" title="Exportar CSV" onclick="exportCsv()">↓</button>` : ""}
+            ${
+              isAdmin()
+                ? `<button class="btn download-btn" title="Baixar avaliações em CSV" aria-label="Baixar avaliações em CSV" onclick="exportCsv()">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v3h14v-3"></path>
+                    </svg>
+                    <span class="download-label">Exportar CSV</span>
+                  </button>`
+                : ""
+            }
             <button class="btn primary" onclick="go('assessment')">${isAdmin() ? "Ver respostas" : isEvaluator() ? "Responder perguntas" : "Minha autoavaliação"}</button>
           </div>
         </header>
@@ -1540,10 +1560,17 @@ function exportCsv() {
 function go(route) {
   if (!routeAllowed(route) && route !== "login") {
     activeRoute = "dashboard";
+    mobileMenuOpen = false;
     render();
     return;
   }
   activeRoute = route;
+  mobileMenuOpen = false;
+  render();
+}
+
+function toggleMobileMenu() {
+  mobileMenuOpen = !mobileMenuOpen;
   render();
 }
 
