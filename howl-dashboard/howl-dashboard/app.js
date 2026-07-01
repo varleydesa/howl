@@ -1,3 +1,16 @@
+const supabaseConfig = window.HOWL_SUPABASE_CONFIG || {};
+const supabaseConfigured =
+  Boolean(supabaseConfig.url) &&
+  Boolean(supabaseConfig.publishableKey) &&
+  !supabaseConfig.publishableKey.includes("COLE_AQUI");
+const supabaseClient = supabaseConfigured
+  ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.publishableKey)
+  : null;
+let currentSession = null;
+let loginError = "";
+let assessmentCycleIds = {};
+let questionIds = {};
+
 let JOURNEYS = [
   {
     id: "conceito",
@@ -171,7 +184,7 @@ const scoreProfiles = {
   ],
 };
 
-const months = [
+let months = [
   { month: 2, year: 2026, label: "Fev/2026" },
   { month: 3, year: 2026, label: "Mar/2026" },
   { month: 4, year: 2026, label: "Abr/2026" },
@@ -187,7 +200,7 @@ const SCORE_OPTIONS = [
   { value: 5, label: "Validado com evidência clara" },
 ];
 
-let activeRoute = "dashboard";
+let activeRoute = "login";
 let mobileMenuOpen = false;
 let selectedStartupId = "agrosense";
 let selectedMonthIndex = 3;
@@ -195,7 +208,7 @@ let activeJourney = "conceito";
 let draftSaved = false;
 let draftAnswers = {};
 let activeUserId = "admin-ana";
-let backendStatus = "Conectando ao backend local...";
+let backendStatus = "Conectando ao Supabase...";
 let assessmentResponses = {};
 
 let assessments = buildAssessments();
@@ -316,8 +329,10 @@ function buildAssessments() {
           const saved = savedQuestionResponse(startup.id, period.month, period.year, journey.id, questionIndex);
           const simulatedEntrepreneurScore = target === null ? 0 : clampScore((target + wave + entrepreneurBias).toFixed(1));
           const simulatedConsultantScore = target === null ? 0 : clampScore((target - wave + consultantBias).toFixed(1));
-          const entrepreneurScore = saved.entrepreneurScore ?? simulatedEntrepreneurScore;
-          const consultantScore = saved.consultantScore ?? simulatedConsultantScore;
+          const hasEntrepreneurAnswer = saved.entrepreneurScore !== null && saved.entrepreneurScore !== undefined;
+          const hasConsultantAnswer = saved.consultantScore !== null && saved.consultantScore !== undefined;
+          const entrepreneurScore = hasEntrepreneurAnswer ? saved.entrepreneurScore : simulatedEntrepreneurScore;
+          const consultantScore = hasConsultantAnswer ? saved.consultantScore : simulatedConsultantScore;
           const finalScore = calculateQuestionScore(entrepreneurScore, consultantScore);
           return {
             id: `${startup.id}-${period.month}-${journey.id}-${questionIndex + 1}`,
@@ -325,6 +340,7 @@ function buildAssessments() {
             journeyName: journey.name,
             text,
             order: questionIndex + 1,
+            hasResponse: hasEntrepreneurAnswer || hasConsultantAnswer,
             entrepreneurScore,
             consultantScore,
             finalScore,
@@ -346,6 +362,7 @@ function buildAssessments() {
           id: journey.id,
           name: journey.name,
           gate: journey.gate,
+          hasResponses: questions.some((question) => question.hasResponse),
           entrepreneurAverage,
           consultantAverage,
           finalAverage,
@@ -361,6 +378,7 @@ function buildAssessments() {
         month: period.month,
         year: period.year,
         label: period.label,
+        hasResponses: journeyResults.some((journey) => journey.hasResponses),
         status: "Concluída",
         journeyResults,
       }, previous));
@@ -402,27 +420,33 @@ function finalizeAssessment(assessment, previous) {
 }
 
 function average(values) {
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
+  const numbers = values.map(Number).filter(Number.isFinite);
+  if (!numbers.length) return 0;
+  return numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
 }
 
 function activeUser() {
   return users.find((user) => user.id === activeUserId);
 }
 
+function normalizedRole(user = activeUser()) {
+  return String(user?.role || "").trim().toLowerCase();
+}
+
 function isAdmin() {
-  return activeUser().role === "admin";
+  return normalizedRole() === "admin";
 }
 
 function isEvaluator() {
-  return activeUser().role === "avaliador";
+  return normalizedRole() === "avaliador";
 }
 
 function canEditAssessment() {
-  return isEvaluator() || activeUser().role === "empreendedor";
+  return isEvaluator() || normalizedRole() === "empreendedor";
 }
 
 function canEditScoreField(field) {
-  const role = activeUser().role;
+  const role = normalizedRole();
   if (role === "avaliador") return field === "consultantScore";
   if (role === "empreendedor") return field === "entrepreneurScore";
   return false;
@@ -430,13 +454,13 @@ function canEditScoreField(field) {
 
 function editableAssessmentField() {
   if (isEvaluator()) return "consultant";
-  if (activeUser().role === "empreendedor") return "entrepreneur";
+  if (normalizedRole() === "empreendedor") return "entrepreneur";
   return null;
 }
 
 function accessibleStartups() {
   const user = activeUser();
-  if (user.role === "admin") return startups;
+  if (normalizedRole(user) === "admin") return startups;
   return startups.filter((startup) => user.startupIds.includes(startup.id));
 }
 
@@ -478,11 +502,26 @@ function minBy(items, key) {
 }
 
 function latestAssessment(startupId = selectedStartupId) {
-  return assessments.filter((a) => a.startupId === startupId).at(-1);
+  const history = assessments.filter((a) => a.startupId === startupId);
+  return history.filter((assessment) => assessment.hasResponses).at(-1) || history.at(-1);
 }
 
 function historyFor(startupId = selectedStartupId) {
-  return assessments.filter((a) => a.startupId === startupId);
+  const history = assessments.filter((a) => a.startupId === startupId);
+  const answeredHistory = history.filter((assessment) => assessment.hasResponses);
+  return answeredHistory.length ? answeredHistory : history;
+}
+
+function selectedPeriodAssessment(startupId = selectedStartupId) {
+  const period = months[selectedMonthIndex];
+  return (
+    assessments.find(
+      (assessment) =>
+        assessment.startupId === startupId &&
+        assessment.month === period?.month &&
+        assessment.year === period?.year
+    ) || latestAssessment(startupId)
+  );
 }
 
 function fmt(value, digits = 1) {
@@ -511,6 +550,22 @@ function slugify(value) {
   return slug || `startup-${startups.length + 1}`;
 }
 
+function generateTemporaryPassword(length = 14) {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#%";
+  const randomValues = new Uint32Array(length);
+  window.crypto.getRandomValues(randomValues);
+  return Array.from(randomValues, (value) => alphabet[value % alphabet.length]).join("");
+}
+
+function fillGeneratedPassword(button) {
+  const input = button.closest("form")?.querySelector('input[name="password"]');
+  if (!input) return;
+  input.value = generateTemporaryPassword();
+  input.type = "text";
+  input.focus();
+  input.select();
+}
+
 function rebuildAssessments() {
   assessments = buildAssessments();
   draftAnswers = {};
@@ -529,70 +584,320 @@ function savedQuestionResponse(startupId, month, year, journeyId, questionIndex)
   return assessmentResponses[responseKey(startupId, month, year, journeyId, questionIndex)] || {};
 }
 
-async function apiRequest(path, options = {}) {
-  const response = await fetch(path, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-    ...options,
-  });
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: "Erro de comunicação com o backend." }));
-    throw new Error(error.error || "Erro de comunicação com o backend.");
+function requireSupabase() {
+  if (!supabaseClient) {
+    throw new Error("Configure a chave publicável do Supabase antes de continuar.");
   }
-  return response.json();
+  return supabaseClient;
 }
 
-async function loadBackendData() {
-  try {
-    const data = await apiRequest("/api/data");
-    if (Array.isArray(data.journeys)) JOURNEYS = data.journeys;
-    if (Array.isArray(data.startups)) startups = data.startups;
-    if (Array.isArray(data.users)) users = data.users;
-    assessmentResponses = data.assessmentResponses || {};
-    if (data.scoreProfiles) {
-      Object.keys(scoreProfiles).forEach((key) => delete scoreProfiles[key]);
-      Object.assign(scoreProfiles, data.scoreProfiles);
-    }
-    backendStatus = "Backend local conectado";
-    ensureAccessibleStartup();
-    rebuildAssessments();
-  } catch (error) {
-    backendStatus = "Modo local sem persistência";
+function throwIfSupabaseError(error) {
+  if (error) throw new Error(error.message || "Erro de comunicação com o Supabase.");
+}
+
+async function loadSupabaseData() {
+  const client = requireSupabase();
+  const sessionResult = await client.auth.getSession();
+  throwIfSupabaseError(sessionResult.error);
+  currentSession = sessionResult.data.session;
+
+  if (!currentSession) {
+    activeRoute = "login";
+    backendStatus = "Aguardando autenticação";
+    return false;
   }
+
+  const profileResult = await client
+    .from("profiles")
+    .select("*")
+    .eq("auth_user_id", currentSession.user.id)
+    .single();
+  throwIfSupabaseError(profileResult.error);
+
+  const [
+    startupsResult,
+    profilesResult,
+    linksResult,
+    journeysResult,
+    questionsResult,
+    periodsResult,
+    cyclesResult,
+    resultsResult,
+  ] = await Promise.all([
+    client.from("startups").select("*"),
+    client.from("profiles").select("*"),
+    client.from("profile_startups").select("*"),
+    client.from("journeys").select("*").order("position"),
+    client.from("questions").select("*").eq("active", true).order("position"),
+    client.from("assessment_periods").select("*").order("year").order("month"),
+    client.from("assessment_cycles").select("*"),
+    client
+      .from("assessment_question_results")
+      .select("*")
+      .order("year")
+      .order("month")
+      .order("journey_position")
+      .order("question_position"),
+  ]);
+
+  [
+    startupsResult,
+    profilesResult,
+    linksResult,
+    journeysResult,
+    questionsResult,
+    periodsResult,
+    cyclesResult,
+    resultsResult,
+  ].forEach((result) => throwIfSupabaseError(result.error));
+
+  startups = (startupsResult.data || []).map((startup) => ({
+    id: startup.id,
+    name: startup.name,
+    founder: startup.founder,
+    sector: startup.sector,
+    city: startup.city,
+    state: startup.state,
+    stage: startup.stage,
+    description: startup.description,
+  }));
+
+  const questionRows = questionsResult.data || [];
+  JOURNEYS = (journeysResult.data || []).map((journey) => ({
+    id: journey.id,
+    name: journey.name,
+    description: journey.description,
+    gate: journey.gate,
+    questions: questionRows
+      .filter((question) => question.journey_id === journey.id)
+      .sort((a, b) => a.position - b.position)
+      .map((question) => question.prompt),
+  }));
+
+  months = (periodsResult.data || []).map((period) => ({
+    id: period.id,
+    month: period.month,
+    year: period.year,
+    label: period.label,
+  }));
+
+  const links = linksResult.data || [];
+  const roleLabels = { admin: "Admin", avaliador: "Avaliador", empreendedor: "Empreendedor" };
+  users = (profilesResult.data || []).map((profile) => ({
+    id: profile.id,
+    name: profile.name,
+    email: profile.email,
+    role: profile.role,
+    roleLabel: roleLabels[profile.role] || "Usuário",
+    organization: profile.organization,
+    startupIds:
+      profile.role === "admin"
+        ? startups.map((startup) => startup.id)
+        : links
+            .filter((link) => link.profile_id === profile.id)
+            .map((link) => link.startup_id),
+  }));
+
+  const signedInProfile = profileResult.data;
+  activeUserId = signedInProfile.id;
+  if (!users.some((user) => user.id === activeUserId)) {
+    users.push({
+      id: signedInProfile.id,
+      name: signedInProfile.name,
+      email: signedInProfile.email,
+      role: signedInProfile.role,
+      roleLabel: roleLabels[signedInProfile.role] || "Usuário",
+      organization: signedInProfile.organization,
+      startupIds: links
+        .filter((link) => link.profile_id === signedInProfile.id)
+        .map((link) => link.startup_id),
+    });
+  }
+
+  assessmentCycleIds = Object.fromEntries(
+    (cyclesResult.data || []).map((cycle) => {
+      const period = months.find((item) => item.id === cycle.period_id);
+      return [`${cycle.startup_id}-${period?.year}-${period?.month}`, cycle.id];
+    })
+  );
+  questionIds = Object.fromEntries(
+    questionRows.map((question) => [
+      `${question.journey_id}-${question.position}`,
+      question.id,
+    ])
+  );
+
+  assessmentResponses = {};
+  (resultsResult.data || []).forEach((row) => {
+    const key = responseKey(
+      row.startup_id,
+      row.month,
+      row.year,
+      row.journey_id,
+      row.question_position - 1
+    );
+    assessmentResponses[key] = {
+      startupId: row.startup_id,
+      month: row.month,
+      year: row.year,
+      journeyId: row.journey_id,
+      questionIndex: row.question_position - 1,
+      entrepreneurScore:
+        row.entrepreneur_score === null ? null : Number(row.entrepreneur_score),
+      entrepreneurComment: row.entrepreneur_comment || "",
+      entrepreneurStatus: row.entrepreneur_status,
+      entrepreneurUpdatedAt: row.entrepreneur_updated_at,
+      consultantScore: row.evaluator_score === null ? null : Number(row.evaluator_score),
+      consultantComment: row.evaluator_comment || "",
+      consultantStatus: row.evaluator_status,
+      consultantUpdatedAt: row.evaluator_updated_at,
+    };
+  });
+
+  Object.keys(scoreProfiles).forEach((key) => delete scoreProfiles[key]);
+  startups.forEach((startup) => {
+    scoreProfiles[startup.id] = defaultScoreProfile();
+  });
+
+  backendStatus = "Supabase conectado";
+  ensureAccessibleStartup();
+  rebuildAssessments();
+  if (activeRoute === "login") activeRoute = "dashboard";
+  return true;
 }
 
 async function persistStartup(startup) {
-  return apiRequest("/api/startups", {
-    method: "POST",
-    body: JSON.stringify(startup),
-  });
+  const client = requireSupabase();
+  const startupResult = await client.from("startups").insert(startup);
+  throwIfSupabaseError(startupResult.error);
+
+  const periodsResult = await client.from("assessment_periods").select("id");
+  throwIfSupabaseError(periodsResult.error);
+  const cycleRows = (periodsResult.data || []).map((period) => ({
+    startup_id: startup.id,
+    period_id: period.id,
+  }));
+  if (cycleRows.length) {
+    const cyclesResult = await client
+      .from("assessment_cycles")
+      .upsert(cycleRows, { onConflict: "startup_id,period_id" });
+    throwIfSupabaseError(cyclesResult.error);
+  }
 }
 
-async function persistUser(user) {
-  return apiRequest("/api/users", {
-    method: "POST",
-    body: JSON.stringify(user),
+async function persistUser(user, password) {
+  const client = requireSupabase();
+  const { data, error } = await client.functions.invoke("create-user", {
+    body: {
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      organization: user.organization,
+      startupId: user.role === "admin" ? null : user.startupIds[0],
+      password,
+    },
   });
+
+  if (error) {
+    let message = error.message;
+    try {
+      if (error.context instanceof Response) {
+        const details = await error.context.clone().json();
+        const diagnostic = [details?.message, details?.error, details?.version]
+          .filter(Boolean)
+          .join(" | ");
+        message = diagnostic || message;
+      }
+    } catch {
+      // Mantém a mensagem original do Supabase.
+    }
+    throw new Error(message || "Não foi possível criar o usuário.");
+  }
+
+  if (data?.error) {
+    const details = [data.message, data.error, data.version].filter(Boolean).join(" | ");
+    throw new Error(details || "Não foi possível criar o usuário.");
+  }
+
+  await loadSupabaseData();
+  return { users };
 }
 
 async function persistQuestions() {
-  return apiRequest("/api/questions", {
-    method: "PUT",
-    body: JSON.stringify({ journeys: JOURNEYS }),
-  });
+  const client = requireSupabase();
+  const journeyRows = JOURNEYS.map((journey, index) => ({
+    id: journey.id,
+    position: index + 1,
+    name: journey.name,
+    description: journey.description,
+    gate: journey.gate,
+  }));
+  const journeyResult = await client
+    .from("journeys")
+    .upsert(journeyRows, { onConflict: "id" });
+  throwIfSupabaseError(journeyResult.error);
+
+  const rows = JOURNEYS.flatMap((journey) =>
+    journey.questions.map((prompt, index) => ({
+      journey_id: journey.id,
+      position: index + 1,
+      prompt,
+      active: true,
+    }))
+  );
+  const questionsResult = await client
+    .from("questions")
+    .upsert(rows, { onConflict: "journey_id,position" });
+  throwIfSupabaseError(questionsResult.error);
 }
 
-async function persistDatabase(database) {
-  return apiRequest("/api/database", {
-    method: "PUT",
-    body: JSON.stringify(database),
-  });
+async function persistDatabase() {
+  throw new Error(
+    "A restauração JSON foi desativada após a migração. Use o backup do Supabase."
+  );
 }
 
 async function persistAssessmentResponses(payload) {
-  return apiRequest("/api/assessment-responses", {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
+  const client = requireSupabase();
+  const group = editableAssessmentField();
+  const isEntrepreneur = group === "entrepreneur";
+  const table = isEntrepreneur ? "entrepreneur_answers" : "evaluator_answers";
+  const rows = Object.values(payload.responses)
+    .map((response) => {
+      const score = isEntrepreneur
+        ? response.entrepreneurScore
+        : response.consultantScore;
+      if (score === null || score === undefined) return null;
+      return {
+        cycle_id:
+          assessmentCycleIds[
+            `${response.startupId}-${response.year}-${response.month}`
+          ],
+        question_id:
+          questionIds[`${response.journeyId}-${response.questionIndex + 1}`],
+        score,
+        comment: isEntrepreneur
+          ? response.entrepreneurComment || ""
+          : response.consultantComment || "",
+        status:
+          (isEntrepreneur
+            ? response.entrepreneurStatus
+            : response.consultantStatus
+          )?.toLowerCase() || "rascunho",
+        updated_by: activeUserId,
+        updated_at: new Date().toISOString(),
+      };
+    })
+    .filter((row) => row?.cycle_id && row?.question_id);
+
+  if (rows.length) {
+    const result = await client
+      .from(table)
+      .upsert(rows, { onConflict: "cycle_id,question_id" });
+    throwIfSupabaseError(result.error);
+  }
+  await loadSupabaseData();
+  return { assessmentResponses };
 }
 
 function appShell(content) {
@@ -640,11 +945,6 @@ function appShell(content) {
             <span class="subtle">Cockpit executivo para banca, investidor e hub de inovação</span>
           </div>
           <div class="topbar-actions no-print">
-            <select onchange="selectUser(this.value)" aria-label="Selecionar usuário">
-              ${users
-                .map((item) => `<option value="${item.id}" ${item.id === activeUserId ? "selected" : ""}>${item.roleLabel} • ${item.name}</option>`)
-                .join("")}
-            </select>
             <select onchange="selectStartup(this.value)" aria-label="Selecionar startup">
               ${allowedStartups
                 .map((s) => `<option value="${s.id}" ${s.id === selectedStartupId ? "selected" : ""}>${s.name}</option>`)
@@ -661,6 +961,7 @@ function appShell(content) {
                 : ""
             }
             <button class="btn primary" onclick="go('assessment')">${isAdmin() ? "Ver respostas" : isEvaluator() ? "Responder perguntas" : "Minha autoavaliação"}</button>
+            <button class="btn" onclick="logout()">Sair</button>
           </div>
         </header>
         ${content}
@@ -685,8 +986,12 @@ function pageTitle() {
 }
 
 function render() {
+  if (activeRoute === "login") {
+    document.getElementById("app").innerHTML = renderLogin();
+    return;
+  }
   ensureAccessibleStartup();
-  if (!routeAllowed(activeRoute) && activeRoute !== "login") activeRoute = "dashboard";
+  if (!routeAllowed(activeRoute)) activeRoute = "dashboard";
   const views = {
     dashboard: renderDashboard,
     startups: renderStartups,
@@ -703,6 +1008,9 @@ function render() {
 }
 
 function renderLogin() {
+  const configurationMessage = supabaseConfigured
+    ? ""
+    : `<div class="badge amber">Falta configurar a chave publicável do Supabase.</div>`;
   return `
     <div class="login">
       <section class="login-panel">
@@ -713,13 +1021,15 @@ function renderLogin() {
           <p>Uma plataforma executiva para cruzar percepções, revelar gaps e orientar a próxima prioridade estratégica.</p>
         </div>
       </section>
-      <section class="login-form">
-        <div class="section-title"><h1>Entrar</h1><p>Estrutura preparada para autenticação por email, senha e perfis de acesso.</p></div>
-        <div class="field"><label>Email</label><input value="admin@howl.dashboard" /></div>
-        <div class="field"><label>Senha</label><input type="password" value="diagnostico" /></div>
-        <button class="btn primary" onclick="go('dashboard')">Acessar dashboard</button>
-        <span class="subtle">Admin, consultor, empreendedor e viewer previstos na arquitetura.</span>
-      </section>
+      <form class="login-form" onsubmit="login(event)">
+        <div class="section-title"><h1>Entrar</h1><p>Use o acesso cadastrado no Supabase.</p></div>
+        ${configurationMessage}
+        <div class="field"><label>Email</label><input name="email" type="email" autocomplete="email" required /></div>
+        <div class="field"><label>Senha</label><input name="password" type="password" autocomplete="current-password" required /></div>
+        ${loginError ? `<div class="badge red">${escapeHtml(loginError)}</div>` : ""}
+        <button class="btn primary" type="submit" ${supabaseConfigured ? "" : "disabled"}>Acessar dashboard</button>
+        <span class="subtle">O acesso e as permissões são validados pelo Supabase Auth.</span>
+      </form>
     </div>
   `;
 }
@@ -763,7 +1073,7 @@ function renderDashboard() {
       <div class="grid kpis">
         ${isFounderDashboard
           ? metric("Meu HOWL Score", fmt(ownResult.howlScore, 0), `${ownResult.classification} • ${evolutionText(ownResult.monthlyEvolution)}`)
-          : metric("Projetos avaliados", visibleStartups.length, "Base exibida neste dashboard")}
+          : metric("Projetos avaliados", visibleStats.evaluated, `${visibleStartups.length} cadastrados no total`)}
         ${metric("Média geral", fmt(generalStats.avgScore, 0), `${classifyHowlScore(generalStats.avgScore)} • todos os projetos`)}
         ${isFounderDashboard
           ? metric("Diferença vs média", `${scoreDelta >= 0 ? "+" : ""}${fmt(scoreDelta, 0)}`, `${ownStartup.name} comparado ao portfólio`)
@@ -816,15 +1126,17 @@ function printableScoreRing(score) {
 }
 
 function portfolioStats(results) {
+  const validResults = results.filter((result) => result?.hasResponses);
   const journeyAverages = JOURNEYS.map((journey) => ({
     id: journey.id,
     name: journey.name,
-    avg: average(results.map((result) => result.journeyResults.find((item) => item.id === journey.id).finalAverage)),
+    avg: average(validResults.map((result) => result.journeyResults.find((item) => item.id === journey.id).finalAverage)),
   }));
   return {
-    avgScore: average(results.map((result) => result.howlScore)),
-    evolved: results.filter((result) => result.monthlyEvolution > 0).length,
-    regressed: results.filter((result) => result.monthlyEvolution < 0).length,
+    avgScore: average(validResults.map((result) => result.howlScore)),
+    evaluated: validResults.length,
+    evolved: validResults.filter((result) => result.monthlyEvolution > 0).length,
+    regressed: validResults.filter((result) => result.monthlyEvolution < 0).length,
     strongestJourney: maxBy(journeyAverages, "avg"),
     weakestJourney: minBy(journeyAverages, "avg"),
     journeyAverages,
@@ -877,14 +1189,15 @@ function journeyBar(j) {
 function renderStartups() {
   const rows = accessibleStartups().map((startup) => {
     const result = latestAssessment(startup.id);
+    const hasResponses = result?.hasResponses;
     return `<tr onclick="selectStartup('${startup.id}');go('dashboard')">
       <td><strong>${escapeHtml(startup.name)}</strong><br><span class="subtle">${escapeHtml(startup.founder)}</span></td>
       <td>${escapeHtml(startup.sector)}</td><td>${escapeHtml(startup.city)}/${escapeHtml(startup.state)}</td><td>${escapeHtml(startup.stage)}</td>
-      <td><strong>${fmt(result.howlScore, 0)}</strong></td>
-      <td><span class="badge blue">${result.currentTrail}</span></td>
-      <td>${result.weakestJourney.name}</td>
-      <td><span class="badge ${statusColor(evolutionText(result.monthlyEvolution))}">${evolutionText(result.monthlyEvolution)}</span></td>
-      <td><span class="badge ${statusColor(result.classification)}">${result.classification}</span></td>
+      <td><strong>${hasResponses ? fmt(result.howlScore, 0) : "—"}</strong></td>
+      <td><span class="badge ${hasResponses ? "blue" : "gray"}">${hasResponses ? result.currentTrail : "Sem avaliação"}</span></td>
+      <td>${hasResponses ? result.weakestJourney.name : "—"}</td>
+      <td><span class="badge ${hasResponses ? statusColor(evolutionText(result.monthlyEvolution)) : "gray"}">${hasResponses ? evolutionText(result.monthlyEvolution) : "Aguardando"}</span></td>
+      <td><span class="badge ${hasResponses ? statusColor(result.classification) : "gray"}">${hasResponses ? result.classification : "Sem avaliação"}</span></td>
     </tr>`;
   });
   return `
@@ -943,6 +1256,14 @@ function renderRegistration() {
             <div class="field"><label>Perfil</label><select name="role"><option value="empreendedor">Empreendedor</option><option value="avaliador">Avaliador</option><option value="admin">Admin</option></select></div>
             <div class="field"><label>Startup vinculada</label><select name="startupId">${startups.map((startup) => `<option value="${startup.id}" ${startup.id === selectedStartupId ? "selected" : ""}>${escapeHtml(startup.name)}</option>`).join("")}</select></div>
             <div class="field wide"><label>Organização</label><input name="organization" placeholder="Empresa, consultoria ou hub"></div>
+            <div class="field wide">
+              <label>Senha temporária</label>
+              <div class="row">
+                <input name="password" type="password" minlength="8" required autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+                <button class="btn" type="button" onclick="fillGeneratedPassword(this)">Gerar</button>
+              </div>
+              <small class="subtle">Entregue essa senha ao usuário por um canal seguro. Ele poderá trocar depois.</small>
+            </div>
           </div>
           <button class="btn primary" type="submit">Cadastrar usuário</button>
         </form>
@@ -975,10 +1296,11 @@ function compactUserList() {
 
 function renderPortfolio() {
   const latest = accessibleStartups().map((s) => latestAssessment(s.id));
-  const avgScore = average(latest.map((a) => a.howlScore));
+  const evaluated = latest.filter((assessment) => assessment?.hasResponses);
+  const avgScore = average(evaluated.map((a) => a.howlScore));
   const allJourneys = JOURNEYS.map((journey) => ({
     name: journey.name,
-    avg: average(latest.map((a) => a.journeyResults.find((j) => j.id === journey.id).finalAverage)),
+    avg: average(evaluated.map((a) => a.journeyResults.find((j) => j.id === journey.id).finalAverage)),
   }));
   const strongest = maxBy(allJourneys, "avg");
   const weakest = minBy(allJourneys, "avg");
@@ -986,7 +1308,7 @@ function renderPortfolio() {
     <section class="page">
       <div class="section-title"><h1>Portfólio</h1><p>Visão agregada para admin, aceleradora, hub de inovação e banca executiva.</p></div>
       <div class="grid kpis" style="margin-top:18px">
-        ${metric("Startups avaliadas", latest.length, "Com histórico mensal ativo")}
+        ${metric("Startups avaliadas", evaluated.length, `${latest.length} cadastradas no total`)}
         ${metric("Score médio", fmt(avgScore, 0), classifyHowlScore(avgScore))}
         ${metric("Jornada média mais forte", strongest.name, `${fmt(strongest.avg)}/5`)}
         ${metric("Jornada média mais fraca", weakest.name, `${fmt(weakest.avg)}/5`)}
@@ -1005,7 +1327,7 @@ function renderPortfolio() {
 
 function renderAssessment() {
   const currentJourney = JOURNEYS.find((j) => j.id === activeJourney);
-  const result = latestAssessment();
+  const result = selectedPeriodAssessment();
   const journeyResult = result.journeyResults.find((j) => j.id === activeJourney);
   const answeredCount = answeredQuestionsForCurrentRole();
   const totalQuestions = JOURNEYS.reduce((sum, journey) => sum + journey.questions.length, 0);
@@ -1425,6 +1747,9 @@ function lineChart(history, includeJourneys) {
 }
 
 function journeyMonthlyBarChart(history) {
+  if (!history.length) {
+    return `<p class="chart-note">Ainda não há avaliações preenchidas para montar a evolução mensal.</p>`;
+  }
   const width = 720;
   const height = 318;
   const pad = { left: 42, right: 22, top: 28, bottom: 42 };
@@ -1466,19 +1791,24 @@ function journeyMonthlyBarChart(history) {
 }
 
 function portfolioEvolutionChart(portfolioStartups) {
-  const syntheticHistory = months.map((period) => {
-    const monthlyResults = portfolioStartups.map((startup) =>
-      assessments.find((assessment) => assessment.startupId === startup.id && assessment.month === period.month && assessment.year === period.year)
-    );
-    return {
-      label: period.label,
-      howlScore: average(monthlyResults.map((result) => result.howlScore)),
-      journeyResults: JOURNEYS.map((journey) => ({
-        id: journey.id,
-        finalAverage: average(monthlyResults.map((result) => result.journeyResults.find((item) => item.id === journey.id).finalAverage)),
-      })),
-    };
-  });
+  const syntheticHistory = months
+    .map((period) => {
+      const monthlyResults = portfolioStartups
+        .map((startup) =>
+          assessments.find((assessment) => assessment.startupId === startup.id && assessment.month === period.month && assessment.year === period.year)
+        )
+        .filter((assessment) => assessment?.hasResponses);
+      if (!monthlyResults.length) return null;
+      return {
+        label: period.label,
+        howlScore: average(monthlyResults.map((result) => result.howlScore)),
+        journeyResults: JOURNEYS.map((journey) => ({
+          id: journey.id,
+          finalAverage: average(monthlyResults.map((result) => result.journeyResults.find((item) => item.id === journey.id).finalAverage)),
+        })),
+      };
+    })
+    .filter(Boolean);
   return journeyMonthlyBarChart(syntheticHistory);
 }
 
@@ -1489,19 +1819,22 @@ function chartLegend(items) {
 }
 
 function distributionChart(latest) {
-  const counts = latest.reduce((acc, a) => {
+  const answered = latest.filter((assessment) => assessment?.hasResponses);
+  if (!answered.length) return `<p class="chart-note">Ainda não há avaliações preenchidas para distribuir por trilha.</p>`;
+  const counts = answered.reduce((acc, a) => {
     acc[a.currentTrail] = (acc[a.currentTrail] || 0) + 1;
     return acc;
   }, {});
-  return `<div class="journey-bars">${Object.entries(counts).map(([name, count]) => journeyBar({ name, finalAverage: (count / latest.length) * 5 })).join("")}</div>`;
+  return `<div class="journey-bars">${Object.entries(counts).map(([name, count]) => journeyBar({ name, finalAverage: (count / answered.length) * 5 })).join("")}</div>`;
 }
 
 function ranking(items, key) {
-  const sorted = [...items].sort((a, b) => {
+  const sorted = items.filter((item) => item?.hasResponses).sort((a, b) => {
     const av = key === "gap" ? Math.abs(a.mainGapJourney.gap) : a[key];
     const bv = key === "gap" ? Math.abs(b.mainGapJourney.gap) : b[key];
     return bv - av;
   });
+  if (!sorted.length) return `<p class="chart-note">Ainda não há avaliações preenchidas para montar o ranking.</p>`;
   return `<div class="journey-bars">${sorted
     .map((a) => {
       const startup = startups.find((s) => s.id === a.startupId);
@@ -1607,7 +1940,7 @@ function updateDraftComment(journeyId, questionIndex, field, value) {
 
 async function addStartup(event) {
   event.preventDefault();
-  if (!isAdmin()) {
+  if (!isAdmin() && !backendStatus.includes("conectado")) {
     window.alert("Apenas Admin pode cadastrar startups.");
     return;
   }
@@ -1631,10 +1964,8 @@ async function addStartup(event) {
   };
   try {
     if (backendStatus.includes("conectado")) {
-      const saved = await persistStartup(startup);
-      startups = saved.startups;
-      Object.keys(scoreProfiles).forEach((key) => delete scoreProfiles[key]);
-      Object.assign(scoreProfiles, saved.scoreProfiles);
+      await persistStartup(startup);
+      await loadSupabaseData();
     } else {
       startups.push(startup);
       scoreProfiles[id] = defaultScoreProfile(startups.length);
@@ -1651,13 +1982,18 @@ async function addStartup(event) {
 
 async function addUser(event) {
   event.preventDefault();
-  if (!isAdmin()) {
+  if (!isAdmin() && !backendStatus.includes("conectado")) {
     window.alert("Apenas Admin pode cadastrar usuários.");
     return;
   }
   const data = Object.fromEntries(new FormData(event.target).entries());
   const roleLabels = { admin: "Admin", avaliador: "Avaliador", empreendedor: "Empreendedor" };
   const role = String(data.role || "empreendedor");
+  const password = String(data.password || "");
+  if (password.length < 8) {
+    window.alert("A senha temporária precisa ter pelo menos 8 caracteres.");
+    return;
+  }
   const linkedStartup = startups.find((startup) => startup.id === data.startupId);
   const user = {
     id: slugify(`${data.name}-${role}`),
@@ -1677,13 +2013,13 @@ async function addUser(event) {
   user.id = id;
   try {
     if (backendStatus.includes("conectado")) {
-      const saved = await persistUser(user);
+      const saved = await persistUser(user, password);
       users = saved.users;
     } else {
       users.push(user);
     }
     event.target.reset();
-    window.alert(`${user.name} cadastrado com perfil ${user.roleLabel}.`);
+    window.alert(`${user.name} cadastrado com perfil ${user.roleLabel}. Entregue a senha temporária por um canal seguro.`);
   } catch (error) {
     window.alert(error.message || "Não foi possível cadastrar o usuário.");
   }
@@ -1945,8 +2281,59 @@ async function completeAssessment() {
   render();
 }
 
+async function login(event) {
+  event.preventDefault();
+  loginError = "";
+  const form = event.currentTarget;
+  const submitButton = form.querySelector('button[type="submit"]');
+  const data = Object.fromEntries(new FormData(form).entries());
+  submitButton.disabled = true;
+  submitButton.textContent = "Entrando...";
+
+  try {
+    const client = requireSupabase();
+    const result = await client.auth.signInWithPassword({
+      email: String(data.email || "").trim(),
+      password: String(data.password || ""),
+    });
+    throwIfSupabaseError(result.error);
+    currentSession = result.data.session;
+    activeRoute = "dashboard";
+    await loadSupabaseData();
+  } catch (error) {
+    activeRoute = "login";
+    loginError =
+      error.message === "Invalid login credentials"
+        ? "E-mail ou senha incorretos."
+        : error.message || "Não foi possível entrar.";
+  }
+  render();
+}
+
+async function logout() {
+  if (supabaseClient) await supabaseClient.auth.signOut();
+  currentSession = null;
+  loginError = "";
+  activeRoute = "login";
+  backendStatus = "Aguardando autenticação";
+  render();
+}
+
 async function initializeApp() {
-  await loadBackendData();
+  if (!supabaseConfigured) {
+    backendStatus = "Supabase ainda não configurado";
+    activeRoute = "login";
+    render();
+    return;
+  }
+
+  try {
+    await loadSupabaseData();
+  } catch (error) {
+    activeRoute = "login";
+    loginError = error.message || "Não foi possível conectar ao Supabase.";
+    backendStatus = "Falha ao conectar ao Supabase";
+  }
   render();
 }
 
