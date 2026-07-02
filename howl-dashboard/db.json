@@ -73,9 +73,32 @@
       ]
     }
   ],
+  "programTypes": [
+    {
+      "id": "aceleracao",
+      "type": "Aceleração"
+    },
+    {
+      "id": "advisor",
+      "type": "Advisor"
+    },
+    {
+      "id": "residencia",
+      "type": "Residência"
+    }
+  ],
+  "programs": [
+    {
+      "id": "programa-howl-atual",
+      "programTypeId": "aceleracao",
+      "name": "Programa HOWL Atual",
+      "client": "HOWL"
+    }
+  ],
   "startups": [
     {
       "id": "agrosense",
+      "programId": "programa-howl-atual",
       "name": "AgroSense AI",
       "founder": "Marina Torres",
       "sector": "Agtech",
@@ -86,6 +109,7 @@
     },
     {
       "id": "healthflow",
+      "programId": "programa-howl-atual",
       "name": "HealthFlow",
       "founder": "Daniel Nunes",
       "sector": "Healthtech",
@@ -96,6 +120,7 @@
     },
     {
       "id": "educamatch",
+      "programId": "programa-howl-atual",
       "name": "EducaMatch",
       "founder": "Bianca Alves",
       "sector": "Edtech",
@@ -113,11 +138,13 @@
       "role": "admin",
       "roleLabel": "Admin",
       "organization": "Aceleradora",
+      "programId": null,
       "startupIds": [
         "agrosense",
         "healthflow",
         "educamatch"
-      ]
+      ],
+      "active": true
     },
     {
       "id": "avaliador-rafael",
@@ -126,10 +153,9 @@
       "role": "avaliador",
       "roleLabel": "Avaliador",
       "organization": "Consultoria HOWL",
-      "startupIds": [
-        "agrosense",
-        "healthflow"
-      ]
+      "programId": "programa-howl-atual",
+      "startupIds": [],
+      "active": true
     },
     {
       "id": "avaliadora-livia",
@@ -138,9 +164,9 @@
       "role": "avaliador",
       "roleLabel": "Avaliador",
       "organization": "Mentora associada",
-      "startupIds": [
-        "educamatch"
-      ]
+      "programId": "programa-howl-atual",
+      "startupIds": [],
+      "active": true
     },
     {
       "id": "empreendedora-marina",
@@ -149,9 +175,11 @@
       "role": "empreendedor",
       "roleLabel": "Empreendedor",
       "organization": "AgroSense AI",
+      "programId": null,
       "startupIds": [
         "agrosense"
-      ]
+      ],
+      "active": true
     }
   ],
   "scoreProfiles": {

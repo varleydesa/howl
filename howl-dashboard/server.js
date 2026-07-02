@@ -72,6 +72,8 @@ function slugify(value, fallback = "item") {
 
 function validateDatabase(database) {
   if (!Array.isArray(database.journeys)) throw new Error("Campo journeys ausente.");
+  if (!Array.isArray(database.programTypes)) throw new Error("Campo programTypes ausente.");
+  if (!Array.isArray(database.programs)) throw new Error("Campo programs ausente.");
   if (!Array.isArray(database.startups)) throw new Error("Campo startups ausente.");
   if (!Array.isArray(database.users)) throw new Error("Campo users ausente.");
   if (!database.scoreProfiles || typeof database.scoreProfiles !== "object") database.scoreProfiles = {};
@@ -89,7 +91,8 @@ async function handleApi(req, res, pathname) {
 
     if (req.method === "POST" && pathname === "/api/startups") {
       const startup = await readBody(req);
-      if (!startup.name || !startup.founder) throw new Error("Nome da startup e fundador(a) são obrigatórios.");
+      if (!startup.name || !startup.founder || !startup.programId) throw new Error("Programa, nome da startup e fundador(a) são obrigatórios.");
+      if (!database.programs.some((program) => program.id === startup.programId)) throw new Error("Programa não encontrado.");
       let id = slugify(startup.id || startup.name, "startup");
       let suffix = 2;
       while (database.startups.some((item) => item.id === id)) {
@@ -104,16 +107,56 @@ async function handleApi(req, res, pathname) {
       return;
     }
 
+    if (req.method === "POST" && pathname === "/api/program-types") {
+      const programType = await readBody(req);
+      if (!programType.type) throw new Error("Tipo do programa é obrigatório.");
+      const id = slugify(programType.id || programType.type, "tipo-programa");
+      if (database.programTypes.some((item) => item.id === id)) throw new Error("Tipo de programa já cadastrado.");
+      const nextProgramType = { id, type: String(programType.type).trim() };
+      database.programTypes.push(nextProgramType);
+      const saved = writeDatabase(database);
+      sendJson(res, 201, { programType: nextProgramType, programTypes: saved.programTypes });
+      return;
+    }
+
+    if (req.method === "POST" && pathname === "/api/programs") {
+      const program = await readBody(req);
+      if (!program.name || !program.client || !program.programTypeId) throw new Error("Tipo, nome e cliente são obrigatórios.");
+      if (!database.programTypes.some((item) => item.id === program.programTypeId)) throw new Error("Tipo de programa não encontrado.");
+      let id = slugify(program.id || program.name, "programa");
+      let suffix = 2;
+      while (database.programs.some((item) => item.id === id)) {
+        id = `${slugify(program.id || program.name, "programa")}-${suffix}`;
+        suffix += 1;
+      }
+      const nextProgram = { ...program, id };
+      database.programs.push(nextProgram);
+      const saved = writeDatabase(database);
+      sendJson(res, 201, { program: nextProgram, programs: saved.programs });
+      return;
+    }
+
     if (req.method === "POST" && pathname === "/api/users") {
       const user = await readBody(req);
       if (!user.name || !user.email || !user.role) throw new Error("Nome, email e perfil são obrigatórios.");
+      if (["cliente", "avaliador"].includes(user.role) && !database.programs.some((program) => program.id === user.programId)) {
+        throw new Error("Programa do Cliente/Avaliador não encontrado.");
+      }
+      if (user.role === "empreendedor" && !user.startupIds?.length) {
+        throw new Error("Startup do empreendedor é obrigatória.");
+      }
       let id = slugify(user.id || `${user.name}-${user.role}`, "usuario");
       let suffix = 2;
       while (database.users.some((item) => item.id === id)) {
         id = `${slugify(user.id || `${user.name}-${user.role}`, "usuario")}-${suffix}`;
         suffix += 1;
       }
-      const nextUser = { ...user, id };
+      const nextUser = {
+        ...user,
+        id,
+        programId: ["cliente", "avaliador"].includes(user.role) ? user.programId : null,
+        startupIds: ["cliente", "avaliador"].includes(user.role) ? [] : user.startupIds || [],
+      };
       database.users.push(nextUser);
       const saved = writeDatabase(database);
       sendJson(res, 201, { user: nextUser, users: saved.users });

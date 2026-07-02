@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-type AppRole = "admin" | "avaliador" | "empreendedor";
+type AppRole = "admin" | "cliente" | "avaliador" | "empreendedor";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,8 +8,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const allowedRoles = new Set<AppRole>(["admin", "avaliador", "empreendedor"]);
-const functionVersion = "create-user-2026-06-30-01";
+const allowedRoles = new Set<AppRole>(["admin", "cliente", "avaliador", "empreendedor"]);
+const functionVersion = "create-user-2026-07-03-01";
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify({ version: functionVersion, ...body }), {
@@ -105,19 +105,21 @@ Deno.serve(async (req) => {
 
   const { data: callerProfile, error: callerProfileError } = await dbAdminClient
     .from("profiles")
-    .select("id, role, email")
+    .select("id, role, email, program_id")
     .eq("auth_user_id", caller.id)
     .maybeSingle();
 
   const callerRole = normalizeText(callerProfile?.role).toLowerCase();
+  const callerProgramId = normalizeText(callerProfile?.program_id);
+  const callerIsClient = callerRole === "cliente";
 
-  if (callerProfileError || callerRole !== "admin") {
+  if (callerProfileError || !["admin", "cliente"].includes(callerRole)) {
     return jsonResponse(
       {
         error: "forbidden",
         message:
           callerProfileError?.message ||
-          `Apenas administradores podem criar usuários. Perfil detectado: ${callerRole || "não encontrado"}.`,
+          `Apenas administradores e clientes podem criar usuários. Perfil detectado: ${callerRole || "não encontrado"}.`,
       },
       403
     );
@@ -136,6 +138,7 @@ Deno.serve(async (req) => {
   const role = normalizeText(payload.role) as AppRole;
   const organization = normalizeText(payload.organization);
   const startupId = normalizeText(payload.startupId);
+  const programId = normalizeText(payload.programId);
 
   if (!name) {
     return jsonResponse({ error: "invalid_name", message: "Informe o nome do usuário." }, 400);
@@ -149,6 +152,13 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "invalid_role", message: "Perfil inválido." }, 400);
   }
 
+  if (callerIsClient && !["avaliador", "empreendedor"].includes(role)) {
+    return jsonResponse(
+      { error: "forbidden_role", message: "O perfil Cliente pode criar apenas avaliadores e empreendedores." },
+      403
+    );
+  }
+
   if (password.length < 8) {
     return jsonResponse(
       { error: "weak_password", message: "A senha temporária deve ter pelo menos 8 caracteres." },
@@ -156,23 +166,52 @@ Deno.serve(async (req) => {
     );
   }
 
-  if (role !== "admin" && !startupId) {
+  if (role === "empreendedor" && !startupId) {
     return jsonResponse(
-      { error: "missing_startup", message: "A startup vinculada é obrigatória para empreendedor/avaliador." },
+      { error: "missing_startup", message: "A startup vinculada é obrigatória para empreendedor." },
       400
     );
   }
 
-  if (role !== "admin") {
+  if (["cliente", "avaliador"].includes(role) && !programId) {
+    return jsonResponse(
+      { error: "missing_program", message: "O programa vinculado é obrigatório para Cliente/Avaliador." },
+      400
+    );
+  }
+
+  let startupProgramId = "";
+  if (role === "empreendedor") {
     const { data: startup, error: startupError } = await dbAdminClient
       .from("startups")
-      .select("id")
+      .select("id, program_id")
       .eq("id", startupId)
       .single();
 
     if (startupError || !startup) {
       return jsonResponse({ error: "startup_not_found", message: "Startup vinculada não encontrada." }, 400);
     }
+    startupProgramId = normalizeText(startup.program_id);
+  }
+
+  if (["cliente", "avaliador"].includes(role)) {
+    const { data: program, error: programError } = await dbAdminClient
+      .from("programs")
+      .select("id")
+      .eq("id", programId)
+      .single();
+
+    if (programError || !program) {
+      return jsonResponse({ error: "program_not_found", message: "Programa vinculado não encontrado." }, 400);
+    }
+  }
+
+  const targetProgramId = role === "empreendedor" ? startupProgramId : programId;
+  if (callerIsClient && targetProgramId !== callerProgramId) {
+    return jsonResponse(
+      { error: "program_scope_violation", message: "Você só pode criar usuários vinculados ao seu programa." },
+      403
+    );
   }
 
   const { data: createdUser, error: createUserError } = await authAdminClient.auth.admin.createUser({
@@ -212,10 +251,11 @@ Deno.serve(async (req) => {
         email,
         role,
         organization: organization || (role === "admin" ? "HOWL" : ""),
+        program_id: ["cliente", "avaliador"].includes(role) ? programId : null,
       },
       { onConflict: "id" }
     )
-    .select("id, name, email, role, organization")
+    .select("id, name, email, role, organization, program_id")
     .single();
 
   if (profileError || !profile) {
@@ -239,7 +279,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "startup_link_failed", message: deleteLinksError.message }, 500);
   }
 
-  if (role !== "admin") {
+  if (role === "empreendedor") {
     const { error: linkError } = await dbAdminClient
       .from("profile_startups")
       .insert({ profile_id: profile.id, startup_id: startupId });
@@ -258,7 +298,8 @@ Deno.serve(async (req) => {
       email: profile.email,
       role: profile.role,
       organization: profile.organization,
-      startupIds: role === "admin" ? [] : [startupId],
+      programId: profile.program_id,
+      startupIds: role === "empreendedor" ? [startupId] : [],
     },
   });
 });
