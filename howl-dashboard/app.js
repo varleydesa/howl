@@ -10,6 +10,19 @@ let currentSession = null;
 let loginError = "";
 let assessmentCycleIds = {};
 let questionIds = {};
+let programTypes = [
+  { id: "aceleracao", type: "Aceleração" },
+  { id: "advisor", type: "Advisor" },
+  { id: "residencia", type: "Residência" },
+];
+let programs = [
+  {
+    id: "programa-howl-atual",
+    programTypeId: "aceleracao",
+    name: "Programa HOWL Atual",
+    client: "HOWL",
+  },
+];
 
 let JOURNEYS = [
   {
@@ -91,6 +104,7 @@ let JOURNEYS = [
 let startups = [
   {
     id: "agrosense",
+    programId: "programa-howl-atual",
     name: "AgroSense AI",
     founder: "Marina Torres",
     sector: "Agtech",
@@ -102,6 +116,7 @@ let startups = [
   },
   {
     id: "healthflow",
+    programId: "programa-howl-atual",
     name: "HealthFlow",
     founder: "Daniel Nunes",
     sector: "Healthtech",
@@ -113,6 +128,7 @@ let startups = [
   },
   {
     id: "educamatch",
+    programId: "programa-howl-atual",
     name: "EducaMatch",
     founder: "Bianca Alves",
     sector: "Edtech",
@@ -132,7 +148,9 @@ let users = [
     role: "admin",
     roleLabel: "Admin",
     organization: "Aceleradora",
+    programId: null,
     startupIds: ["agrosense", "healthflow", "educamatch"],
+    active: true,
   },
   {
     id: "avaliador-rafael",
@@ -141,7 +159,9 @@ let users = [
     role: "avaliador",
     roleLabel: "Avaliador",
     organization: "Consultoria HOWL",
-    startupIds: ["agrosense", "healthflow"],
+    programId: "programa-howl-atual",
+    startupIds: [],
+    active: true,
   },
   {
     id: "avaliadora-livia",
@@ -150,7 +170,9 @@ let users = [
     role: "avaliador",
     roleLabel: "Avaliador",
     organization: "Mentora associada",
-    startupIds: ["educamatch"],
+    programId: "programa-howl-atual",
+    startupIds: [],
+    active: true,
   },
   {
     id: "empreendedora-marina",
@@ -159,7 +181,9 @@ let users = [
     role: "empreendedor",
     roleLabel: "Empreendedor",
     organization: "AgroSense AI",
+    programId: null,
     startupIds: ["agrosense"],
+    active: true,
   },
 ];
 
@@ -210,6 +234,7 @@ let draftAnswers = {};
 let activeUserId = "admin-ana";
 let backendStatus = "Conectando ao Supabase...";
 let assessmentResponses = {};
+let editingUserId = null;
 
 let assessments = buildAssessments();
 let importStatus = "Aguardando planilha da primeira rodada.";
@@ -437,6 +462,14 @@ function isAdmin() {
   return normalizedRole() === "admin";
 }
 
+function isClient() {
+  return normalizedRole() === "cliente";
+}
+
+function isManager() {
+  return isAdmin() || isClient();
+}
+
 function isEvaluator() {
   return normalizedRole() === "avaliador";
 }
@@ -461,7 +494,23 @@ function editableAssessmentField() {
 function accessibleStartups() {
   const user = activeUser();
   if (normalizedRole(user) === "admin") return startups;
+  if (user?.programId) {
+    return startups.filter((startup) => startup.programId === user.programId);
+  }
   return startups.filter((startup) => user.startupIds.includes(startup.id));
+}
+
+function programById(programId) {
+  return programs.find((program) => program.id === programId);
+}
+
+function programTypeById(programTypeId) {
+  return programTypes.find((programType) => programType.id === programTypeId);
+}
+
+function programLabel(programId) {
+  const program = programById(programId);
+  return program ? `${program.name} • ${program.client}` : "Sem programa";
 }
 
 function ensureAccessibleStartup() {
@@ -479,11 +528,13 @@ function navItemsForUser() {
     ["history", "↗", "Histórico"],
     ["compare", "⇄", "Comparativo"],
   ];
-  if (isAdmin() || isEvaluator()) base.push(["reports", "□", "Relatórios"]);
-  if (isAdmin()) {
+  if (isManager() || isEvaluator()) base.push(["reports", "□", "Relatórios"]);
+  if (isManager()) {
     base.splice(2, 0, ["portfolio", "◈", "Portfólio"]);
     base.splice(3, 0, ["registration", "+", "Cadastro"]);
     base.push(["users", "◌", "Usuários"]);
+  }
+  if (isAdmin()) {
     base.push(["settings", "⚙", "Configurações"]);
   }
   return base;
@@ -615,6 +666,8 @@ async function loadSupabaseData() {
   throwIfSupabaseError(profileResult.error);
 
   const [
+    programTypesResult,
+    programsResult,
     startupsResult,
     profilesResult,
     linksResult,
@@ -624,6 +677,8 @@ async function loadSupabaseData() {
     cyclesResult,
     resultsResult,
   ] = await Promise.all([
+    client.from("program_types").select("*").order("type"),
+    client.from("programs").select("*").order("name"),
     client.from("startups").select("*"),
     client.from("profiles").select("*"),
     client.from("profile_startups").select("*"),
@@ -641,6 +696,8 @@ async function loadSupabaseData() {
   ]);
 
   [
+    programTypesResult,
+    programsResult,
     startupsResult,
     profilesResult,
     linksResult,
@@ -651,8 +708,21 @@ async function loadSupabaseData() {
     resultsResult,
   ].forEach((result) => throwIfSupabaseError(result.error));
 
+  programTypes = (programTypesResult.data || []).map((programType) => ({
+    id: programType.id,
+    type: programType.type,
+  }));
+
+  programs = (programsResult.data || []).map((program) => ({
+    id: program.id,
+    programTypeId: program.program_type_id,
+    name: program.name,
+    client: program.client,
+  }));
+
   startups = (startupsResult.data || []).map((startup) => ({
     id: startup.id,
+    programId: startup.program_id,
     name: startup.name,
     founder: startup.founder,
     sector: startup.sector,
@@ -682,7 +752,7 @@ async function loadSupabaseData() {
   }));
 
   const links = linksResult.data || [];
-  const roleLabels = { admin: "Admin", avaliador: "Avaliador", empreendedor: "Empreendedor" };
+  const roleLabels = { admin: "Admin", cliente: "Cliente", avaliador: "Avaliador", empreendedor: "Empreendedor" };
   users = (profilesResult.data || []).map((profile) => ({
     id: profile.id,
     name: profile.name,
@@ -690,6 +760,9 @@ async function loadSupabaseData() {
     role: profile.role,
     roleLabel: roleLabels[profile.role] || "Usuário",
     organization: profile.organization,
+    programId: profile.program_id || null,
+    authUserId: profile.auth_user_id || null,
+    active: profile.active !== false,
     startupIds:
       profile.role === "admin"
         ? startups.map((startup) => startup.id)
@@ -708,6 +781,9 @@ async function loadSupabaseData() {
       role: signedInProfile.role,
       roleLabel: roleLabels[signedInProfile.role] || "Usuário",
       organization: signedInProfile.organization,
+      programId: signedInProfile.program_id || null,
+      authUserId: signedInProfile.auth_user_id || null,
+      active: signedInProfile.active !== false,
       startupIds: links
         .filter((link) => link.profile_id === signedInProfile.id)
         .map((link) => link.startup_id),
@@ -768,7 +844,17 @@ async function loadSupabaseData() {
 
 async function persistStartup(startup) {
   const client = requireSupabase();
-  const startupResult = await client.from("startups").insert(startup);
+  const startupResult = await client.from("startups").insert({
+    id: startup.id,
+    program_id: startup.programId,
+    name: startup.name,
+    founder: startup.founder,
+    sector: startup.sector,
+    city: startup.city,
+    state: startup.state,
+    stage: startup.stage,
+    description: startup.description,
+  });
   throwIfSupabaseError(startupResult.error);
 
   const periodsResult = await client.from("assessment_periods").select("id");
@@ -785,6 +871,23 @@ async function persistStartup(startup) {
   }
 }
 
+async function persistProgramType(programType) {
+  const client = requireSupabase();
+  const result = await client.from("program_types").insert(programType);
+  throwIfSupabaseError(result.error);
+}
+
+async function persistProgram(program) {
+  const client = requireSupabase();
+  const result = await client.from("programs").insert({
+    id: program.id,
+    program_type_id: program.programTypeId,
+    name: program.name,
+    client: program.client,
+  });
+  throwIfSupabaseError(result.error);
+}
+
 async function persistUser(user, password) {
   const client = requireSupabase();
   const { data, error } = await client.functions.invoke("create-user", {
@@ -793,7 +896,8 @@ async function persistUser(user, password) {
       email: user.email,
       role: user.role,
       organization: user.organization,
-      startupId: user.role === "admin" ? null : user.startupIds[0],
+      startupId: user.role === "empreendedor" ? user.startupIds[0] : null,
+      programId: ["cliente", "avaliador"].includes(user.role) ? user.programId : null,
       password,
     },
   });
@@ -821,6 +925,32 @@ async function persistUser(user, password) {
 
   await loadSupabaseData();
   return { users };
+}
+
+async function persistManagedUser(payload) {
+  const client = requireSupabase();
+  const { data, error } = await client.functions.invoke("manage-user", {
+    body: payload,
+  });
+
+  if (error) {
+    let message = error.message;
+    try {
+      if (error.context instanceof Response) {
+        const details = await error.context.clone().json();
+        message = details?.message || details?.error || message;
+      }
+    } catch {
+      // Mantém a mensagem original do Supabase.
+    }
+    throw new Error(message || "Não foi possível gerenciar o usuário.");
+  }
+  if (data?.error) {
+    throw new Error(data.message || data.error);
+  }
+
+  await loadSupabaseData();
+  return data;
 }
 
 async function persistQuestions() {
@@ -950,7 +1080,7 @@ function appShell(content) {
                 .join("")}
             </select>
             ${
-              isAdmin()
+              isManager()
                 ? `<button class="btn download-btn" title="Baixar avaliações em CSV" aria-label="Baixar avaliações em CSV" onclick="exportCsv()">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v3h14v-3"></path>
@@ -959,7 +1089,7 @@ function appShell(content) {
                   </button>`
                 : ""
             }
-            <button class="btn primary" onclick="go('assessment')">${isAdmin() ? "Ver respostas" : isEvaluator() ? "Responder perguntas" : "Minha autoavaliação"}</button>
+            <button class="btn primary" onclick="go('assessment')">${isManager() ? "Ver respostas" : isEvaluator() ? "Responder perguntas" : "Minha autoavaliação"}</button>
             <button class="btn" onclick="logout()">Sair</button>
           </div>
         </header>
@@ -1033,7 +1163,7 @@ function renderLogin() {
 }
 
 function renderDashboard() {
-  const visibleStartups = isAdmin() ? startups : accessibleStartups();
+  const visibleStartups = accessibleStartups();
   const latestAll = startups.map((startup) => latestAssessment(startup.id));
   const latestVisible = visibleStartups.map((startup) => latestAssessment(startup.id));
   const generalStats = portfolioStats(latestAll);
@@ -1046,6 +1176,8 @@ function renderDashboard() {
     ? `Compare ${ownStartup.name} com a média geral de todos os projetos acompanhados pelo HOWL.`
     : isAdmin()
       ? "Visão executiva geral de todos os projetos avaliados na plataforma."
+      : isClient()
+        ? `Visão executiva das startups do programa ${programById(activeUser().programId)?.name || ""}.`
       : "Visão executiva das startups atribuídas ao seu perfil de avaliador.";
   return `
     <section class="page">
@@ -1055,13 +1187,13 @@ function renderDashboard() {
           <h1>${isFounderDashboard ? "Seu projeto comparado ao ecossistema." : "Inteligência geral dos projetos HOWL."}</h1>
           <p>${introText}</p>
           <div class="row wrap no-print" style="margin-top:18px">
-            <button class="btn primary" onclick="go('assessment')">${isAdmin() ? "Ver respostas" : "Responder avaliação mensal"}</button>
+            <button class="btn primary" onclick="go('assessment')">${isManager() ? "Ver respostas" : "Responder avaliação mensal"}</button>
             <button class="btn" onclick="go('startups')">${isFounderDashboard ? "Ver meu projeto" : "Ver startups"}</button>
           </div>
         </div>
         <div class="row between">
           <div>
-            <span class="eyebrow">${isFounderDashboard ? "Seu HOWL Score" : "Score médio geral"}</span>
+            <span class="eyebrow">${isFounderDashboard ? "Seu HOWL Score" : isClient() ? "Score médio do programa" : "Score médio geral"}</span>
             <h2>${fmt(isFounderDashboard ? ownResult.howlScore : visibleStats.avgScore, 0)}</h2>
             <span class="badge ${statusColor(isFounderDashboard ? evolutionText(scoreDelta) : classifyHowlScore(visibleStats.avgScore))}">${isFounderDashboard ? `${scoreDelta >= 0 ? "Acima" : "Abaixo"} da média geral` : classifyHowlScore(visibleStats.avgScore)}</span>
           </div>
@@ -1072,7 +1204,7 @@ function renderDashboard() {
         ${isFounderDashboard
           ? metric("Meu HOWL Score", fmt(ownResult.howlScore, 0), `${ownResult.classification} • ${evolutionText(ownResult.monthlyEvolution)}`)
           : metric("Projetos avaliados", visibleStats.evaluated, `${visibleStartups.length} cadastrados no total`)}
-        ${metric("Média geral", fmt(generalStats.avgScore, 0), `${classifyHowlScore(generalStats.avgScore)} • todos os projetos`)}
+        ${metric(isClient() ? "Média do programa" : "Média geral", fmt(generalStats.avgScore, 0), `${classifyHowlScore(generalStats.avgScore)} • ${isClient() ? "startups do programa" : "todos os projetos"}`)}
         ${isFounderDashboard
           ? metric("Diferença vs média", `${scoreDelta >= 0 ? "+" : ""}${fmt(scoreDelta, 0)}`, `${ownStartup.name} comparado ao portfólio`)
           : metric("Projetos em evolução", visibleStats.evolved, `${visibleStats.regressed} regrediram no mês`)}
@@ -1080,7 +1212,7 @@ function renderDashboard() {
       </div>
       <div class="grid two" style="margin-top:16px">
         <div class="card pad chart-card">
-          <h2>${isFounderDashboard ? "Meu projeto vs média geral" : "Média geral por jornada"}</h2>
+          <h2>${isFounderDashboard ? "Meu projeto vs média geral" : isClient() ? "Média do programa por jornada" : "Média geral por jornada"}</h2>
           ${isFounderDashboard ? benchmarkJourneyBars(ownResult, generalStats) : portfolioJourneyBars(generalStats)}
         </div>
         <div class="card pad">
@@ -1190,6 +1322,7 @@ function renderStartups() {
     const hasResponses = result?.hasResponses;
     return `<tr onclick="selectStartup('${startup.id}');go('dashboard')">
       <td><strong>${escapeHtml(startup.name)}</strong><br><span class="subtle">${escapeHtml(startup.founder)}</span></td>
+      <td>${escapeHtml(programById(startup.programId)?.name || "—")}</td>
       <td>${escapeHtml(startup.sector)}</td><td>${escapeHtml(startup.city)}/${escapeHtml(startup.state)}</td><td>${escapeHtml(startup.stage)}</td>
       <td><strong>${hasResponses ? fmt(result.howlScore, 0) : "—"}</strong></td>
       <td><span class="badge ${hasResponses ? "blue" : "gray"}">${hasResponses ? result.currentTrail : "Sem avaliação"}</span></td>
@@ -1200,7 +1333,7 @@ function renderStartups() {
   });
   return `
     <section class="page">
-      <div class="section-title"><h1>Startups</h1><p>${isAdmin() ? "Todas as startups cadastradas e avaliadas." : "Startups atribuídas ao seu perfil de acesso."}</p></div>
+      <div class="section-title"><h1>Startups</h1><p>${isAdmin() ? "Todas as startups cadastradas e avaliadas." : isClient() || isEvaluator() ? "Startups do seu programa." : "Sua startup vinculada."}</p></div>
       <div class="card pad" style="margin:18px 0">
         <div class="filters">
           <div class="field"><label>Setor</label><select><option>Todos</option><option>Agtech</option><option>Healthtech</option><option>Edtech</option></select></div>
@@ -1209,16 +1342,69 @@ function renderStartups() {
           <div class="field"><label>Ordenação</label><select><option>Maior score</option><option>Menor score</option><option>Maior evolução</option><option>Maior gap</option><option>Maior risco</option></select></div>
         </div>
       </div>
-      ${table(["Nome", "Setor", "Cidade", "Estágio", "Score", "Trilha atual", "Etapa da jornada", "Evolução", "Status"], rows.join(""))}
+      ${table(["Nome", "Programa", "Setor", "Cidade", "Estágio", "Score", "Trilha atual", "Etapa da jornada", "Evolução", "Status"], rows.join(""))}
     </section>
   `;
 }
 
 function renderRegistration() {
-  if (!isAdmin()) return renderDashboard();
+  if (!isManager()) return renderDashboard();
+  const visiblePrograms = isAdmin()
+    ? programs
+    : programs.filter((program) => program.id === activeUser().programId);
+  const visibleStartups = accessibleStartups();
+  const userRoleOptions = isAdmin()
+    ? `<option value="empreendedor">Empreendedor</option><option value="avaliador">Avaliador</option><option value="cliente">Cliente</option><option value="admin">Admin</option>`
+    : `<option value="empreendedor">Empreendedor</option><option value="avaliador">Avaliador</option>`;
+  const programRows = visiblePrograms
+    .map((program) => {
+      const programType = programTypeById(program.programTypeId);
+      const startupCount = startups.filter((startup) => startup.programId === program.id).length;
+      const evaluatorCount = users.filter(
+        (user) => user.role === "avaliador" && user.programId === program.id
+      ).length;
+      return `<tr>
+        <td><strong>${escapeHtml(program.name)}</strong></td>
+        <td>${escapeHtml(programType?.type || "—")}</td>
+        <td>${escapeHtml(program.client)}</td>
+        <td>${startupCount}</td>
+        <td>${evaluatorCount}</td>
+      </tr>`;
+    })
+    .join("");
+  const programManagementHtml = isAdmin()
+    ? `<div class="grid two startup-onboarding">
+        <form class="card pad startup-form" onsubmit="addProgramType(event)">
+          <div>
+            <span class="metric-label">Catálogo</span>
+            <h2>Novo tipo de programa</h2>
+          </div>
+          <div class="field"><label>Tipo</label><input name="type" required placeholder="Ex.: Aceleração"></div>
+          <button class="btn primary" type="submit">Cadastrar tipo</button>
+        </form>
+        <form class="card pad startup-form" onsubmit="addProgram(event)">
+          <div>
+            <span class="metric-label">Programa</span>
+            <h2>Novo programa</h2>
+          </div>
+          <div class="form-grid compact">
+            <div class="field wide"><label>Nome do programa</label><input name="name" required placeholder="Ex.: Edital Maraintech"></div>
+            <div class="field"><label>Tipo</label><select name="programTypeId" required>${programTypes.map((programType) => `<option value="${programType.id}">${escapeHtml(programType.type)}</option>`).join("")}</select></div>
+            <div class="field"><label>Cliente</label><input name="client" required placeholder="Ex.: FAPEMA"></div>
+          </div>
+          <button class="btn primary" type="submit" ${programTypes.length ? "" : "disabled"}>Cadastrar programa</button>
+        </form>
+      </div>`
+    : `<div class="card pad" style="margin-top:18px">
+        <span class="metric-label">Programa vinculado</span>
+        <h2>${escapeHtml(visiblePrograms[0]?.name || "Programa")}</h2>
+        <p>${escapeHtml(programTypeById(visiblePrograms[0]?.programTypeId)?.type || "")} • ${escapeHtml(visiblePrograms[0]?.client || "")}</p>
+      </div>`;
   return `
     <section class="page">
-      <div class="section-title"><h1>Cadastro</h1><p>Criação operacional de startups e usuários para a rodada de avaliação.</p></div>
+      <div class="section-title"><h1>Cadastro</h1><p>Gestão de programas, startups e usuários da plataforma.</p></div>
+      ${programManagementHtml}
+      <div style="margin-top:16px">${table(["Programa", "Tipo", "Cliente", "Startups", "Avaliadores"], programRows)}</div>
       <div class="grid two startup-onboarding">
         <form class="card pad startup-form" onsubmit="addStartup(event)">
           <div class="row between wrap">
@@ -1229,6 +1415,7 @@ function renderRegistration() {
             <span class="badge blue">Projeto</span>
           </div>
           <div class="form-grid compact">
+            <div class="field wide"><label>Programa</label><select name="programId" required>${visiblePrograms.map((program) => `<option value="${program.id}">${escapeHtml(programLabel(program.id))}</option>`).join("")}</select></div>
             <div class="field"><label>Nome da startup</label><input name="name" required placeholder="Ex.: FinFlow"></div>
             <div class="field"><label>Fundador(a)</label><input name="founder" required placeholder="Nome principal"></div>
             <div class="field"><label>Setor</label><input name="sector" required placeholder="Ex.: Fintech"></div>
@@ -1251,8 +1438,9 @@ function renderRegistration() {
           <div class="form-grid compact">
             <div class="field"><label>Nome</label><input name="name" required placeholder="Nome completo"></div>
             <div class="field"><label>Email</label><input name="email" type="email" required placeholder="nome@empresa.com"></div>
-            <div class="field"><label>Perfil</label><select name="role"><option value="empreendedor">Empreendedor</option><option value="avaliador">Avaliador</option><option value="admin">Admin</option></select></div>
-            <div class="field"><label>Startup vinculada</label><select name="startupId">${startups.map((startup) => `<option value="${startup.id}" ${startup.id === selectedStartupId ? "selected" : ""}>${escapeHtml(startup.name)}</option>`).join("")}</select></div>
+            <div class="field"><label>Perfil</label><select name="role" onchange="updateUserLinkFields(this.value)">${userRoleOptions}</select></div>
+            <div class="field" id="user-startup-field"><label>Startup vinculada</label><select name="startupId">${visibleStartups.map((startup) => `<option value="${startup.id}" ${startup.id === selectedStartupId ? "selected" : ""}>${escapeHtml(startup.name)} • ${escapeHtml(programById(startup.programId)?.name || "")}</option>`).join("")}</select></div>
+            <div class="field" id="user-program-field" hidden><label>Programa vinculado</label><select name="programId" disabled>${visiblePrograms.map((program) => `<option value="${program.id}">${escapeHtml(programLabel(program.id))}</option>`).join("")}</select></div>
             <div class="field wide"><label>Organização</label><input name="organization" placeholder="Empresa, consultoria ou hub"></div>
             <div class="field wide">
               <label>Senha temporária</label>
@@ -1278,7 +1466,7 @@ function compactStartupList() {
   return `<div class="mini-list">${startups.slice(-5).reverse().map((startup) => `
     <div>
       <strong>${escapeHtml(startup.name)}</strong>
-      <span>${escapeHtml(startup.sector)} • ${escapeHtml(startup.stage)} • ${escapeHtml(startup.city)}/${escapeHtml(startup.state)}</span>
+      <span>${escapeHtml(programById(startup.programId)?.name || "Sem programa")} • ${escapeHtml(startup.sector)} • ${escapeHtml(startup.stage)}</span>
     </div>
   `).join("")}</div>`;
 }
@@ -1304,7 +1492,7 @@ function renderPortfolio() {
   const weakest = minBy(allJourneys, "avg");
   return `
     <section class="page">
-      <div class="section-title"><h1>Portfólio</h1><p>Visão agregada para admin, aceleradora, hub de inovação e banca executiva.</p></div>
+      <div class="section-title"><h1>Portfólio</h1><p>${isClient() ? "Visão agregada das startups do seu programa." : "Visão agregada para admin, aceleradora, hub de inovação e banca executiva."}</p></div>
       <div class="grid kpis" style="margin-top:18px">
         ${metric("Startups avaliadas", evaluated.length, `${latest.length} cadastradas no total`)}
         ${metric("Score médio", fmt(avgScore, 0), classifyHowlScore(avgScore))}
@@ -1329,23 +1517,23 @@ function renderAssessment() {
   const journeyResult = result.journeyResults.find((j) => j.id === activeJourney);
   const answeredCount = answeredQuestionsForCurrentRole();
   const totalQuestions = JOURNEYS.reduce((sum, journey) => sum + journey.questions.length, 0);
-  const roleInstruction = isAdmin()
-    ? "Admin tem permissão total de leitura e gestão, mas não preenche avaliações."
+  const roleInstruction = isManager()
+    ? `${isAdmin() ? "Admin" : "Cliente"} tem permissão de leitura e gestão, mas não preenche avaliações.`
     : isEvaluator()
-      ? "Avaliador preenche somente a coluna do consultor para as startups atribuídas."
+      ? "Avaliador preenche a coluna do consultor para qualquer startup do seu programa."
       : "Empreendedor preenche somente sua autoavaliação para a própria startup.";
-  const statusText = isAdmin()
+  const statusText = isManager()
     ? "Modo leitura • respostas detalhadas"
     : draftSaved
       ? `Rascunho salvo • ${answeredCount}/${totalQuestions} da sua parte`
       : `Em preenchimento • ${answeredCount}/${totalQuestions} da sua parte`;
   const submitLabel = "Enviar minha resposta";
-  const actionHtml = isAdmin()
-    ? `<span class="badge gray">Admin visualiza, mas não responde</span>`
+  const actionHtml = isManager()
+    ? `<span class="badge gray">${isAdmin() ? "Admin" : "Cliente"} visualiza, mas não responde</span>`
     : `<div class="row"><button class="btn" onclick="saveDraft()">Salvar rascunho</button><button class="btn primary" onclick="completeAssessment()">${submitLabel}</button></div>`;
   return `
     <section class="page">
-      <div class="section-title"><h1>${isAdmin() ? "Respostas em detalhe" : "Responder perguntas HOWL"}</h1><p>${roleInstruction}</p></div>
+      <div class="section-title"><h1>${isManager() ? "Respostas em detalhe" : "Responder perguntas HOWL"}</h1><p>${roleInstruction}</p></div>
       <div class="card pad" style="margin-top:18px">
         <div class="form-grid">
           <div class="field"><label>Startup</label><select onchange="selectStartup(this.value)">${accessibleStartups().map((s) => `<option value="${s.id}" ${s.id === selectedStartupId ? "selected" : ""}>${s.name}</option>`).join("")}</select></div>
@@ -1368,7 +1556,7 @@ function renderAssessment() {
         ${currentJourney.questions
           .map((q, index) => {
             const savedAnswer = journeyResult.questions[index];
-            const answer = isAdmin()
+            const answer = isManager()
               ? {
                   entrepreneurScore: savedAnswer.entrepreneurScore,
                   consultantScore: savedAnswer.consultantScore,
@@ -1496,8 +1684,8 @@ function renderCompare() {
 }
 
 function renderReports() {
-  if (!isAdmin() && !isEvaluator()) {
-    return `<section class="page"><div class="section-title"><h1>Relatórios restritos</h1><p>Relatórios completos estão disponíveis apenas para Admin e Avaliador.</p></div></section>`;
+  if (!isManager() && !isEvaluator()) {
+    return `<section class="page"><div class="section-title"><h1>Relatórios restritos</h1><p>Relatórios completos estão disponíveis apenas para Admin, Cliente e Avaliador.</p></div></section>`;
   }
   const result = latestAssessment();
   const startup = startups.find((s) => s.id === selectedStartupId);
@@ -1536,54 +1724,126 @@ function renderReports() {
   `;
 }
 
+function canManageUser(user) {
+  if (!user) return false;
+  if (isAdmin()) return true;
+  if (!isClient() || !["avaliador", "empreendedor"].includes(user.role)) return false;
+  const targetProgramId =
+    user.programId ||
+    startups.find((startup) => user.startupIds.includes(startup.id))?.programId;
+  return targetProgramId === activeUser().programId;
+}
+
+function renderUserEditor() {
+  const user = users.find((item) => item.id === editingUserId);
+  if (!user || !canManageUser(user) || !user.active) return "";
+  const visiblePrograms = isAdmin()
+    ? programs
+    : programs.filter((program) => program.id === activeUser().programId);
+  const visibleStartups = accessibleStartups();
+  const roleOptions = isAdmin()
+    ? ["admin", "cliente", "avaliador", "empreendedor"]
+    : ["avaliador", "empreendedor"];
+  const roleLabels = {
+    admin: "Admin",
+    cliente: "Cliente",
+    avaliador: "Avaliador",
+    empreendedor: "Empreendedor",
+  };
+  const needsStartup = user.role === "empreendedor";
+  const needsProgram = ["cliente", "avaliador"].includes(user.role);
+  return `
+    <form class="card pad startup-form" style="margin-top:16px" onsubmit="editUser(event)">
+      <div class="row between wrap">
+        <div>
+          <span class="metric-label">Alterar usuário</span>
+          <h2>${escapeHtml(user.name)}</h2>
+        </div>
+        <button class="btn" type="button" onclick="closeUserEditor()">Cancelar</button>
+      </div>
+      <input type="hidden" name="profileId" value="${escapeHtml(user.id)}">
+      <div class="form-grid compact">
+        <div class="field"><label>Nome</label><input name="name" required value="${escapeHtml(user.name)}"></div>
+        <div class="field"><label>Email</label><input name="email" type="email" required value="${escapeHtml(user.email)}"></div>
+        <div class="field"><label>Perfil</label><select name="role" ${user.id === activeUserId ? "disabled" : `onchange="updateEditUserLinkFields(this.value)"`}>${roleOptions.map((role) => `<option value="${role}" ${role === user.role ? "selected" : ""}>${roleLabels[role]}</option>`).join("")}</select></div>
+        <div class="field" id="edit-user-startup-field" ${needsStartup ? "" : "hidden"}>
+          <label>Startup vinculada</label>
+          <select name="startupId" ${needsStartup ? "required" : "disabled"}>${visibleStartups.map((startup) => `<option value="${startup.id}" ${user.startupIds.includes(startup.id) ? "selected" : ""}>${escapeHtml(startup.name)} • ${escapeHtml(programById(startup.programId)?.name || "")}</option>`).join("")}</select>
+        </div>
+        <div class="field" id="edit-user-program-field" ${needsProgram ? "" : "hidden"}>
+          <label>Programa vinculado</label>
+          <select name="programId" ${needsProgram ? "required" : "disabled"}>${visiblePrograms.map((program) => `<option value="${program.id}" ${program.id === user.programId ? "selected" : ""}>${escapeHtml(programLabel(program.id))}</option>`).join("")}</select>
+        </div>
+        <div class="field wide"><label>Organização</label><input name="organization" value="${escapeHtml(user.organization)}"></div>
+      </div>
+      <button class="btn primary" type="submit">Salvar alterações</button>
+    </form>
+  `;
+}
+
 function renderUsers() {
+  const activeUsers = users.filter((user) => user.active !== false);
   const roleSummary = [
-    { label: "Admins", value: users.filter((user) => user.role === "admin").length, detail: "Gestão, leitura e auditoria" },
-    { label: "Avaliadores", value: users.filter((user) => user.role === "avaliador").length, detail: "Respondem avaliação técnica" },
-    { label: "Empreendedores", value: users.filter((user) => user.role === "empreendedor").length, detail: "Respondem autoavaliação" },
+    { label: "Admins", value: activeUsers.filter((user) => user.role === "admin").length, detail: "Ativos • gestão e auditoria" },
+    { label: "Clientes", value: activeUsers.filter((user) => user.role === "cliente").length, detail: "Ativos • gestão do programa" },
+    { label: "Avaliadores", value: activeUsers.filter((user) => user.role === "avaliador").length, detail: "Ativos • avaliação técnica" },
+    { label: "Empreendedores", value: activeUsers.filter((user) => user.role === "empreendedor").length, detail: "Ativos • autoavaliação" },
   ];
   const rows = users
     .map((user) => {
       const assigned = user.role === "admin"
         ? "Todas as startups"
-        : user.startupIds.map((id) => startups.find((startup) => startup.id === id)?.name).join(", ");
+        : user.role === "cliente" || user.role === "avaliador"
+          ? programLabel(user.programId)
+          : user.startupIds.map((id) => startups.find((startup) => startup.id === id)?.name).join(", ");
+      const manageable = canManageUser(user);
+      const isActive = user.active !== false;
+      const canDeactivate = manageable && isActive && user.id !== activeUserId;
       return `<tr>
         <td><strong>${user.name}</strong><br><span class="subtle">${user.email}</span></td>
         <td><span class="badge ${roleColor(user.role)}">${user.roleLabel}</span></td>
         <td>${user.organization}</td>
         <td>${assigned}</td>
         <td>${accessDescription(user.role)}</td>
+        <td><span class="badge ${isActive ? "green" : "gray"}">${isActive ? "Ativo" : "Inativo"}</span></td>
+        <td><div class="row wrap">
+          ${manageable && isActive ? `<button class="btn" type="button" onclick='openUserEditor(${JSON.stringify(user.id)})'>Editar</button>` : ""}
+          ${canDeactivate ? `<button class="btn" type="button" onclick='deactivateUser(${JSON.stringify(user.id)})'>Inativar</button>` : ""}
+        </div></td>
       </tr>`;
     })
     .join("");
   return `
     <section class="page">
-      <div class="section-title"><h1>Usuários e acessos</h1><p>Estrutura de perfis para Admin, Avaliador e Empreendedor com escopo por startup.</p></div>
-      <div class="grid three" style="margin-top:18px">
+      <div class="section-title"><h1>Usuários e acessos</h1><p>Clientes administram o próprio programa; avaliadores acessam suas startups; empreendedores, a própria startup.</p></div>
+      <div class="grid kpis" style="margin-top:18px">
         ${roleSummary.map((item) => metric(item.label, item.value, item.detail)).join("")}
       </div>
+      ${renderUserEditor()}
       <div class="card pad" style="margin-top:16px">
         <h2>Modelo de permissão</h2>
         <div class="access-grid">
           <div><span class="badge blue">Admin</span><p>Cria usuários e startups, vê todos os dashboards, acessa respostas em detalhe, edita configurações e exporta relatórios. Não responde avaliações.</p></div>
-          <div><span class="badge green">Avaliador</span><p>Visualiza startups atribuídas, responde a avaliação do consultor e acompanha resultados dessas startups.</p></div>
+          <div><span class="badge blue">Cliente</span><p>Administra usuários, startups, dashboards e relatórios exclusivamente do programa vinculado.</p></div>
+          <div><span class="badge green">Avaliador</span><p>Visualiza e avalia todas as startups do programa ao qual está vinculado.</p></div>
           <div><span class="badge amber">Empreendedor</span><p>Visualiza apenas a própria startup e responde a autoavaliação mensal enquanto estiver em rascunho.</p></div>
         </div>
       </div>
-      <div style="margin-top:16px">${table(["Usuário", "Perfil", "Organização", "Startups atribuídas", "Acesso"], rows)}</div>
+      <div style="margin-top:16px">${table(["Usuário", "Perfil", "Organização", "Escopo", "Acesso", "Status", "Ações"], rows)}</div>
     </section>
   `;
 }
 
 function roleColor(role) {
-  if (role === "admin") return "blue";
+  if (role === "admin" || role === "cliente") return "blue";
   if (role === "avaliador") return "green";
   return "amber";
 }
 
 function accessDescription(role) {
   if (role === "admin") return "Gestão, leitura e auditoria. Não responde.";
-  if (role === "avaliador") return "Avaliações e dashboards atribuídos";
+  if (role === "cliente") return "Gestão e leitura do programa vinculado";
+  if (role === "avaliador") return "Avaliações e dashboards do programa";
   return "Autoavaliação e dashboard próprio";
 }
 
@@ -1936,10 +2196,179 @@ function updateDraftComment(journeyId, questionIndex, field, value) {
   draftSaved = false;
 }
 
+function updateUserLinkFields(role) {
+  const startupField = document.getElementById("user-startup-field");
+  const programField = document.getElementById("user-program-field");
+  if (!startupField || !programField) return;
+  const startupSelect = startupField.querySelector("select");
+  const programSelect = programField.querySelector("select");
+  const needsStartup = role === "empreendedor";
+  const needsProgram = role === "avaliador" || role === "cliente";
+  startupField.hidden = !needsStartup;
+  programField.hidden = !needsProgram;
+  startupSelect.disabled = !needsStartup;
+  startupSelect.required = needsStartup;
+  programSelect.disabled = !needsProgram;
+  programSelect.required = needsProgram;
+}
+
+function openUserEditor(userId) {
+  const user = users.find((item) => item.id === userId);
+  if (!canManageUser(user) || user?.active === false) return;
+  editingUserId = userId;
+  render();
+}
+
+function closeUserEditor() {
+  editingUserId = null;
+  render();
+}
+
+function updateEditUserLinkFields(role) {
+  const startupField = document.getElementById("edit-user-startup-field");
+  const programField = document.getElementById("edit-user-program-field");
+  if (!startupField || !programField) return;
+  const startupSelect = startupField.querySelector("select");
+  const programSelect = programField.querySelector("select");
+  const needsStartup = role === "empreendedor";
+  const needsProgram = role === "cliente" || role === "avaliador";
+  startupField.hidden = !needsStartup;
+  programField.hidden = !needsProgram;
+  startupSelect.disabled = !needsStartup;
+  startupSelect.required = needsStartup;
+  programSelect.disabled = !needsProgram;
+  programSelect.required = needsProgram;
+}
+
+async function editUser(event) {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(event.target).entries());
+  const user = users.find((item) => item.id === data.profileId);
+  if (!canManageUser(user) || user?.active === false) {
+    window.alert("Você não tem permissão para alterar esse usuário.");
+    return;
+  }
+  const role = String(data.role || user.role);
+  const payload = {
+    action: "update",
+    profileId: user.id,
+    name: String(data.name || "").trim(),
+    email: String(data.email || "").trim().toLowerCase(),
+    role,
+    organization: String(data.organization || "").trim(),
+    startupId: role === "empreendedor" ? String(data.startupId || "") : null,
+    programId: ["cliente", "avaliador"].includes(role)
+      ? String(data.programId || "")
+      : null,
+  };
+
+  try {
+    if (backendStatus.includes("conectado")) {
+      await persistManagedUser(payload);
+    } else {
+      user.name = payload.name;
+      user.email = payload.email;
+      user.role = payload.role;
+      user.roleLabel = { admin: "Admin", cliente: "Cliente", avaliador: "Avaliador", empreendedor: "Empreendedor" }[payload.role];
+      user.organization = payload.organization;
+      user.programId = payload.programId;
+      user.startupIds = payload.startupId ? [payload.startupId] : [];
+    }
+    editingUserId = null;
+    window.alert("Dados do usuário alterados com sucesso.");
+  } catch (error) {
+    window.alert(error.message || "Não foi possível alterar o usuário.");
+  }
+  render();
+}
+
+async function deactivateUser(userId) {
+  const user = users.find((item) => item.id === userId);
+  if (!canManageUser(user) || user?.active === false || user.id === activeUserId) return;
+  if (!window.confirm(`Inativar o acesso de ${user.name}? Essa pessoa não poderá mais entrar na plataforma.`)) {
+    return;
+  }
+  try {
+    if (backendStatus.includes("conectado")) {
+      await persistManagedUser({ action: "deactivate", profileId: user.id });
+    } else {
+      user.active = false;
+    }
+    if (editingUserId === user.id) editingUserId = null;
+    window.alert(`${user.name} foi inativado.`);
+  } catch (error) {
+    window.alert(error.message || "Não foi possível inativar o usuário.");
+  }
+  render();
+}
+
+async function addProgramType(event) {
+  event.preventDefault();
+  if (!isAdmin()) {
+    window.alert("Apenas Admin pode cadastrar tipos de programa.");
+    return;
+  }
+  const data = Object.fromEntries(new FormData(event.target).entries());
+  const type = String(data.type || "").trim();
+  const programType = { id: slugify(type), type };
+  if (programTypes.some((item) => item.id === programType.id || normalizeText(item.type) === normalizeText(type))) {
+    window.alert("Esse tipo de programa já está cadastrado.");
+    return;
+  }
+  try {
+    if (backendStatus.includes("conectado")) {
+      await persistProgramType(programType);
+      await loadSupabaseData();
+    } else {
+      programTypes.push(programType);
+    }
+    event.target.reset();
+    window.alert(`${programType.type} cadastrado como tipo de programa.`);
+  } catch (error) {
+    window.alert(error.message || "Não foi possível cadastrar o tipo de programa.");
+  }
+  render();
+}
+
+async function addProgram(event) {
+  event.preventDefault();
+  if (!isAdmin()) {
+    window.alert("Apenas Admin pode cadastrar programas.");
+    return;
+  }
+  const data = Object.fromEntries(new FormData(event.target).entries());
+  const baseId = slugify(data.name);
+  let id = baseId;
+  let suffix = 2;
+  while (programs.some((program) => program.id === id)) {
+    id = `${baseId}-${suffix}`;
+    suffix += 1;
+  }
+  const program = {
+    id,
+    programTypeId: String(data.programTypeId || ""),
+    name: String(data.name || "").trim(),
+    client: String(data.client || "").trim(),
+  };
+  try {
+    if (backendStatus.includes("conectado")) {
+      await persistProgram(program);
+      await loadSupabaseData();
+    } else {
+      programs.push(program);
+    }
+    event.target.reset();
+    window.alert(`${program.name} cadastrado para ${program.client}.`);
+  } catch (error) {
+    window.alert(error.message || "Não foi possível cadastrar o programa.");
+  }
+  render();
+}
+
 async function addStartup(event) {
   event.preventDefault();
-  if (!isAdmin() && !backendStatus.includes("conectado")) {
-    window.alert("Apenas Admin pode cadastrar startups.");
+  if (!isManager()) {
+    window.alert("Apenas Admin ou Cliente pode cadastrar startups.");
     return;
   }
   const data = Object.fromEntries(new FormData(event.target).entries());
@@ -1952,6 +2381,7 @@ async function addStartup(event) {
   }
   const startup = {
     id,
+    programId: String(data.programId || ""),
     name: String(data.name || "").trim(),
     founder: String(data.founder || "").trim(),
     sector: String(data.sector || "").trim(),
@@ -1960,6 +2390,10 @@ async function addStartup(event) {
     stage: String(data.stage || "MVP").trim(),
     description: String(data.description || "").trim() || "Startup cadastrada para a primeira rodada de diagnóstico HOWL.",
   };
+  if (isClient() && startup.programId !== activeUser().programId) {
+    window.alert("Você só pode cadastrar startups no seu programa.");
+    return;
+  }
   try {
     if (backendStatus.includes("conectado")) {
       await persistStartup(startup);
@@ -1980,28 +2414,49 @@ async function addStartup(event) {
 
 async function addUser(event) {
   event.preventDefault();
-  if (!isAdmin() && !backendStatus.includes("conectado")) {
-    window.alert("Apenas Admin pode cadastrar usuários.");
+  if (!isManager()) {
+    window.alert("Apenas Admin ou Cliente pode cadastrar usuários.");
     return;
   }
   const data = Object.fromEntries(new FormData(event.target).entries());
-  const roleLabels = { admin: "Admin", avaliador: "Avaliador", empreendedor: "Empreendedor" };
+  const roleLabels = { admin: "Admin", cliente: "Cliente", avaliador: "Avaliador", empreendedor: "Empreendedor" };
   const role = String(data.role || "empreendedor");
+  if (isClient() && !["avaliador", "empreendedor"].includes(role)) {
+    window.alert("O perfil Cliente pode cadastrar apenas avaliadores e empreendedores.");
+    return;
+  }
   const password = String(data.password || "");
   if (password.length < 8) {
     window.alert("A senha temporária precisa ter pelo menos 8 caracteres.");
     return;
   }
   const linkedStartup = startups.find((startup) => startup.id === data.startupId);
+  const linkedProgram = programs.find((program) => program.id === data.programId);
   const user = {
     id: slugify(`${data.name}-${role}`),
     name: String(data.name || "").trim(),
     email: String(data.email || "").trim(),
     role,
     roleLabel: roleLabels[role] || "Usuário",
-    organization: String(data.organization || "").trim() || linkedStartup?.name || "HOWL",
-    startupIds: role === "admin" ? startups.map((startup) => startup.id) : [String(data.startupId || selectedStartupId)],
+    organization:
+      String(data.organization || "").trim() ||
+      linkedStartup?.name ||
+      linkedProgram?.client ||
+      "HOWL",
+    programId: ["cliente", "avaliador"].includes(role) ? String(data.programId || "") : null,
+    startupIds:
+      role === "admin"
+        ? startups.map((startup) => startup.id)
+        : role === "empreendedor"
+          ? [String(data.startupId || selectedStartupId)]
+          : [],
   };
+  const targetProgramId =
+    role === "empreendedor" ? linkedStartup?.programId : user.programId;
+  if (isClient() && targetProgramId !== activeUser().programId) {
+    window.alert("Você só pode cadastrar usuários vinculados ao seu programa.");
+    return;
+  }
   let id = user.id;
   let suffix = 2;
   while (users.some((item) => item.id === id)) {
@@ -2064,6 +2519,8 @@ async function importQuestionsFromFile(file) {
 function currentDatabaseSnapshot() {
   return {
     journeys: JOURNEYS,
+    programTypes,
+    programs,
     startups,
     users,
     scoreProfiles,
@@ -2092,6 +2549,8 @@ async function importDatabaseFile(file) {
     validateDatabase(database);
     if (backendStatus.includes("conectado")) await persistDatabase(database);
     JOURNEYS = database.journeys;
+    programTypes = database.programTypes;
+    programs = database.programs;
     startups = database.startups;
     users = database.users;
     Object.keys(scoreProfiles).forEach((key) => delete scoreProfiles[key]);
@@ -2109,6 +2568,8 @@ async function importDatabaseFile(file) {
 
 function validateDatabase(database) {
   if (!Array.isArray(database.journeys)) throw new Error("JSON inválido: campo journeys ausente.");
+  if (!Array.isArray(database.programTypes)) throw new Error("JSON inválido: campo programTypes ausente.");
+  if (!Array.isArray(database.programs)) throw new Error("JSON inválido: campo programs ausente.");
   if (!Array.isArray(database.startups)) throw new Error("JSON inválido: campo startups ausente.");
   if (!Array.isArray(database.users)) throw new Error("JSON inválido: campo users ausente.");
 }
@@ -2244,7 +2705,7 @@ function normalizeQuestionRow(row) {
 
 async function saveDraft() {
   if (!canEditAssessment()) {
-    window.alert("Admin acompanha os dados, mas não preenche avaliações.");
+    window.alert("Este perfil acompanha os dados, mas não preenche avaliações.");
     return;
   }
   try {
@@ -2257,8 +2718,8 @@ async function saveDraft() {
 }
 
 async function completeAssessment() {
-  if (isAdmin()) {
-    window.alert("Admin visualiza respostas em detalhe, mas não responde avaliações.");
+  if (isManager()) {
+    window.alert(`${isAdmin() ? "Admin" : "Cliente"} visualiza respostas em detalhe, mas não responde avaliações.`);
     return;
   }
   const incomplete = JOURNEYS.flatMap((journey) =>

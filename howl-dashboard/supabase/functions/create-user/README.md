@@ -6,7 +6,8 @@ Edge Function usada pelo HOWL para permitir que apenas usuários `admin` criem n
 
 - O frontend chama apenas `supabase.functions.invoke("create-user")`.
 - A função valida o JWT do usuário logado.
-- A função consulta `public.profiles` e só prossegue se o chamador tiver `role = 'admin'`.
+- A função consulta `public.profiles` e só prossegue se o chamador tiver `role = 'admin'` ou `role = 'cliente'`.
+- O Admin pode criar qualquer perfil; o Cliente pode criar somente Avaliadores e Empreendedores vinculados ao próprio programa.
 - A chave `service_role` fica apenas como segredo da Edge Function.
 - A chave `service_role` nunca deve ser colocada em `app.js`, `supabase-config.js` ou qualquer arquivo público.
 
