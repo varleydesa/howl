@@ -227,6 +227,7 @@ const SCORE_OPTIONS = [
 let activeRoute = "login";
 let mobileMenuOpen = false;
 let selectedStartupId = "agrosense";
+let selectedDashboardProgramId = "all";
 let selectedMonthIndex = 3;
 let activeJourney = "conceito";
 let draftSaved = false;
@@ -498,6 +499,12 @@ function accessibleStartups() {
     return startups.filter((startup) => startup.programId === user.programId);
   }
   return startups.filter((startup) => user.startupIds.includes(startup.id));
+}
+
+function dashboardStartups() {
+  const allowed = accessibleStartups();
+  if (!isAdmin() || selectedDashboardProgramId === "all") return allowed;
+  return allowed.filter((startup) => startup.programId === selectedDashboardProgramId);
 }
 
 function programById(programId) {
@@ -1163,19 +1170,24 @@ function renderLogin() {
 }
 
 function renderDashboard() {
-  const visibleStartups = accessibleStartups();
+  const visibleStartups = dashboardStartups();
   const latestAll = startups.map((startup) => latestAssessment(startup.id));
   const latestVisible = visibleStartups.map((startup) => latestAssessment(startup.id));
   const generalStats = portfolioStats(latestAll);
   const visibleStats = portfolioStats(latestVisible);
+  const dashboardStats = isAdmin() || isClient() || isEvaluator() ? visibleStats : generalStats;
   const ownResult = latestAssessment(selectedStartupId);
   const ownStartup = startups.find((s) => s.id === selectedStartupId);
   const isFounderDashboard = activeUser().role === "empreendedor";
   const scoreDelta = ownResult.howlScore - generalStats.avgScore;
+  const selectedProgram = programById(selectedDashboardProgramId);
+  const programFilterActive = isAdmin() && selectedDashboardProgramId !== "all";
   const introText = isFounderDashboard
     ? `Compare ${ownStartup.name} com a média geral de todos os projetos acompanhados pelo HOWL.`
     : isAdmin()
-      ? "Visão executiva geral de todos os projetos avaliados na plataforma."
+      ? programFilterActive
+        ? `Visão executiva das startups do programa ${selectedProgram?.name || ""}.`
+        : "Visão executiva geral de todos os projetos avaliados na plataforma."
       : isClient()
         ? `Visão executiva das startups do programa ${programById(activeUser().programId)?.name || ""}.`
       : "Visão executiva das startups atribuídas ao seu perfil de avaliador.";
@@ -1186,6 +1198,13 @@ function renderDashboard() {
           <span class="eyebrow">Dashboard geral</span>
           <h1>${isFounderDashboard ? "Seu projeto comparado ao ecossistema." : "Inteligência geral dos projetos HOWL."}</h1>
           <p>${introText}</p>
+          ${isAdmin() ? `<div class="field no-print" style="max-width:420px;margin-top:16px">
+            <label>Filtrar dashboard por programa</label>
+            <select onchange="selectDashboardProgram(this.value)">
+              <option value="all" ${selectedDashboardProgramId === "all" ? "selected" : ""}>Todos os programas</option>
+              ${programs.map((program) => `<option value="${program.id}" ${program.id === selectedDashboardProgramId ? "selected" : ""}>${escapeHtml(program.name)} • ${escapeHtml(program.client)}</option>`).join("")}
+            </select>
+          </div>` : ""}
           <div class="row wrap no-print" style="margin-top:18px">
             <button class="btn primary" onclick="go('assessment')">${isManager() ? "Ver respostas" : "Responder avaliação mensal"}</button>
             <button class="btn" onclick="go('startups')">${isFounderDashboard ? "Ver meu projeto" : "Ver startups"}</button>
@@ -1193,7 +1212,7 @@ function renderDashboard() {
         </div>
         <div class="row between">
           <div>
-            <span class="eyebrow">${isFounderDashboard ? "Seu HOWL Score" : isClient() ? "Score médio do programa" : "Score médio geral"}</span>
+            <span class="eyebrow">${isFounderDashboard ? "Seu HOWL Score" : isClient() || programFilterActive ? "Score médio do programa" : "Score médio geral"}</span>
             <h2>${fmt(isFounderDashboard ? ownResult.howlScore : visibleStats.avgScore, 0)}</h2>
             <span class="badge ${statusColor(isFounderDashboard ? evolutionText(scoreDelta) : classifyHowlScore(visibleStats.avgScore))}">${isFounderDashboard ? `${scoreDelta >= 0 ? "Acima" : "Abaixo"} da média geral` : classifyHowlScore(visibleStats.avgScore)}</span>
           </div>
@@ -1204,16 +1223,16 @@ function renderDashboard() {
         ${isFounderDashboard
           ? metric("Meu HOWL Score", fmt(ownResult.howlScore, 0), `${ownResult.classification} • ${evolutionText(ownResult.monthlyEvolution)}`)
           : metric("Projetos avaliados", visibleStats.evaluated, `${visibleStartups.length} cadastrados no total`)}
-        ${metric(isClient() ? "Média do programa" : "Média geral", fmt(generalStats.avgScore, 0), `${classifyHowlScore(generalStats.avgScore)} • ${isClient() ? "startups do programa" : "todos os projetos"}`)}
+        ${metric(isClient() || programFilterActive ? "Média do programa" : "Média geral", fmt(dashboardStats.avgScore, 0), `${classifyHowlScore(dashboardStats.avgScore)} • ${isClient() || programFilterActive ? "startups do programa" : "todos os projetos"}`)}
         ${isFounderDashboard
           ? metric("Diferença vs média", `${scoreDelta >= 0 ? "+" : ""}${fmt(scoreDelta, 0)}`, `${ownStartup.name} comparado ao portfólio`)
           : metric("Projetos em evolução", visibleStats.evolved, `${visibleStats.regressed} regrediram no mês`)}
-        ${metric("Etapa prioritária", generalStats.weakestJourney.name, `${fmt(generalStats.weakestJourney.avg)}/5 • etapa com menor maturidade média`)}
+        ${metric("Etapa prioritária", dashboardStats.weakestJourney.name, `${fmt(dashboardStats.weakestJourney.avg)}/5 • etapa com menor maturidade média`)}
       </div>
       <div class="grid two" style="margin-top:16px">
         <div class="card pad chart-card">
-          <h2>${isFounderDashboard ? "Meu projeto vs média geral" : isClient() ? "Média do programa por jornada" : "Média geral por jornada"}</h2>
-          ${isFounderDashboard ? benchmarkJourneyBars(ownResult, generalStats) : portfolioJourneyBars(generalStats)}
+          <h2>${isFounderDashboard ? "Meu projeto vs média geral" : isClient() || programFilterActive ? "Média do programa por jornada" : "Média geral por jornada"}</h2>
+          ${isFounderDashboard ? benchmarkJourneyBars(ownResult, generalStats) : portfolioJourneyBars(dashboardStats)}
         </div>
         <div class="card pad">
           <h2>Distribuição por trilha</h2>
@@ -2175,6 +2194,14 @@ function selectUser(id) {
 function selectStartup(id) {
   if (accessibleStartups().some((startup) => startup.id === id)) selectedStartupId = id;
   ensureAccessibleStartup();
+  render();
+}
+
+function selectDashboardProgram(programId) {
+  if (!isAdmin()) return;
+  if (programId === "all" || programs.some((program) => program.id === programId)) {
+    selectedDashboardProgramId = programId;
+  }
   render();
 }
 
