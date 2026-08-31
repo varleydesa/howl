@@ -60,6 +60,7 @@ const result = vm.runInContext(
       programId: "programa-howl-atual",
       startupIds: []
     });
+    currentSession = { user: { id: "auth-cliente-teste" } };
     activeUserId = "cliente-teste";
     activeRoute = "registration";
     render();

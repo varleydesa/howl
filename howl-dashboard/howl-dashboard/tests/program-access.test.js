@@ -54,6 +54,7 @@ const result = vm.runInContext(
       description: ""
     });
 
+    currentSession = { user: { id: "auth-admin-demo" } };
     activeUserId = "admin-demo";
     activeRoute = "dashboard";
     render();

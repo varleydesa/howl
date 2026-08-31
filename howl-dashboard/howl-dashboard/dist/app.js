@@ -224,7 +224,22 @@ const SCORE_OPTIONS = [
   { value: 5, label: "Validado com evidência clara" },
 ];
 
-let activeRoute = "login";
+const PUBLIC_ROUTES = new Set(["home", "pitch", "startupApply", "mentorApply"]);
+const ROUTE_ALIASES = {
+  "/": "home",
+  "/pitch": "pitch",
+  "/apply": "startupApply",
+  "/mentor-apply": "mentorApply",
+  "/auth": "login",
+  "/app": "dashboard",
+};
+
+function initialRoute() {
+  const hashRoute = window.location?.hash?.replace("#", "") || "home";
+  return ROUTE_ALIASES[hashRoute] || hashRoute || "home";
+}
+
+let activeRoute = initialRoute();
 let mobileMenuOpen = false;
 let selectedStartupId = "agrosense";
 let selectedDashboardProgramId = "all";
@@ -548,6 +563,7 @@ function navItemsForUser() {
 }
 
 function routeAllowed(route) {
+  if (PUBLIC_ROUTES.has(route) || route === "login") return true;
   return navItemsForUser().some(([itemRoute]) => itemRoute === route);
 }
 
@@ -660,7 +676,7 @@ async function loadSupabaseData() {
   currentSession = sessionResult.data.session;
 
   if (!currentSession) {
-    activeRoute = "login";
+    if (!PUBLIC_ROUTES.has(activeRoute)) activeRoute = "login";
     backendStatus = "Aguardando autenticação";
     return false;
   }
@@ -1037,6 +1053,228 @@ async function persistAssessmentResponses(payload) {
   return { assessmentResponses };
 }
 
+function publicBrand() {
+  return `
+    <button class="public-brand" type="button" onclick="go('home')" aria-label="HORDA Home">
+      <img class="public-brand-logo" src="./assets/howl-logo-menu.jpg" alt="HORDA" />
+    </button>
+  `;
+}
+
+function publicTopbar() {
+  const items = [
+    ["home", "Plataforma"],
+    ["pitch", "Pitch"],
+    ["startupApply", "Startup"],
+    ["mentorApply", "Mentor"],
+  ];
+  return `
+    <header class="public-topbar">
+      ${publicBrand()}
+      <nav class="public-nav" aria-label="Navegacao publica">
+        ${items
+          .map(
+            ([route, label]) =>
+              `<button class="${activeRoute === route ? "active" : ""}" type="button" onclick="go('${route}')">${label}</button>`
+          )
+          .join("")}
+      </nav>
+      <div class="public-actions">
+        <button class="btn" type="button" onclick="go('login')">Entrar</button>
+        <button class="btn primary" type="button" onclick="go('login')">Acessar HOWL</button>
+      </div>
+    </header>
+  `;
+}
+
+function publicDashboardPreview() {
+  return `
+    <div class="public-product-shot" aria-label="Previa da plataforma HORDA">
+      <div class="public-shot-header">
+        <div class="public-shot-dots"><span></span><span></span><span></span></div>
+        <b>HORDA / HOWL Dashboard</b>
+      </div>
+      <div class="public-shot-body">
+        <aside class="public-shot-sidebar">
+          ${["Dashboard", "Startups", "Avaliacoes", "Portfolio", "Relatorios", "Usuarios"]
+            .map(
+              (item, index) =>
+                `<div class="public-shot-nav-item ${index === 0 ? "active" : ""}"><span>${["DB", "ST", "AV", "PF", "RE", "US"][index]}</span>${item}</div>`
+            )
+            .join("")}
+        </aside>
+        <main class="public-shot-main">
+          <b>Dashboard do Programa</b>
+          <div class="public-mini-grid">
+            <div class="public-mini-card"><b>42</b><small>Startups ativas</small></div>
+            <div class="public-mini-card"><b>118</b><small>Mentorias ativas</small></div>
+            <div class="public-mini-card"><b>84</b><small>HOWL Score medio</small></div>
+          </div>
+          <div class="public-chart">
+            <svg viewBox="0 0 620 180" role="img" aria-label="Grafico de impacto">
+              <path class="path-blue" d="M24 132 C90 126 112 90 168 94 S252 128 310 78 S404 40 466 58 S548 88 596 38" />
+              <path class="path-green" d="M24 148 C102 132 130 138 196 112 S290 96 350 104 S444 72 504 82 S556 64 596 54" />
+            </svg>
+          </div>
+          <div class="public-list">
+            <div class="public-list-row"><div><b>Matching IA de Mentores</b><span>3 mentores recomendados para Startup Alpha</span></div><span class="badge blue">IA</span></div>
+            <div class="public-list-row"><div><b>Alerta de Impacto</b><span>Score evoluiu depois da revisao de rota</span></div><span class="badge green">Alto</span></div>
+          </div>
+        </main>
+      </div>
+    </div>
+  `;
+}
+
+function renderPublicHome() {
+  return `
+    <div class="public-shell">
+      ${publicTopbar()}
+      <section class="public-section public-hero">
+        <div>
+          <span class="public-eyebrow">Com precisao de IA para aceleracao e mentoria</span>
+          <h1>HORDA</h1>
+          <p>A HORDA conecta startups, mentores e gestores em uma jornada inteligente de crescimento. O HOWL Dashboard entra como o modulo de diagnostico, score, avaliacao e relatorio executivo.</p>
+          <div class="public-hero-actions">
+            <button class="btn primary" type="button" onclick="go('login')">Acessar plataforma</button>
+            <button class="btn" type="button" onclick="go('pitch')">Ver pitch</button>
+          </div>
+          <div class="public-metric-strip">
+            <div class="public-metric"><strong>76%</strong><span>tarefas concluidas</span></div>
+            <div class="public-metric"><strong>42</strong><span>startups ativas</span></div>
+            <div class="public-metric"><strong>84</strong><span>score medio</span></div>
+          </div>
+        </div>
+        ${publicDashboardPreview()}
+      </section>
+      <section class="public-section">
+        <div class="public-section-heading">
+          <h2>Da sessao ao plano de acao rastreavel.</h2>
+          <p>A plataforma combina pre-mentoria, analise por IA, sessoes ao vivo, OKRs, tarefas, relatorios e dashboards executivos.</p>
+        </div>
+        <div class="public-cards-grid">
+          <article class="card"><h3>HORDA</h3><p>Orquestra programas de aceleracao, mentorias, matching, tarefas e acompanhamento do ecossistema.</p></article>
+          <article class="card"><h3>HOWL Dashboard</h3><p>Concentra diagnostico, autoavaliacao, avaliacao consultiva, score, evolucao e relatorios.</p></article>
+          <article class="card"><h3>Permissoes Reais</h3><p>Supabase Auth, perfis e RLS controlam o que admin, cliente, avaliador e empreendedor podem acessar.</p></article>
+        </div>
+      </section>
+      <section class="public-section public-role-band">
+        <div class="public-section-heading">
+          <h2>Uma experiencia para cada papel.</h2>
+          <p>Gestores, mentores e startups operam na mesma base de dados, mas com fluxos personalizados.</p>
+        </div>
+        <div class="public-cards-grid">
+          <article class="card"><h3>Gestor</h3><p>Aprova, acompanha portfolio, consulta relatorios e mede impacto do programa.</p></article>
+          <article class="card"><h3>Mentor</h3><p>Acessa contexto da startup, responde avaliacoes e acompanha evolucao.</p></article>
+          <article class="card"><h3>Startup</h3><p>Visualiza sua jornada, responde autoavaliacao e acompanha proximos passos.</p></article>
+        </div>
+      </section>
+      <section class="public-section">
+        <div class="public-section-heading">
+          <h2>Fluxo de mentoria orquestrado.</h2>
+        </div>
+        <div class="public-workflow">
+          ${[
+            ["Onboarding", "Startups e mentores se inscrevem e gestores aprovam o programa."],
+            ["Matching IA", "Pares mentor-startup sao sugeridos por especialidade e necessidade."],
+            ["Pre-mentoria", "Contexto, metricas e objetivos sao enviados antes da sessao."],
+            ["Sessao", "Mentor valida insights e define prioridades com a startup."],
+            ["Impacto", "Tarefas, scores e relatorios mostram evolucao ao longo do tempo."],
+          ]
+            .map(
+              ([title, text], index) => `
+                <div class="public-step">
+                  <div class="public-step-number">${index + 1}</div>
+                  <b>${title}</b>
+                  <p>${text}</p>
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+      </section>
+      ${publicFooter()}
+    </div>
+  `;
+}
+
+function renderPublicPitch() {
+  return `
+    <div class="public-shell">
+      ${publicTopbar()}
+      <section class="public-section public-pitch-hero">
+        <span class="public-eyebrow">White-label para aceleradoras, VCs e inovacao corporativa</span>
+        <h1>Harmonizacao Orquestrada de Redes, Dados e Acoes.</h1>
+        <p>Programas de mentoria deixam de operar no artesanal e passam a trabalhar com inteligencia, dados, automacao e mensuracao de ROI.</p>
+      </section>
+      <section class="public-section">
+        <div class="public-section-heading"><h2>Problemas que a HORDA resolve</h2></div>
+        <div class="public-cards-grid">
+          <article class="card"><h3>Mentores mal alocados</h3><p>Matching manual perde contexto e distribui expertise de forma desigual.</p></article>
+          <article class="card"><h3>Sem metricas de impacto</h3><p>Gestores ficam sem visibilidade de evolucao, tarefas e retorno do programa.</p></article>
+          <article class="card"><h3>Contexto reaprendido</h3><p>Mentores precisam reconstruir historico a cada encontro, reduzindo profundidade.</p></article>
+        </div>
+      </section>
+      <section class="public-section">
+        <div class="public-section-heading"><h2>Agentes de IA da plataforma</h2></div>
+        <div class="public-cards-grid">
+          <article class="card"><h3>Analista de Sessao</h3><p>Extrai aprendizados, acoes e proximos passos de reunioes e transcricoes.</p></article>
+          <article class="card"><h3>Analisador de Rota</h3><p>Compara mudancas estrategicas e calcula impacto de decisoes.</p></article>
+          <article class="card"><h3>Matching Mentor-Startup</h3><p>Recomenda mentores por setor, etapa, disponibilidade e necessidade.</p></article>
+        </div>
+      </section>
+      ${publicFooter()}
+    </div>
+  `;
+}
+
+function renderPublicApplication(type) {
+  const mentor = type === "mentor";
+  return publicFormShell(
+    mentor ? "Cadastro de Mentor" : "Inscricao de Startup",
+    mentor
+      ? "Compartilhe sua experiencia para atuar nas jornadas da HORDA."
+      : "Preencha os dados iniciais da sua startup para entrar no programa.",
+    `
+      <div class="form-grid">
+        <div class="field"><label>${mentor ? "Nome do Mentor" : "Nome da Startup"}</label><input placeholder="${mentor ? "Ex: Pessoa Mentora" : "Ex: Startup Demo"}" /></div>
+        <div class="field"><label>${mentor ? "Especialidade" : "Tipo de Startup"}</label><select><option>${mentor ? "Estrategia de Negocios" : "SaaS / IA aplicada"}</option><option>Produto</option><option>Growth</option><option>Financeiro</option></select></div>
+        <div class="field"><label>${mentor ? "Anos de experiencia" : "Modelo de negocio"}</label><input placeholder="${mentor ? "10" : "Recorrencia mensal"}" /></div>
+        <div class="field"><label>Disponibilidade</label><input placeholder="2 sessoes por mes" /></div>
+        <div class="field full"><label>${mentor ? "Sobre voce como mentor" : "Pitch resumido"}</label><textarea placeholder="${mentor ? "Conte sua trajetoria, metodologia e motivacao." : "Em 2-3 frases, descreva sua startup."}"></textarea></div>
+      </div>
+      <div class="public-hero-actions">
+        <button class="btn primary" type="button" onclick="window.alert('Cadastro registrado na demo. O proximo passo e conectar este formulario ao Supabase.')">Enviar cadastro</button>
+        <button class="btn" type="button" onclick="go('login')">Acessar HOWL</button>
+      </div>
+    `
+  );
+}
+
+function publicFormShell(title, subtitle, body) {
+  return `
+    <div class="public-shell">
+      ${publicTopbar()}
+      <main class="public-form-page">
+        <section class="public-form-card">
+          <h1>${title}</h1>
+          <p>${subtitle}</p>
+          ${body}
+        </section>
+      </main>
+    </div>
+  `;
+}
+
+function publicFooter() {
+  return `
+    <footer class="public-footer">
+      <span>HORDA. Plataforma para aceleracao de negocios e mentorias.</span>
+      <span>HOWL Dashboard como modulo de diagnostico e score.</span>
+    </footer>
+  `;
+}
+
 function appShell(content) {
   if (activeRoute === "login") return renderLogin();
   ensureAccessibleStartup();
@@ -1122,7 +1360,28 @@ function pageTitle() {
 }
 
 function render() {
+  if (activeRoute === "home") {
+    document.getElementById("app").innerHTML = renderPublicHome();
+    return;
+  }
+  if (activeRoute === "pitch") {
+    document.getElementById("app").innerHTML = renderPublicPitch();
+    return;
+  }
+  if (activeRoute === "startupApply") {
+    document.getElementById("app").innerHTML = renderPublicApplication("startup");
+    return;
+  }
+  if (activeRoute === "mentorApply") {
+    document.getElementById("app").innerHTML = renderPublicApplication("mentor");
+    return;
+  }
   if (activeRoute === "login") {
+    document.getElementById("app").innerHTML = renderLogin();
+    return;
+  }
+  if (!currentSession) {
+    activeRoute = "login";
     document.getElementById("app").innerHTML = renderLogin();
     return;
   }
@@ -2168,7 +2427,19 @@ function exportCsv() {
 }
 
 function go(route) {
-  if (!routeAllowed(route) && route !== "login") {
+  if (PUBLIC_ROUTES.has(route) || route === "login") {
+    activeRoute = route;
+    mobileMenuOpen = false;
+    render();
+    return;
+  }
+  if (!currentSession) {
+    activeRoute = "login";
+    mobileMenuOpen = false;
+    render();
+    return;
+  }
+  if (!routeAllowed(route)) {
     activeRoute = "dashboard";
     mobileMenuOpen = false;
     render();
@@ -2808,7 +3079,7 @@ async function logout() {
 async function initializeApp() {
   if (!supabaseConfigured) {
     backendStatus = "Supabase ainda não configurado";
-    activeRoute = "login";
+    if (!PUBLIC_ROUTES.has(activeRoute)) activeRoute = "login";
     render();
     return;
   }
@@ -2816,7 +3087,7 @@ async function initializeApp() {
   try {
     await loadSupabaseData();
   } catch (error) {
-    activeRoute = "login";
+    if (!PUBLIC_ROUTES.has(activeRoute)) activeRoute = "login";
     loginError = error.message || "Não foi possível conectar ao Supabase.";
     backendStatus = "Falha ao conectar ao Supabase";
   }
