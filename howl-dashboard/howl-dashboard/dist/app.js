@@ -23,7 +23,7 @@ let programs = [
     id: "programa-howl-atual",
     programTypeId: "aceleracao",
     name: "Programa Demo",
-    client: "Organizacao Demo",
+    client: "Organização Demo",
   },
 ];
 
@@ -111,11 +111,11 @@ let startups = [
     name: "Startup Alpha",
     founder: "Pessoa Demo Alpha",
     sector: "Agtech",
-    city: "Sao Paulo",
+    city: "São Paulo",
     state: "SP",
     stage: "MVP",
     description:
-      "Exemplo ficticio de sensoriamento e inteligencia preditiva para produtores.",
+      "Exemplo fictício de sensoriamento e inteligência preditiva para produtores.",
   },
   {
     id: "healthflow",
@@ -127,7 +127,7 @@ let startups = [
     state: "PE",
     stage: "Piloto",
     description:
-      "Exemplo ficticio de orquestracao de jornada assistencial.",
+      "Exemplo fictício de orquestração de jornada assistencial.",
   },
   {
     id: "educamatch",
@@ -135,11 +135,11 @@ let startups = [
     name: "Startup Gamma",
     founder: "Pessoa Demo Gamma",
     sector: "Edtech",
-    city: "Florianopolis",
+    city: "Florianópolis",
     state: "SC",
     stage: "Tração",
     description:
-      "Exemplo ficticio de matching de trilhas personalizadas.",
+      "Exemplo fictício de matching de trilhas personalizadas.",
   },
 ];
 
@@ -150,7 +150,7 @@ let users = [
     email: "admin@example.com",
     role: "admin",
     roleLabel: "Admin",
-    organization: "Organizacao Demo",
+    organization: "Organização Demo",
     programId: null,
     startupIds: ["agrosense", "healthflow", "educamatch"],
     active: true,
@@ -1162,7 +1162,7 @@ function publicTopbar() {
   return `
     <header class="public-topbar">
       ${publicBrand()}
-      <nav class="public-nav" aria-label="Navegacao publica">
+      <nav class="public-nav" aria-label="Navegação pública">
         ${items
           .map(
             ([route, label]) =>
@@ -1180,14 +1180,14 @@ function publicTopbar() {
 
 function publicDashboardPreview() {
   return `
-    <div class="public-product-shot" aria-label="Previa da plataforma HORDA">
+    <div class="public-product-shot" aria-label="Prévia da plataforma HORDA">
       <div class="public-shot-header">
         <div class="public-shot-dots"><span></span><span></span><span></span></div>
         <b>HORDA / HOWL Dashboard</b>
       </div>
       <div class="public-shot-body">
         <aside class="public-shot-sidebar">
-          ${["Dashboard", "Startups", "Avaliacoes", "Portfolio", "Relatorios", "Usuarios"]
+          ${["Dashboard", "Startups", "Avaliações", "Portfólio", "Relatórios", "Usuários"]
             .map(
               (item, index) =>
                 `<div class="public-shot-nav-item ${index === 0 ? "active" : ""}"><span>${["DB", "ST", "AV", "PF", "RE", "US"][index]}</span>${item}</div>`
@@ -1199,17 +1199,17 @@ function publicDashboardPreview() {
           <div class="public-mini-grid">
             <div class="public-mini-card"><b>42</b><small>Startups ativas</small></div>
             <div class="public-mini-card"><b>118</b><small>Mentorias ativas</small></div>
-            <div class="public-mini-card"><b>84</b><small>HOWL Score medio</small></div>
+            <div class="public-mini-card"><b>84</b><small>HOWL Score médio</small></div>
           </div>
           <div class="public-chart">
-            <svg viewBox="0 0 620 180" role="img" aria-label="Grafico de impacto">
+            <svg viewBox="0 0 620 180" role="img" aria-label="Gráfico de impacto">
               <path class="path-blue" d="M24 132 C90 126 112 90 168 94 S252 128 310 78 S404 40 466 58 S548 88 596 38" />
               <path class="path-green" d="M24 148 C102 132 130 138 196 112 S290 96 350 104 S444 72 504 82 S556 64 596 54" />
             </svg>
           </div>
           <div class="public-list">
             <div class="public-list-row"><div><b>Matching IA de Mentores</b><span>3 mentores recomendados para Startup Alpha</span></div><span class="badge blue">IA</span></div>
-            <div class="public-list-row"><div><b>Alerta de Impacto</b><span>Score evoluiu depois da revisao de rota</span></div><span class="badge green">Alto</span></div>
+            <div class="public-list-row"><div><b>Alerta de Impacto</b><span>Score evoluiu depois da revisão de rota</span></div><span class="badge green">Alto</span></div>
           </div>
         </main>
       </div>
@@ -1223,41 +1223,41 @@ function renderPublicHome() {
       ${publicTopbar()}
       <section class="public-section public-hero">
         <div>
-          <span class="public-eyebrow">Com precisao de IA para aceleracao e mentoria</span>
+          <span class="public-eyebrow">Com precisão de IA para aceleração e mentoria</span>
           <h1>HORDA</h1>
-          <p>A HORDA conecta startups, mentores e gestores em uma jornada inteligente de crescimento. O HOWL Dashboard entra como o modulo de diagnostico, score, avaliacao e relatorio executivo.</p>
+          <p>A HORDA conecta startups, mentores e gestores em uma jornada inteligente de crescimento. O HOWL Dashboard entra como o módulo de diagnóstico, score, avaliação e relatório executivo.</p>
           <div class="public-hero-actions">
             <button class="btn primary" type="button" onclick="go('login')">Acessar plataforma</button>
             <button class="btn" type="button" onclick="go('pitch')">Ver pitch</button>
           </div>
           <div class="public-metric-strip">
-            <div class="public-metric"><strong>76%</strong><span>tarefas concluidas</span></div>
+            <div class="public-metric"><strong>76%</strong><span>tarefas concluídas</span></div>
             <div class="public-metric"><strong>42</strong><span>startups ativas</span></div>
-            <div class="public-metric"><strong>84</strong><span>score medio</span></div>
+            <div class="public-metric"><strong>84</strong><span>score médio</span></div>
           </div>
         </div>
         ${publicDashboardPreview()}
       </section>
       <section class="public-section">
         <div class="public-section-heading">
-          <h2>Da sessao ao plano de acao rastreavel.</h2>
-          <p>A plataforma combina pre-mentoria, analise por IA, sessoes ao vivo, OKRs, tarefas, relatorios e dashboards executivos.</p>
+          <h2>Da sessão ao plano de ação rastreável.</h2>
+          <p>A plataforma combina pré-mentoria, análise por IA, sessões ao vivo, OKRs, tarefas, relatórios e dashboards executivos.</p>
         </div>
         <div class="public-cards-grid">
-          <article class="card"><h3>HORDA</h3><p>Orquestra programas de aceleracao, mentorias, matching, tarefas e acompanhamento do ecossistema.</p></article>
-          <article class="card"><h3>HOWL Dashboard</h3><p>Concentra diagnostico, autoavaliacao, avaliacao consultiva, score, evolucao e relatorios.</p></article>
-          <article class="card"><h3>Permissoes Reais</h3><p>Supabase Auth, perfis e RLS controlam o que admin, cliente, avaliador e empreendedor podem acessar.</p></article>
+          <article class="card"><h3>HORDA</h3><p>Orquestra programas de aceleração, mentorias, matching, tarefas e acompanhamento do ecossistema.</p></article>
+          <article class="card"><h3>HOWL Dashboard</h3><p>Concentra diagnóstico, autoavaliação, avaliação consultiva, score, evolução e relatórios.</p></article>
+          <article class="card"><h3>Permissões Reais</h3><p>Supabase Auth, perfis e RLS controlam o que admin, cliente, avaliador e empreendedor podem acessar.</p></article>
         </div>
       </section>
       <section class="public-section public-role-band">
         <div class="public-section-heading">
-          <h2>Uma experiencia para cada papel.</h2>
+          <h2>Uma experiência para cada papel.</h2>
           <p>Gestores, mentores e startups operam na mesma base de dados, mas com fluxos personalizados.</p>
         </div>
         <div class="public-cards-grid">
-          <article class="card"><h3>Gestor</h3><p>Aprova, acompanha portfolio, consulta relatorios e mede impacto do programa.</p></article>
-          <article class="card"><h3>Mentor</h3><p>Acessa contexto da startup, responde avaliacoes e acompanha evolucao.</p></article>
-          <article class="card"><h3>Startup</h3><p>Visualiza sua jornada, responde autoavaliacao e acompanha proximos passos.</p></article>
+          <article class="card"><h3>Gestor</h3><p>Aprova, acompanha portfólio, consulta relatórios e mede impacto do programa.</p></article>
+          <article class="card"><h3>Mentor</h3><p>Acessa contexto da startup, responde avaliações e acompanha evolução.</p></article>
+          <article class="card"><h3>Startup</h3><p>Visualiza sua jornada, responde autoavaliação e acompanha próximos passos.</p></article>
         </div>
       </section>
       <section class="public-section">
@@ -1267,10 +1267,10 @@ function renderPublicHome() {
         <div class="public-workflow">
           ${[
             ["Onboarding", "Startups e mentores se inscrevem e gestores aprovam o programa."],
-            ["Matching IA", "Pares mentor-startup sao sugeridos por especialidade e necessidade."],
-            ["Pre-mentoria", "Contexto, metricas e objetivos sao enviados antes da sessao."],
-            ["Sessao", "Mentor valida insights e define prioridades com a startup."],
-            ["Impacto", "Tarefas, scores e relatorios mostram evolucao ao longo do tempo."],
+            ["Matching IA", "Pares mentor-startup são sugeridos por especialidade e necessidade."],
+            ["Pré-mentoria", "Contexto, métricas e objetivos são enviados antes da sessão."],
+            ["Sessão", "Mentor valida insights e define prioridades com a startup."],
+            ["Impacto", "Tarefas, scores e relatórios mostram evolução ao longo do tempo."],
           ]
             .map(
               ([title, text], index) => `
@@ -1294,23 +1294,23 @@ function renderPublicPitch() {
     <div class="public-shell">
       ${publicTopbar()}
       <section class="public-section public-pitch-hero">
-        <span class="public-eyebrow">White-label para aceleradoras, VCs e inovacao corporativa</span>
-        <h1>Harmonizacao Orquestrada de Redes, Dados e Acoes.</h1>
-        <p>Programas de mentoria deixam de operar no artesanal e passam a trabalhar com inteligencia, dados, automacao e mensuracao de ROI.</p>
+        <span class="public-eyebrow">White-label para aceleradoras, VCs e inovação corporativa</span>
+        <h1>Harmonização Orquestrada de Redes, Dados e Ações.</h1>
+        <p>Programas de mentoria deixam de operar no artesanal e passam a trabalhar com inteligência, dados, automação e mensuração de ROI.</p>
       </section>
       <section class="public-section">
         <div class="public-section-heading"><h2>Problemas que a HORDA resolve</h2></div>
         <div class="public-cards-grid">
           <article class="card"><h3>Mentores mal alocados</h3><p>Matching manual perde contexto e distribui expertise de forma desigual.</p></article>
-          <article class="card"><h3>Sem metricas de impacto</h3><p>Gestores ficam sem visibilidade de evolucao, tarefas e retorno do programa.</p></article>
-          <article class="card"><h3>Contexto reaprendido</h3><p>Mentores precisam reconstruir historico a cada encontro, reduzindo profundidade.</p></article>
+          <article class="card"><h3>Sem métricas de impacto</h3><p>Gestores ficam sem visibilidade de evolução, tarefas e retorno do programa.</p></article>
+          <article class="card"><h3>Contexto reaprendido</h3><p>Mentores precisam reconstruir histórico a cada encontro, reduzindo profundidade.</p></article>
         </div>
       </section>
       <section class="public-section">
         <div class="public-section-heading"><h2>Agentes de IA da plataforma</h2></div>
         <div class="public-cards-grid">
-          <article class="card"><h3>Analista de Sessao</h3><p>Extrai aprendizados, acoes e proximos passos de reunioes e transcricoes.</p></article>
-          <article class="card"><h3>Analisador de Rota</h3><p>Compara mudancas estrategicas e calcula impacto de decisoes.</p></article>
+          <article class="card"><h3>Analista de Sessão</h3><p>Extrai aprendizados, ações e próximos passos de reuniões e transcrições.</p></article>
+          <article class="card"><h3>Analisador de Rota</h3><p>Compara mudanças estratégicas e calcula impacto de decisões.</p></article>
           <article class="card"><h3>Matching Mentor-Startup</h3><p>Recomenda mentores por setor, etapa, disponibilidade e necessidade.</p></article>
         </div>
       </section>
@@ -1325,24 +1325,24 @@ function renderPublicApplication(type) {
     ? `<div class="badge ${publicApplicationMessage.includes("enviada") ? "green" : "amber"}">${escapeHtml(publicApplicationMessage)}</div>`
     : "";
   return publicFormShell(
-    mentor ? "Cadastro de Mentor" : "Inscricao de Startup",
+    mentor ? "Cadastro de Mentor" : "Inscrição de Startup",
     mentor
-      ? "Compartilhe sua experiencia para atuar nas jornadas da HORDA."
+      ? "Compartilhe sua experiência para atuar nas jornadas da HORDA."
       : "Preencha os dados iniciais da sua startup para entrar no programa.",
     `
       ${messageHtml}
       <form class="public-application-form" onsubmit="submitPublicApplication(event, '${mentor ? "mentor" : "startup"}')">
         <div class="form-grid">
           <div class="field"><label>${mentor ? "Nome do Mentor" : "Nome da Startup"}</label><input name="name" required placeholder="${mentor ? "Ex: Pessoa Mentora" : "Ex: Startup Demo"}" /></div>
-          <div class="field"><label>${mentor ? "Email" : "Contato principal"}</label><input name="${mentor ? "email" : "contactName"}" ${mentor ? "type=\"email\"" : ""} required placeholder="${mentor ? "nome@empresa.com" : "Nome completo"}" /></div>
-          <div class="field"><label>${mentor ? "Telefone" : "Email"}</label><input name="${mentor ? "phone" : "email"}" ${mentor ? "" : "type=\"email\""} required placeholder="${mentor ? "(00) 00000-0000" : "nome@startup.com"}" /></div>
-          <div class="field"><label>${mentor ? "Organizacao" : "Telefone"}</label><input name="${mentor ? "organization" : "phone"}" placeholder="${mentor ? "Empresa, consultoria ou hub" : "(00) 00000-0000"}" /></div>
+          <div class="field"><label>${mentor ? "E-mail" : "Contato principal"}</label><input name="${mentor ? "email" : "contactName"}" ${mentor ? "type=\"email\"" : ""} required placeholder="${mentor ? "nome@empresa.com" : "Nome completo"}" /></div>
+          <div class="field"><label>${mentor ? "Telefone" : "E-mail"}</label><input name="${mentor ? "phone" : "email"}" ${mentor ? "" : "type=\"email\""} required placeholder="${mentor ? "(00) 00000-0000" : "nome@startup.com"}" /></div>
+          <div class="field"><label>${mentor ? "Organização" : "Telefone"}</label><input name="${mentor ? "organization" : "phone"}" placeholder="${mentor ? "Empresa, consultoria ou hub" : "(00) 00000-0000"}" /></div>
           <div class="field"><label>${mentor ? "Especialidade" : "Setor"}</label><input name="sector" required placeholder="${mentor ? "Produto, growth, finanças..." : "SaaS, IA, fintech..."}" /></div>
-          <div class="field"><label>${mentor ? "Anos de experiencia" : "Estagio"}</label><input name="${mentor ? "experience" : "stage"}" placeholder="${mentor ? "10" : "MVP, piloto, tracao..."}" /></div>
+          <div class="field"><label>${mentor ? "Anos de experiência" : "Estágio"}</label><input name="${mentor ? "experience" : "stage"}" placeholder="${mentor ? "10" : "MVP, piloto, tração..."}" /></div>
           <div class="field"><label>Cidade</label><input name="city" placeholder="Cidade" /></div>
           <div class="field"><label>UF</label><input name="state" maxlength="2" placeholder="UF" /></div>
-          <div class="field wide"><label>Disponibilidade</label><input name="availability" placeholder="${mentor ? "2 sessoes por mes" : "Melhores horarios para contato"}" /></div>
-          <div class="field wide"><label>${mentor ? "Sobre voce como mentor" : "Pitch resumido"}</label><textarea name="pitch" required placeholder="${mentor ? "Conte sua trajetoria, metodologia e motivacao." : "Em 2-3 frases, descreva sua startup."}"></textarea></div>
+          <div class="field wide"><label>Disponibilidade</label><input name="availability" placeholder="${mentor ? "2 sessões por mês" : "Melhores horários para contato"}" /></div>
+          <div class="field wide"><label>${mentor ? "Sobre você como mentor" : "Pitch resumido"}</label><textarea name="pitch" required placeholder="${mentor ? "Conte sua trajetória, metodologia e motivação." : "Em 2-3 frases, descreva sua startup."}"></textarea></div>
         </div>
         <div class="public-hero-actions">
           <button class="btn primary" type="submit">Enviar cadastro</button>
@@ -1371,8 +1371,8 @@ function publicFormShell(title, subtitle, body) {
 function publicFooter() {
   return `
     <footer class="public-footer">
-      <span>HORDA. Plataforma para aceleracao de negocios e mentorias.</span>
-      <span>HOWL Dashboard como modulo de diagnostico e score.</span>
+      <span>HORDA. Plataforma para aceleração de negócios e mentorias.</span>
+      <span>HOWL Dashboard como módulo de diagnóstico e score.</span>
     </footer>
   `;
 }
@@ -1524,7 +1524,7 @@ function renderLogin() {
       <form class="login-form" onsubmit="login(event)">
         <div class="section-title"><h1>Entrar</h1><p>Use o acesso cadastrado no Supabase.</p></div>
         ${configurationMessage}
-        <div class="field"><label>Email</label><input name="email" type="email" autocomplete="email" required /></div>
+        <div class="field"><label>E-mail</label><input name="email" type="email" autocomplete="email" required /></div>
         <div class="field"><label>Senha</label><input name="password" type="password" autocomplete="current-password" required /></div>
         ${loginError ? `<div class="badge red">${escapeHtml(loginError)}</div>` : ""}
         <button class="btn primary" type="submit" ${supabaseClient ? "" : "disabled"}>Acessar dashboard</button>
@@ -1821,7 +1821,7 @@ function renderRegistration() {
           </div>
           <div class="form-grid compact">
             <div class="field"><label>Nome</label><input name="name" required placeholder="Nome completo"></div>
-            <div class="field"><label>Email</label><input name="email" type="email" required placeholder="nome@empresa.com"></div>
+            <div class="field"><label>E-mail</label><input name="email" type="email" required placeholder="nome@empresa.com"></div>
             <div class="field"><label>Perfil</label><select name="role" onchange="updateUserLinkFields(this.value)">${userRoleOptions}</select></div>
             <div class="field" id="user-startup-field"><label>Startup vinculada</label><select name="startupId">${visibleStartups.map((startup) => `<option value="${startup.id}" ${startup.id === selectedStartupId ? "selected" : ""}>${escapeHtml(startup.name)} • ${escapeHtml(programById(startup.programId)?.name || "")}</option>`).join("")}</select></div>
             <div class="field" id="user-program-field" hidden><label>Programa vinculado</label><select name="programId" disabled>${visiblePrograms.map((program) => `<option value="${program.id}">${escapeHtml(programLabel(program.id))}</option>`).join("")}</select></div>
@@ -2148,7 +2148,7 @@ function renderUserEditor() {
       <input type="hidden" name="profileId" value="${escapeHtml(user.id)}">
       <div class="form-grid compact">
         <div class="field"><label>Nome</label><input name="name" required value="${escapeHtml(user.name)}"></div>
-        <div class="field"><label>Email</label><input name="email" type="email" required value="${escapeHtml(user.email)}"></div>
+        <div class="field"><label>E-mail</label><input name="email" type="email" required value="${escapeHtml(user.email)}"></div>
         <div class="field"><label>Perfil</label><select name="role" ${user.id === activeUserId ? "disabled" : `onchange="updateEditUserLinkFields(this.value)"`}>${roleOptions.map((role) => `<option value="${role}" ${role === user.role ? "selected" : ""}>${roleLabels[role]}</option>`).join("")}</select></div>
         <div class="field" id="edit-user-startup-field" ${needsStartup ? "" : "hidden"}>
           <label>Startup vinculada</label>
