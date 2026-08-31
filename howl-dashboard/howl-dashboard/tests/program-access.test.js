@@ -54,7 +54,7 @@ const result = vm.runInContext(
       description: ""
     });
 
-    activeUserId = "admin-ana";
+    activeUserId = "admin-demo";
     activeRoute = "dashboard";
     render();
     const adminHasFilter = document
@@ -63,7 +63,7 @@ const result = vm.runInContext(
     selectDashboardProgram("programa-externo");
     const filteredAdminIds = dashboardStartups().map((startup) => startup.id);
 
-    activeUserId = "avaliador-rafael";
+    activeUserId = "avaliador-demo-1";
     selectedDashboardProgramId = "all";
     const evaluatorIds = accessibleStartups().map((startup) => startup.id);
 

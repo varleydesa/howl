@@ -19,8 +19,8 @@ let programs = [
   {
     id: "programa-howl-atual",
     programTypeId: "aceleracao",
-    name: "Programa HOWL Atual",
-    client: "HOWL",
+    name: "Programa Demo",
+    client: "Organizacao Demo",
   },
 ];
 
@@ -105,82 +105,82 @@ let startups = [
   {
     id: "agrosense",
     programId: "programa-howl-atual",
-    name: "AgroSense AI",
-    founder: "Marina Torres",
+    name: "Startup Alpha",
+    founder: "Pessoa Demo Alpha",
     sector: "Agtech",
-    city: "Ribeirão Preto",
+    city: "Sao Paulo",
     state: "SP",
     stage: "MVP",
     description:
-      "Sensoriamento e inteligência preditiva para pequenos e médios produtores.",
+      "Exemplo ficticio de sensoriamento e inteligencia preditiva para produtores.",
   },
   {
     id: "healthflow",
     programId: "programa-howl-atual",
-    name: "HealthFlow",
-    founder: "Daniel Nunes",
+    name: "Startup Beta",
+    founder: "Pessoa Demo Beta",
     sector: "Healthtech",
     city: "Recife",
     state: "PE",
     stage: "Piloto",
     description:
-      "Orquestração de jornada assistencial para clínicas especializadas.",
+      "Exemplo ficticio de orquestracao de jornada assistencial.",
   },
   {
     id: "educamatch",
     programId: "programa-howl-atual",
-    name: "EducaMatch",
-    founder: "Bianca Alves",
+    name: "Startup Gamma",
+    founder: "Pessoa Demo Gamma",
     sector: "Edtech",
-    city: "Florianópolis",
+    city: "Florianopolis",
     state: "SC",
     stage: "Tração",
     description:
-      "Matching de trilhas personalizadas, mentores e vagas para ensino técnico.",
+      "Exemplo ficticio de matching de trilhas personalizadas.",
   },
 ];
 
 let users = [
   {
-    id: "admin-ana",
-    name: "Ana Martins",
-    email: "ana@howl.dashboard",
+    id: "admin-demo",
+    name: "Admin Demo",
+    email: "admin@example.com",
     role: "admin",
     roleLabel: "Admin",
-    organization: "Aceleradora",
+    organization: "Organizacao Demo",
     programId: null,
     startupIds: ["agrosense", "healthflow", "educamatch"],
     active: true,
   },
   {
-    id: "avaliador-rafael",
-    name: "Rafael Costa",
-    email: "rafael@howl.dashboard",
+    id: "avaliador-demo-1",
+    name: "Avaliador Demo 1",
+    email: "avaliador1@example.com",
     role: "avaliador",
     roleLabel: "Avaliador",
-    organization: "Consultoria HOWL",
+    organization: "Consultoria Demo",
     programId: "programa-howl-atual",
     startupIds: [],
     active: true,
   },
   {
-    id: "avaliadora-livia",
-    name: "Livia Rocha",
-    email: "livia@howl.dashboard",
+    id: "avaliador-demo-2",
+    name: "Avaliador Demo 2",
+    email: "avaliador2@example.com",
     role: "avaliador",
     roleLabel: "Avaliador",
-    organization: "Mentora associada",
+    organization: "Mentoria Demo",
     programId: "programa-howl-atual",
     startupIds: [],
     active: true,
   },
   {
-    id: "empreendedora-marina",
-    name: "Marina Torres",
-    email: "marina@agrosense.ai",
+    id: "empreendedor-demo",
+    name: "Empreendedor Demo",
+    email: "empreendedor@example.com",
     role: "empreendedor",
     roleLabel: "Empreendedor",
-    organization: "AgroSense AI",
+    organization: "Startup Alpha",
     programId: null,
     startupIds: ["agrosense"],
     active: true,
@@ -232,7 +232,7 @@ let selectedMonthIndex = 3;
 let activeJourney = "conceito";
 let draftSaved = false;
 let draftAnswers = {};
-let activeUserId = "admin-ana";
+let activeUserId = "admin-demo";
 let backendStatus = "Conectando ao Supabase...";
 let assessmentResponses = {};
 let editingUserId = null;

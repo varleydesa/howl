@@ -27,7 +27,7 @@ A função usa a secret `HOWL_SERVICE_ROLE_KEY`, porque o painel do Supabase nã
 Na pasta `howl-dashboard`, depois de instalar/logar no Supabase CLI:
 
 ```bash
-supabase link --project-ref zcioptvygsvucabjynoo
+supabase link --project-ref COLE_O_PROJECT_REF_AQUI
 supabase secrets set HOWL_SERVICE_ROLE_KEY="COLE_A_SERVICE_ROLE_KEY_AQUI"
 supabase functions deploy create-user
 ```
