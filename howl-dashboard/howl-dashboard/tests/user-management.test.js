@@ -36,7 +36,8 @@ vm.runInContext(
 
 vm.runInContext(
   `
-    activeUserId = "admin-ana";
+    currentSession = { user: { id: "auth-admin-demo" } };
+    activeUserId = "admin-demo";
     activeRoute = "users";
     render();
   `,
@@ -49,14 +50,14 @@ assert(appElement.innerHTML.includes("Editar"));
 assert(appElement.innerHTML.includes("Inativar"));
 assert(appElement.innerHTML.includes("Ativo"));
 
-vm.runInContext(`openUserEditor("avaliador-rafael")`, context);
+vm.runInContext(`openUserEditor("avaliador-demo-1")`, context);
 assert(appElement.innerHTML.includes("Alterar usuário"));
 assert(appElement.innerHTML.includes("Salvar alterações"));
-assert(appElement.innerHTML.includes("rafael@howl.dashboard"));
+assert(appElement.innerHTML.includes("avaliador1@example.com"));
 
 vm.runInContext(
   `
-    users.find((user) => user.id === "avaliador-rafael").active = false;
+    users.find((user) => user.id === "avaliador-demo-1").active = false;
     editingUserId = null;
     render();
   `,

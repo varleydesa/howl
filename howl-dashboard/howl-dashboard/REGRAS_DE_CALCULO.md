@@ -308,14 +308,14 @@ Variação = ((posição da pergunta módulo 5) − 2) × 0,16
 
 | Startup | Viés |
 |---|---:|
-| HealthFlow | +0,82 |
-| AgroSense AI | +0,32 |
+| Startup Beta | +0,82 |
+| Startup Alpha | +0,32 |
 | Outras | +0,18 |
 
 4. Um viés para a nota do consultor:
 
 | Startup | Viés |
-| HealthFlow | −0,42 |
+| Startup Beta | −0,42 |
 | Outras | −0,08 |
 
 As fórmulas simuladas são:

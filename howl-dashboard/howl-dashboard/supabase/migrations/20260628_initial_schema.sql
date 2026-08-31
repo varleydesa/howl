@@ -533,33 +533,33 @@ insert into public.startups
 values
   (
     'agrosense',
-    'AgroSense AI',
-    'Marina Torres',
+    'Startup Alpha',
+    'Pessoa Demo Alpha',
     'Agtech',
-    'Ribeirão Preto',
+    'Sao Paulo',
     'SP',
     'MVP',
-    'Sensoriamento e inteligência preditiva para pequenos e médios produtores.'
+    'Exemplo ficticio de sensoriamento e inteligencia preditiva para produtores.'
   ),
   (
     'healthflow',
-    'HealthFlow',
-    'Daniel Nunes',
+    'Startup Beta',
+    'Pessoa Demo Beta',
     'Healthtech',
     'Recife',
     'PE',
     'Piloto',
-    'Orquestração de jornada assistencial para clínicas especializadas.'
+    'Exemplo ficticio de orquestracao de jornada assistencial.'
   ),
   (
     'educamatch',
-    'EducaMatch',
-    'Bianca Alves',
+    'Startup Gamma',
+    'Pessoa Demo Gamma',
     'Edtech',
-    'Florianópolis',
+    'Florianopolis',
     'SC',
     'Tração',
-    'Matching de trilhas personalizadas, mentores e vagas para ensino técnico.'
+    'Exemplo ficticio de matching de trilhas personalizadas.'
   )
 on conflict (id) do update set
   name = excluded.name,
@@ -573,10 +573,10 @@ on conflict (id) do update set
 insert into public.profiles
   (id, name, email, role, organization)
 values
-  ('admin-ana', 'Ana Martins', 'ana@howl.dashboard', 'admin', 'Aceleradora'),
-  ('avaliador-rafael', 'Rafael Costa', 'rafael@howl.dashboard', 'avaliador', 'Consultoria HOWL'),
-  ('avaliadora-livia', 'Livia Rocha', 'livia@howl.dashboard', 'avaliador', 'Mentora associada'),
-  ('empreendedora-marina', 'Marina Torres', 'marina@agrosense.ai', 'empreendedor', 'AgroSense AI')
+  ('admin-demo', 'Admin Demo', 'admin@example.com', 'admin', 'Organizacao Demo'),
+  ('avaliador-demo-1', 'Avaliador Demo 1', 'avaliador1@example.com', 'avaliador', 'Consultoria Demo'),
+  ('avaliador-demo-2', 'Avaliador Demo 2', 'avaliador2@example.com', 'avaliador', 'Mentoria Demo'),
+  ('empreendedor-demo', 'Empreendedor Demo', 'empreendedor@example.com', 'empreendedor', 'Startup Alpha')
 on conflict (id) do update set
   name = excluded.name,
   email = excluded.email,
@@ -585,13 +585,13 @@ on conflict (id) do update set
 
 insert into public.profile_startups (profile_id, startup_id)
 values
-  ('admin-ana', 'agrosense'),
-  ('admin-ana', 'healthflow'),
-  ('admin-ana', 'educamatch'),
-  ('avaliador-rafael', 'agrosense'),
-  ('avaliador-rafael', 'healthflow'),
-  ('avaliadora-livia', 'educamatch'),
-  ('empreendedora-marina', 'agrosense')
+  ('admin-demo', 'agrosense'),
+  ('admin-demo', 'healthflow'),
+  ('admin-demo', 'educamatch'),
+  ('avaliador-demo-1', 'agrosense'),
+  ('avaliador-demo-1', 'healthflow'),
+  ('avaliador-demo-2', 'educamatch'),
+  ('empreendedor-demo', 'agrosense')
 on conflict do nothing;
 
 insert into public.journeys

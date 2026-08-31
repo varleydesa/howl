@@ -6,6 +6,6 @@
     "build": "node build.js",
     "dev": "node server.js",
     "start": "node server.js",
-    "test": "node tests/client-scope.test.js && node tests/user-management.test.js && node tests/program-access.test.js"
+    "test": "node tests/public-routes.test.js && node tests/client-scope.test.js && node tests/user-management.test.js && node tests/program-access.test.js"
   }
 }
