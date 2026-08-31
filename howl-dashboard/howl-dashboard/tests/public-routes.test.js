@@ -37,7 +37,7 @@ assert(appElement.innerHTML.includes("HOWL Dashboard"));
 assert(!appElement.innerHTML.includes("Email"));
 
 vm.runInContext(`go("pitch")`, context);
-assert(appElement.innerHTML.includes("Harmonizacao Orquestrada"));
+assert(appElement.innerHTML.includes("Harmonização Orquestrada"));
 
 vm.runInContext(`go("dashboard")`, context);
 assert(appElement.innerHTML.includes("Entrar"));

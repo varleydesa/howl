@@ -6,7 +6,8 @@ chaves privadas ou chaves Supabase `service_role`/`secret`.
 ## Supabase
 
 - `howl-dashboard/howl-dashboard/supabase-config.js` usa placeholders `COLE_AQUI_*` por padrão.
-- A chave publicável do Supabase pode ser configurada no ambiente de deploy.
+- A chave publicável do Supabase pode ser configurada no ambiente de deploy com
+  `HOWL_SUPABASE_URL` e `HOWL_SUPABASE_PUBLISHABLE_KEY`.
 - A chave `HOWL_SERVICE_ROLE_KEY` deve existir apenas nos Secrets das Edge Functions.
 - Nunca commit arquivos `.env` ou exports locais com credenciais reais.
 
