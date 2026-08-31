@@ -10,6 +10,8 @@ let currentSession = null;
 let loginError = "";
 let assessmentCycleIds = {};
 let questionIds = {};
+let publicApplications = [];
+let publicApplicationMessage = "";
 let programTypes = [
   { id: "aceleracao", type: "Aceleração" },
   { id: "advisor", type: "Advisor" },
@@ -554,6 +556,7 @@ function navItemsForUser() {
   if (isManager()) {
     base.splice(2, 0, ["portfolio", "◈", "Portfólio"]);
     base.splice(3, 0, ["registration", "+", "Cadastro"]);
+    base.push(["applications", "◇", "Inscrições"]);
     base.push(["users", "◌", "Usuários"]);
   }
   if (isAdmin()) {
@@ -699,6 +702,7 @@ async function loadSupabaseData() {
     periodsResult,
     cyclesResult,
     resultsResult,
+    applicationsResult,
   ] = await Promise.all([
     client.from("program_types").select("*").order("type"),
     client.from("programs").select("*").order("name"),
@@ -716,6 +720,10 @@ async function loadSupabaseData() {
       .order("month")
       .order("journey_position")
       .order("question_position"),
+    client
+      .from("horda_applications")
+      .select("*")
+      .order("created_at", { ascending: false }),
   ]);
 
   [
@@ -730,6 +738,10 @@ async function loadSupabaseData() {
     cyclesResult,
     resultsResult,
   ].forEach((result) => throwIfSupabaseError(result.error));
+
+  if (applicationsResult.error && applicationsResult.error.code !== "42P01") {
+    throwIfSupabaseError(applicationsResult.error);
+  }
 
   programTypes = (programTypesResult.data || []).map((programType) => ({
     id: programType.id,
@@ -792,6 +804,31 @@ async function loadSupabaseData() {
         : links
             .filter((link) => link.profile_id === profile.id)
             .map((link) => link.startup_id),
+  }));
+
+  publicApplications = applicationsResult.error ? [] : (applicationsResult.data || []).map((application) => ({
+    id: application.id,
+    type: application.application_type,
+    status: application.status,
+    name: application.name,
+    contactName: application.contact_name || "",
+    email: application.email,
+    phone: application.phone || "",
+    organization: application.organization || "",
+    sector: application.sector || "",
+    stage: application.stage || "",
+    city: application.city || "",
+    state: application.state || "",
+    availability: application.availability || "",
+    experience: application.experience || "",
+    pitch: application.pitch || "",
+    programId: application.program_id || null,
+    approvedStartupId: application.approved_startup_id || null,
+    approvedProfileId: application.approved_profile_id || null,
+    reviewedBy: application.reviewed_by || null,
+    reviewedAt: application.reviewed_at || null,
+    rejectionReason: application.rejection_reason || "",
+    createdAt: application.created_at,
   }));
 
   const signedInProfile = profileResult.data;
@@ -908,6 +945,41 @@ async function persistProgram(program) {
     name: program.name,
     client: program.client,
   });
+  throwIfSupabaseError(result.error);
+}
+
+async function persistPublicApplication(application) {
+  const client = requireSupabase();
+  const result = await client.from("horda_applications").insert({
+    id: application.id,
+    application_type: application.type,
+    status: "pending",
+    name: application.name,
+    contact_name: application.contactName,
+    email: application.email,
+    phone: application.phone,
+    organization: application.organization,
+    sector: application.sector,
+    stage: application.stage,
+    city: application.city,
+    state: application.state,
+    availability: application.availability,
+    experience: application.experience,
+    pitch: application.pitch,
+  });
+  throwIfSupabaseError(result.error);
+}
+
+async function updatePublicApplication(applicationId, payload) {
+  const client = requireSupabase();
+  const result = await client
+    .from("horda_applications")
+    .update({
+      ...payload,
+      reviewed_by: activeUserId,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq("id", applicationId);
   throwIfSupabaseError(result.error);
 }
 
@@ -1230,23 +1302,34 @@ function renderPublicPitch() {
 
 function renderPublicApplication(type) {
   const mentor = type === "mentor";
+  const messageHtml = publicApplicationMessage
+    ? `<div class="badge ${publicApplicationMessage.includes("enviada") ? "green" : "amber"}">${escapeHtml(publicApplicationMessage)}</div>`
+    : "";
   return publicFormShell(
     mentor ? "Cadastro de Mentor" : "Inscricao de Startup",
     mentor
       ? "Compartilhe sua experiencia para atuar nas jornadas da HORDA."
       : "Preencha os dados iniciais da sua startup para entrar no programa.",
     `
-      <div class="form-grid">
-        <div class="field"><label>${mentor ? "Nome do Mentor" : "Nome da Startup"}</label><input placeholder="${mentor ? "Ex: Pessoa Mentora" : "Ex: Startup Demo"}" /></div>
-        <div class="field"><label>${mentor ? "Especialidade" : "Tipo de Startup"}</label><select><option>${mentor ? "Estrategia de Negocios" : "SaaS / IA aplicada"}</option><option>Produto</option><option>Growth</option><option>Financeiro</option></select></div>
-        <div class="field"><label>${mentor ? "Anos de experiencia" : "Modelo de negocio"}</label><input placeholder="${mentor ? "10" : "Recorrencia mensal"}" /></div>
-        <div class="field"><label>Disponibilidade</label><input placeholder="2 sessoes por mes" /></div>
-        <div class="field full"><label>${mentor ? "Sobre voce como mentor" : "Pitch resumido"}</label><textarea placeholder="${mentor ? "Conte sua trajetoria, metodologia e motivacao." : "Em 2-3 frases, descreva sua startup."}"></textarea></div>
-      </div>
-      <div class="public-hero-actions">
-        <button class="btn primary" type="button" onclick="window.alert('Cadastro registrado na demo. O proximo passo e conectar este formulario ao Supabase.')">Enviar cadastro</button>
-        <button class="btn" type="button" onclick="go('login')">Acessar HOWL</button>
-      </div>
+      ${messageHtml}
+      <form class="public-application-form" onsubmit="submitPublicApplication(event, '${mentor ? "mentor" : "startup"}')">
+        <div class="form-grid">
+          <div class="field"><label>${mentor ? "Nome do Mentor" : "Nome da Startup"}</label><input name="name" required placeholder="${mentor ? "Ex: Pessoa Mentora" : "Ex: Startup Demo"}" /></div>
+          <div class="field"><label>${mentor ? "Email" : "Contato principal"}</label><input name="${mentor ? "email" : "contactName"}" ${mentor ? "type=\"email\"" : ""} required placeholder="${mentor ? "nome@empresa.com" : "Nome completo"}" /></div>
+          <div class="field"><label>${mentor ? "Telefone" : "Email"}</label><input name="${mentor ? "phone" : "email"}" ${mentor ? "" : "type=\"email\""} required placeholder="${mentor ? "(00) 00000-0000" : "nome@startup.com"}" /></div>
+          <div class="field"><label>${mentor ? "Organizacao" : "Telefone"}</label><input name="${mentor ? "organization" : "phone"}" placeholder="${mentor ? "Empresa, consultoria ou hub" : "(00) 00000-0000"}" /></div>
+          <div class="field"><label>${mentor ? "Especialidade" : "Setor"}</label><input name="sector" required placeholder="${mentor ? "Produto, growth, finanças..." : "SaaS, IA, fintech..."}" /></div>
+          <div class="field"><label>${mentor ? "Anos de experiencia" : "Estagio"}</label><input name="${mentor ? "experience" : "stage"}" placeholder="${mentor ? "10" : "MVP, piloto, tracao..."}" /></div>
+          <div class="field"><label>Cidade</label><input name="city" placeholder="Cidade" /></div>
+          <div class="field"><label>UF</label><input name="state" maxlength="2" placeholder="UF" /></div>
+          <div class="field wide"><label>Disponibilidade</label><input name="availability" placeholder="${mentor ? "2 sessoes por mes" : "Melhores horarios para contato"}" /></div>
+          <div class="field wide"><label>${mentor ? "Sobre voce como mentor" : "Pitch resumido"}</label><textarea name="pitch" required placeholder="${mentor ? "Conte sua trajetoria, metodologia e motivacao." : "Em 2-3 frases, descreva sua startup."}"></textarea></div>
+        </div>
+        <div class="public-hero-actions">
+          <button class="btn primary" type="submit">Enviar cadastro</button>
+          <button class="btn" type="button" onclick="go('login')">Acessar HOWL</button>
+        </div>
+      </form>
     `
   );
 }
@@ -1354,6 +1437,7 @@ function pageTitle() {
     history: "Histórico de evolução",
     compare: "Empreendedor x Consultor",
     reports: "Relatório executivo",
+    applications: "Inscrições",
     users: "Usuários e acessos",
     settings: "Configurações",
   }[activeRoute];
@@ -1396,6 +1480,7 @@ function render() {
     history: renderHistory,
     compare: renderCompare,
     reports: renderReports,
+    applications: renderApplications,
     users: renderUsers,
     settings: renderSettings,
   };
@@ -2112,6 +2197,119 @@ function renderUsers() {
   `;
 }
 
+function renderApplications() {
+  const visibleApplications = applicationsVisibleToUser();
+  const pending = visibleApplications.filter((application) => application.status === "pending").length;
+  const approved = visibleApplications.filter((application) => application.status === "approved").length;
+  const rejected = visibleApplications.filter((application) => application.status === "rejected").length;
+  const visiblePrograms = isAdmin()
+    ? programs
+    : programs.filter((program) => program.id === activeUser().programId);
+  const applicationCards = visibleApplications.length
+    ? visibleApplications.map((application) => renderApplicationCard(application, visiblePrograms)).join("")
+    : `<div class="card pad empty-state">
+        <span class="metric-label">Fila vazia</span>
+        <h2>Nenhuma inscrição recebida ainda.</h2>
+        <p>Quando alguém se cadastrar pelas páginas públicas da HORDA, a solicitação aparecerá aqui para triagem.</p>
+      </div>`;
+
+  return `
+    <section class="page">
+      <div class="section-title"><h1>Inscrições</h1><p>Triagem de startups e mentores que chegaram pelas páginas públicas da HORDA.</p></div>
+      <div class="grid kpis" style="margin-top:18px">
+        ${metric("Pendentes", pending, "Aguardando análise")}
+        ${metric("Aprovadas", approved, "Convertidas em cadastro")}
+        ${metric("Rejeitadas", rejected, "Fora do escopo atual")}
+      </div>
+      <div class="application-list">${applicationCards}</div>
+    </section>
+  `;
+}
+
+function applicationsVisibleToUser() {
+  if (isAdmin()) return publicApplications;
+  const programId = activeUser().programId;
+  return publicApplications.filter((application) => application.programId === programId);
+}
+
+function renderApplicationCard(application, visiblePrograms) {
+  const isMentorApplication = application.type === "mentor";
+  const disabled = application.status !== "pending" || !visiblePrograms.length;
+  const approvedReference = application.approvedStartupId || application.approvedProfileId;
+  return `
+    <article class="card pad application-card">
+      <div class="row between wrap">
+        <div>
+          <span class="metric-label">${applicationTypeLabel(application.type)} • ${formatDate(application.createdAt)}</span>
+          <h2>${escapeHtml(application.name)}</h2>
+          <p>${escapeHtml(application.email)}${application.phone ? ` • ${escapeHtml(application.phone)}` : ""}</p>
+        </div>
+        <span class="badge ${applicationStatusColor(application.status)}">${applicationStatusLabel(application.status)}</span>
+      </div>
+      <div class="application-details">
+        <div><strong>${isMentorApplication ? "Especialidade" : "Setor"}</strong><span>${escapeHtml(application.sector || "Não informado")}</span></div>
+        <div><strong>${isMentorApplication ? "Experiência" : "Estágio"}</strong><span>${escapeHtml((isMentorApplication ? application.experience : application.stage) || "Não informado")}</span></div>
+        <div><strong>Localização</strong><span>${escapeHtml([application.city, application.state].filter(Boolean).join(" / ") || "Não informada")}</span></div>
+        <div><strong>Disponibilidade</strong><span>${escapeHtml(application.availability || "Não informada")}</span></div>
+      </div>
+      <p class="application-pitch">${escapeHtml(application.pitch || "Sem pitch informado.")}</p>
+      ${
+        approvedReference
+          ? `<span class="badge green">Cadastro criado: ${escapeHtml(approvedReference)}</span>`
+          : ""
+      }
+      ${
+        application.status === "pending"
+          ? `<form class="application-actions" onsubmit='approveApplication(event, ${JSON.stringify(application.id)})'>
+              <div class="field">
+                <label>Programa de destino</label>
+                <select name="programId" required ${disabled ? "disabled" : ""}>
+                  ${visiblePrograms.map((program) => `<option value="${program.id}" ${program.id === application.programId ? "selected" : ""}>${escapeHtml(programLabel(program.id))}</option>`).join("")}
+                </select>
+              </div>
+              ${
+                isMentorApplication
+                  ? `<div class="field">
+                      <label>Senha temporária</label>
+                      <div class="row">
+                        <input name="password" type="password" minlength="8" required autocomplete="new-password" placeholder="Mínimo 8 caracteres" ${disabled ? "disabled" : ""}>
+                        <button class="btn" type="button" onclick="fillGeneratedPassword(this)" ${disabled ? "disabled" : ""}>Gerar</button>
+                      </div>
+                    </div>`
+                  : ""
+              }
+              <div class="row wrap">
+                <button class="btn primary" type="submit" ${disabled ? "disabled" : ""}>Aprovar</button>
+                <button class="btn" type="button" onclick='rejectApplication(${JSON.stringify(application.id)})'>Rejeitar</button>
+              </div>
+            </form>`
+          : `<span class="subtle">Revisada em ${formatDate(application.reviewedAt)}.</span>`
+      }
+    </article>
+  `;
+}
+
+function applicationTypeLabel(type) {
+  return type === "mentor" ? "Mentor" : "Startup";
+}
+
+function applicationStatusLabel(status) {
+  if (status === "approved") return "Aprovada";
+  if (status === "rejected") return "Rejeitada";
+  return "Pendente";
+}
+
+function applicationStatusColor(status) {
+  if (status === "approved") return "green";
+  if (status === "rejected") return "red";
+  return "amber";
+}
+
+function formatDate(value) {
+  if (!value) return "sem data";
+  return new Date(value).toLocaleDateString("pt-BR");
+}
+
 function roleColor(role) {
   if (role === "admin" || role === "cliente") return "blue";
   if (role === "avaliador") return "green";
@@ -2428,6 +2626,7 @@ function exportCsv() {
 
 function go(route) {
   if (PUBLIC_ROUTES.has(route) || route === "login") {
+    if (route !== activeRoute) publicApplicationMessage = "";
     activeRoute = route;
     mobileMenuOpen = false;
     render();
@@ -2598,6 +2797,172 @@ async function deactivateUser(userId) {
     window.alert(error.message || "Não foi possível inativar o usuário.");
   }
   render();
+}
+
+async function submitPublicApplication(event, type) {
+  event.preventDefault();
+  publicApplicationMessage = "";
+  if (!supabaseConfigured) {
+    publicApplicationMessage = "Supabase ainda não configurado. A inscrição não foi enviada.";
+    render();
+    return;
+  }
+
+  const data = Object.fromEntries(new FormData(event.target).entries());
+  const application = {
+    id: createApplicationId(),
+    type,
+    name: String(data.name || "").trim(),
+    contactName: String(data.contactName || data.name || "").trim(),
+    email: String(data.email || "").trim().toLowerCase(),
+    phone: String(data.phone || "").trim(),
+    organization: String(data.organization || "").trim(),
+    sector: String(data.sector || "").trim(),
+    stage: String(data.stage || "").trim(),
+    city: String(data.city || "").trim(),
+    state: String(data.state || "").trim().toUpperCase(),
+    availability: String(data.availability || "").trim(),
+    experience: String(data.experience || "").trim(),
+    pitch: String(data.pitch || "").trim(),
+  };
+
+  try {
+    await persistPublicApplication(application);
+    event.target.reset();
+    publicApplicationMessage = "Inscrição enviada. A equipe HORDA vai revisar sua solicitação.";
+  } catch (error) {
+    publicApplicationMessage = error.message || "Não foi possível enviar a inscrição.";
+  }
+  render();
+}
+
+async function approveApplication(event, applicationId) {
+  event.preventDefault();
+  if (!isManager()) {
+    window.alert("Apenas Admin ou Cliente pode aprovar inscrições.");
+    return;
+  }
+  const application = publicApplications.find((item) => item.id === applicationId);
+  if (!application || application.status !== "pending") return;
+  const data = Object.fromEntries(new FormData(event.target).entries());
+  const programId = String(data.programId || application.programId || "");
+  if (!programs.some((program) => program.id === programId)) {
+    window.alert("Selecione um programa válido para aprovar a inscrição.");
+    return;
+  }
+  if (isClient() && programId !== activeUser().programId) {
+    window.alert("Você só pode aprovar inscrições para o seu programa.");
+    return;
+  }
+
+  try {
+    if (application.type === "mentor") {
+      if (!backendStatus.includes("conectado")) {
+        window.alert("Conecte o Supabase para aprovar mentores e criar acessos.");
+        return;
+      }
+      const password = String(data.password || "");
+      if (password.length < 8) {
+        window.alert("A senha temporária precisa ter pelo menos 8 caracteres.");
+        return;
+      }
+      await persistUser(
+        {
+          id: slugify(`${application.name}-avaliador`),
+          name: application.name,
+          email: application.email,
+          role: "avaliador",
+          roleLabel: "Avaliador",
+          organization: application.organization || application.sector || "HORDA",
+          programId,
+          startupIds: [],
+        },
+        password
+      );
+      const savedProfile = users.find((user) => user.email === application.email);
+      await updatePublicApplication(application.id, {
+        status: "approved",
+        program_id: programId,
+        approved_profile_id: savedProfile?.id || null,
+      });
+    } else {
+      const startup = {
+        id: uniqueStartupId(application.name),
+        programId,
+        name: application.name,
+        founder: application.contactName || application.name,
+        sector: application.sector || "Não informado",
+        city: application.city || "Não informada",
+        state: application.state || "",
+        stage: application.stage || "MVP",
+        description: application.pitch || "Startup aprovada a partir da inscrição pública da HORDA.",
+      };
+      if (backendStatus.includes("conectado")) {
+        await persistStartup(startup);
+        await updatePublicApplication(application.id, {
+          status: "approved",
+          program_id: programId,
+          approved_startup_id: startup.id,
+        });
+      } else {
+        startups.push(startup);
+        scoreProfiles[startup.id] = defaultScoreProfile();
+        application.status = "approved";
+        application.programId = programId;
+        application.approvedStartupId = startup.id;
+      }
+    }
+    if (backendStatus.includes("conectado")) {
+      await loadSupabaseData();
+    } else {
+      rebuildAssessments();
+    }
+    window.alert(`${applicationTypeLabel(application.type)} aprovado com sucesso.`);
+  } catch (error) {
+    window.alert(error.message || "Não foi possível aprovar a inscrição.");
+  }
+  render();
+}
+
+async function rejectApplication(applicationId) {
+  if (!isManager()) {
+    window.alert("Apenas Admin ou Cliente pode rejeitar inscrições.");
+    return;
+  }
+  const application = publicApplications.find((item) => item.id === applicationId);
+  if (!application || application.status !== "pending") return;
+  if (!window.confirm(`Rejeitar a inscrição de ${application.name}?`)) return;
+
+  try {
+    if (backendStatus.includes("conectado")) {
+      await updatePublicApplication(application.id, { status: "rejected" });
+      await loadSupabaseData();
+    } else {
+      application.status = "rejected";
+      application.reviewedBy = activeUserId;
+      application.reviewedAt = new Date().toISOString();
+    }
+    window.alert("Inscrição rejeitada.");
+  } catch (error) {
+    window.alert(error.message || "Não foi possível rejeitar a inscrição.");
+  }
+  render();
+}
+
+function createApplicationId() {
+  if (window.crypto?.randomUUID) return `application-${window.crypto.randomUUID()}`;
+  return `application-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function uniqueStartupId(name) {
+  const baseId = slugify(name);
+  let id = baseId;
+  let suffix = 2;
+  while (startups.some((startup) => startup.id === id)) {
+    id = `${baseId}-${suffix}`;
+    suffix += 1;
+  }
+  return id;
 }
 
 async function addProgramType(event) {

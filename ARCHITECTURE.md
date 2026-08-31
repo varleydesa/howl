@@ -44,7 +44,14 @@ The dashboard keeps the existing Supabase flow:
 3. Navigation is derived from the active role.
 4. Program/startup visibility is filtered before data is rendered.
 
+## Public applications
+
+Public startup and mentor forms write to `public.horda_applications`.
+
+Anonymous visitors can only insert new pending applications. Authenticated managers can review applications, assign them to a program and approve or reject them. Approving a startup creates a startup record and its assessment cycles. Approving a mentor creates an evaluator profile through the existing Supabase Edge Function that provisions Auth users.
+
+Applications without a program are visible to Admin users. Client users see applications after they are associated with their own program.
+
 ## Current migration state
 
-The first migration slice reintroduces the HORDA public platform shell into the Supabase-backed HOWL app. The startup and mentor application forms are still UI-only placeholders; the next slice should persist those submissions into Supabase tables and add manager approval flows.
-
+The first migration slice reintroduced the HORDA public platform shell into the Supabase-backed HOWL app. The second slice connects public applications to Supabase and adds an internal approval queue. The next migration slice should expand HORDA's operational module with mentoring sessions, task follow-up and mentor-startup matching.

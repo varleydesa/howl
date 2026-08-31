@@ -904,6 +904,85 @@ textarea {
   font-size: 14px;
 }
 
+.application-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.application-card {
+  display: grid;
+  gap: 14px;
+}
+
+.application-card .row > div {
+  min-width: 0;
+}
+
+.application-card h2 {
+  overflow-wrap: anywhere;
+}
+
+.application-card p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.application-details {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.application-details div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.application-details strong {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.application-details span,
+.application-pitch {
+  overflow-wrap: anywhere;
+}
+
+.application-pitch {
+  margin: 0;
+  padding: 14px;
+  border-left: 4px solid var(--gold);
+  background: #fffaf0;
+  color: #352d1f;
+  line-height: 1.55;
+}
+
+.application-actions {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) max-content;
+  gap: 12px;
+  align-items: end;
+  padding-top: 2px;
+}
+
+.application-actions > .row {
+  min-height: 42px;
+  align-items: center;
+}
+
+.public-application-form {
+  display: grid;
+  gap: 18px;
+}
+
 .alerts {
   display: grid;
   gap: 10px;
@@ -1074,10 +1153,15 @@ textarea {
   .form-grid,
   .form-grid.compact,
   .access-grid,
+  .application-details,
   .choice-grid,
   .scale-items,
   .score-inputs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .application-actions {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1098,6 +1182,7 @@ textarea {
   .form-grid,
   .form-grid.compact,
   .access-grid,
+  .application-details,
   .choice-grid,
   .scale-items,
   .score-inputs {
