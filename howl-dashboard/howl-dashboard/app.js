@@ -3,7 +3,8 @@ const supabaseConfigured =
   Boolean(supabaseConfig.url) &&
   Boolean(supabaseConfig.publishableKey) &&
   !supabaseConfig.publishableKey.includes("COLE_AQUI");
-const supabaseClient = supabaseConfigured
+const supabaseLibraryAvailable = Boolean(window.supabase?.createClient);
+const supabaseClient = supabaseConfigured && supabaseLibraryAvailable
   ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.publishableKey)
   : null;
 let currentSession = null;
@@ -663,13 +664,25 @@ function savedQuestionResponse(startupId, month, year, journeyId, questionIndex)
 
 function requireSupabase() {
   if (!supabaseClient) {
-    throw new Error("Configure a chave publicável do Supabase antes de continuar.");
+    throw new Error(
+      supabaseConfigured
+        ? "A biblioteca do Supabase não carregou. Recarregue a página e verifique sua conexão."
+        : "Configure a chave publicável do Supabase antes de continuar."
+    );
   }
   return supabaseClient;
 }
 
 function throwIfSupabaseError(error) {
   if (error) throw new Error(error.message || "Erro de comunicação com o Supabase.");
+}
+
+function isMissingSupabaseRelation(error) {
+  const message = error?.message || "";
+  return error?.code === "42P01"
+    || error?.code === "PGRST205"
+    || message.includes("Could not find the table")
+    || message.includes("relation") && message.includes("does not exist");
 }
 
 async function loadSupabaseData() {
@@ -739,7 +752,7 @@ async function loadSupabaseData() {
     resultsResult,
   ].forEach((result) => throwIfSupabaseError(result.error));
 
-  if (applicationsResult.error && applicationsResult.error.code !== "42P01") {
+  if (applicationsResult.error && !isMissingSupabaseRelation(applicationsResult.error)) {
     throwIfSupabaseError(applicationsResult.error);
   }
 
@@ -967,6 +980,9 @@ async function persistPublicApplication(application) {
     experience: application.experience,
     pitch: application.pitch,
   });
+  if (isMissingSupabaseRelation(result.error)) {
+    throw new Error("A migration de inscrições públicas ainda não foi aplicada no Supabase.");
+  }
   throwIfSupabaseError(result.error);
 }
 
@@ -980,6 +996,9 @@ async function updatePublicApplication(applicationId, payload) {
       reviewed_at: new Date().toISOString(),
     })
     .eq("id", applicationId);
+  if (isMissingSupabaseRelation(result.error)) {
+    throw new Error("A migration de inscrições públicas ainda não foi aplicada no Supabase.");
+  }
   throwIfSupabaseError(result.error);
 }
 
@@ -1488,9 +1507,11 @@ function render() {
 }
 
 function renderLogin() {
-  const configurationMessage = supabaseConfigured
-    ? ""
-    : `<div class="badge amber">Falta configurar a chave publicável do Supabase.</div>`;
+  const configurationMessage = !supabaseConfigured
+    ? `<div class="badge amber">Falta configurar a chave publicável do Supabase.</div>`
+    : !supabaseClient
+      ? `<div class="badge amber">A biblioteca do Supabase não carregou. Recarregue a página e verifique sua conexão.</div>`
+      : "";
   return `
     <div class="login">
       <section class="login-panel">
@@ -1506,7 +1527,7 @@ function renderLogin() {
         <div class="field"><label>Email</label><input name="email" type="email" autocomplete="email" required /></div>
         <div class="field"><label>Senha</label><input name="password" type="password" autocomplete="current-password" required /></div>
         ${loginError ? `<div class="badge red">${escapeHtml(loginError)}</div>` : ""}
-        <button class="btn primary" type="submit" ${supabaseConfigured ? "" : "disabled"}>Acessar dashboard</button>
+        <button class="btn primary" type="submit" ${supabaseClient ? "" : "disabled"}>Acessar dashboard</button>
         <span class="subtle">O acesso e as permissões são validados pelo Supabase Auth.</span>
       </form>
     </div>
@@ -3442,8 +3463,10 @@ async function logout() {
 }
 
 async function initializeApp() {
-  if (!supabaseConfigured) {
-    backendStatus = "Supabase ainda não configurado";
+  if (!supabaseClient) {
+    backendStatus = supabaseConfigured
+      ? "Biblioteca do Supabase indisponível"
+      : "Supabase ainda não configurado";
     if (!PUBLIC_ROUTES.has(activeRoute)) activeRoute = "login";
     render();
     return;

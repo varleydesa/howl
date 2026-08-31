@@ -144,4 +144,9 @@ assert(migration.includes("to anon, authenticated"));
 assert(migration.includes("and program_id is null"));
 assert(migration.includes("private.can_manage_program(program_id)"));
 
+assert.strictEqual(
+  vm.runInContext(`isMissingSupabaseRelation({ code: "PGRST205", message: "Could not find the table 'public.horda_applications' in the schema cache" })`, context),
+  true
+);
+
 console.log("Fila de inscrições públicas validada.");
