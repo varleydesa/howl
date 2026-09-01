@@ -2236,7 +2236,10 @@ function renderApplications() {
 
   return `
     <section class="page">
-      <div class="section-title"><h1>Inscrições</h1><p>Triagem de startups e mentores que chegaram pelas páginas públicas da HORDA.</p></div>
+      <div class="row between wrap">
+        <div class="section-title"><h1>Inscrições</h1><p>Triagem de startups e mentores que chegaram pelas páginas públicas da HORDA.</p></div>
+        <button class="btn" type="button" onclick="refreshApplications()">Atualizar inscrições</button>
+      </div>
       <div class="grid kpis" style="margin-top:18px">
         ${metric("Pendentes", pending, "Aguardando análise")}
         ${metric("Aprovadas", approved, "Convertidas em cadastro")}
@@ -2251,6 +2254,24 @@ function applicationsVisibleToUser() {
   if (isAdmin()) return publicApplications;
   const programId = activeUser().programId;
   return publicApplications.filter((application) => application.programId === programId);
+}
+
+async function refreshApplications() {
+  if (!currentSession) {
+    activeRoute = "login";
+    render();
+    return;
+  }
+
+  try {
+    backendStatus = "Atualizando Supabase...";
+    render();
+    await loadSupabaseData();
+  } catch (error) {
+    backendStatus = "Falha ao atualizar Supabase";
+    window.alert(error.message || "Não foi possível atualizar as inscrições.");
+  }
+  render();
 }
 
 function renderApplicationCard(application, visiblePrograms) {

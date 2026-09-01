@@ -125,6 +125,7 @@ assert.deepStrictEqual(
   ["application-pending-admin", "application-program-client"].sort()
 );
 assert(result.adminHtml.includes("Inscrições"));
+assert(result.adminHtml.includes("Atualizar inscrições"));
 assert(result.adminHtml.includes("Startup Sem Programa"));
 assert(result.adminHtml.includes("Mentora Programa"));
 assert(result.adminHtml.includes("Programa de destino"));
