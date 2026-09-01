@@ -5,7 +5,13 @@ const supabaseConfigured =
   !supabaseConfig.publishableKey.includes("COLE_AQUI");
 const supabaseLibraryAvailable = Boolean(window.supabase?.createClient);
 const supabaseClient = supabaseConfigured && supabaseLibraryAvailable
-  ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.publishableKey)
+  ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.publishableKey, {
+      auth: {
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        persistSession: true,
+      },
+    })
   : null;
 let currentSession = null;
 let loginError = "";
@@ -242,6 +248,7 @@ function initialRoute() {
   return ROUTE_ALIASES[hashRoute] || hashRoute || "home";
 }
 
+const initialRouteWasExplicit = Boolean(window.location?.hash?.replace("#", ""));
 let activeRoute = initialRoute();
 let mobileMenuOpen = false;
 let selectedStartupId = "agrosense";
@@ -911,7 +918,10 @@ async function loadSupabaseData() {
   backendStatus = "Supabase conectado";
   ensureAccessibleStartup();
   rebuildAssessments();
-  if (activeRoute === "login") activeRoute = "dashboard";
+  if (activeRoute === "login" || (!initialRouteWasExplicit && activeRoute === "home")) {
+    activeRoute = "dashboard";
+    syncRouteHash(activeRoute);
+  }
   return true;
 }
 
@@ -2671,24 +2681,43 @@ function go(route) {
     if (route !== activeRoute) publicApplicationMessage = "";
     activeRoute = route;
     mobileMenuOpen = false;
+    syncRouteHash(activeRoute);
     render();
     return;
   }
   if (!currentSession) {
     activeRoute = "login";
     mobileMenuOpen = false;
+    syncRouteHash(activeRoute);
     render();
     return;
   }
   if (!routeAllowed(route)) {
     activeRoute = "dashboard";
     mobileMenuOpen = false;
+    syncRouteHash(activeRoute);
     render();
     return;
   }
   activeRoute = route;
   mobileMenuOpen = false;
+  syncRouteHash(activeRoute);
   render();
+}
+
+function syncRouteHash(route) {
+  if (!window.location) return;
+  const hash = route === "home" ? "" : `#${route}`;
+  if (window.location.hash === hash) return;
+
+  if (window.history?.replaceState) {
+    const path = window.location.pathname || "";
+    const search = window.location.search || "";
+    window.history.replaceState(null, "", `${path}${search}${hash}` || hash || "/");
+    return;
+  }
+
+  window.location.hash = hash;
 }
 
 function toggleMobileMenu() {
@@ -3463,9 +3492,11 @@ async function login(event) {
     throwIfSupabaseError(result.error);
     currentSession = result.data.session;
     activeRoute = "dashboard";
+    syncRouteHash(activeRoute);
     await loadSupabaseData();
   } catch (error) {
     activeRoute = "login";
+    syncRouteHash(activeRoute);
     loginError =
       error.message === "Invalid login credentials"
         ? "E-mail ou senha incorretos."
@@ -3480,6 +3511,7 @@ async function logout() {
   loginError = "";
   activeRoute = "login";
   backendStatus = "Aguardando autenticação";
+  syncRouteHash(activeRoute);
   render();
 }
 
