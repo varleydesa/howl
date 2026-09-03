@@ -22,6 +22,7 @@ let mentorStartupLinks = [];
 let mentorshipSessions = [];
 let mentorshipTasks = [];
 let mentorshipSessionFeedback = [];
+let mentorshipBriefingDrafts = {};
 let publicApplicationMessage = "";
 let programTypes = [
   { id: "aceleracao", type: "Aceleração" },
@@ -275,6 +276,7 @@ let assessmentResponses = {};
 let editingUserId = null;
 let editingMentorshipSessionId = null;
 let editingMentorshipTaskId = null;
+let generatingMentorshipBriefingId = null;
 
 let assessments = buildAssessments();
 let importStatus = "Aguardando planilha da primeira rodada.";
@@ -1249,6 +1251,30 @@ async function upsertMentorshipSessionFeedback(feedback) {
     throw new Error("A migration de avaliação de sessão ainda não foi aplicada no Supabase.");
   }
   throwIfSupabaseError(result.error);
+}
+
+async function requestMentorshipBriefing(sessionId) {
+  const client = requireSupabase();
+  const { data, error } = await client.functions.invoke("generate-mentorship-briefing", {
+    body: { sessionId },
+  });
+
+  if (error) {
+    let message = error.message;
+    try {
+      if (error.context instanceof Response) {
+        const details = await error.context.clone().json();
+        message = details?.message || details?.error || message;
+      }
+    } catch {
+      // Mantém a mensagem original do Supabase.
+    }
+    throw new Error(message || "Não foi possível gerar o briefing com IA.");
+  }
+  if (data?.error) {
+    throw new Error(data.message || data.error);
+  }
+  return data;
 }
 
 async function persistUser(user, password) {
@@ -3350,7 +3376,7 @@ function mentorshipSessionsCard(sessions) {
           <p><strong>Registro</strong>${escapeHtml(session.summary || session.nextSteps || "Aguardando resumo pós-sessão.")}</p>
         </div>
         ${feedback ? `<div class="mentorship-feedback-summary"><strong>Avaliação da startup</strong><span>${"★".repeat(feedback.rating)}${"☆".repeat(5 - feedback.rating)} • ${escapeHtml(feedback.comment || "Sem comentário")}</span></div>` : ""}
-        ${canEdit ? `<div class="mentorship-card-actions"><label>Atualizar</label>${mentorshipStatusSelect(session)}<button class="btn" type="button" onclick='openMentorshipSessionEditor(${JSON.stringify(session.id)})'>Editar sessão</button></div>` : ""}
+        ${canEdit ? `<div class="mentorship-card-actions"><label>Atualizar</label>${mentorshipStatusSelect(session)}<button class="btn" type="button" onclick='openMentorshipSessionEditor(${JSON.stringify(session.id)})'>Editar sessão</button><button class="btn" type="button" onclick='generateMentorshipBriefing(${JSON.stringify(session.id)})' ${generatingMentorshipBriefingId ? "disabled" : ""}>${generatingMentorshipBriefingId === session.id ? "Gerando..." : "Gerar briefing com IA"}</button></div>` : ""}
         ${editingMentorshipSessionId === session.id ? mentorshipSessionEditForm(session) : ""}
         ${canEvaluate ? mentorshipSessionFeedbackForm(session, feedback) : ""}
       </article>`;
@@ -3398,12 +3424,14 @@ function mentorshipTasksCard(tasks) {
 }
 
 function mentorshipSessionEditForm(session) {
+  const agendaDraft = mentorshipBriefingDrafts[session.id] ?? session.agenda ?? "";
   return `<form class="mentorship-inline-form" onsubmit="editMentorshipSession(event, ${escapeJsString(session.id)})">
+    ${mentorshipBriefingDrafts[session.id] ? `<div class="mentorship-ai-draft"><strong>Briefing gerado com IA</strong><span>Revise o texto abaixo e clique em Salvar edição para gravar no Supabase.</span></div>` : ""}
     <div class="form-grid compact">
       <div class="field"><label>Data e hora</label><input name="scheduledAt" type="datetime-local" value="${dateTimeLocalValue(session.scheduledAt)}" required></div>
       <div class="field"><label>Duração</label><input name="durationMinutes" type="number" min="15" max="360" step="1" value="${session.durationMinutes || 60}" required></div>
       <div class="field wide"><label>Pauta</label><input name="topic" value="${escapeHtml(session.topic)}" required></div>
-      <div class="field wide"><label>Contexto pré-sessão</label><textarea name="agenda">${escapeHtml(session.agenda || "")}</textarea></div>
+      <div class="field wide"><label>Contexto pré-sessão</label><textarea name="agenda">${escapeHtml(agendaDraft)}</textarea></div>
       <div class="field wide"><label>Resumo pós-sessão</label><textarea name="summary">${escapeHtml(session.summary || "")}</textarea></div>
       <div class="field wide"><label>Decisões e próximos passos</label><textarea name="nextSteps">${escapeHtml(session.nextSteps || "")}</textarea></div>
     </div>
@@ -5166,11 +5194,43 @@ async function editMentorshipSession(event, sessionId) {
       Object.assign(session, updates);
     }
     editingMentorshipSessionId = null;
+    delete mentorshipBriefingDrafts[session.id];
     window.alert("Sessão atualizada.");
   } catch (error) {
     window.alert(error.message || "Não foi possível atualizar a sessão.");
   }
   render();
+}
+
+async function generateMentorshipBriefing(sessionId) {
+  if (!isManager() && !isEvaluator()) {
+    window.alert("Apenas gestores e mentores podem gerar briefing com IA.");
+    return;
+  }
+  if (!backendStatus.includes("conectado")) {
+    window.alert("Conecte ao Supabase para gerar briefing com IA.");
+    return;
+  }
+  const session = mentorshipSessionsVisibleToUser().find((item) => item.id === sessionId);
+  if (!session) return;
+  generatingMentorshipBriefingId = sessionId;
+  render();
+  try {
+    const data = await requestMentorshipBriefing(sessionId);
+    const briefing = String(data?.briefing || "").trim();
+    if (!briefing) {
+      throw new Error("A IA não retornou um briefing utilizável.");
+    }
+    mentorshipBriefingDrafts[sessionId] = briefing;
+    editingMentorshipSessionId = sessionId;
+    editingMentorshipTaskId = null;
+    window.alert("Briefing gerado. Revise e salve a edição da sessão.");
+  } catch (error) {
+    window.alert(error.message || "Não foi possível gerar o briefing com IA.");
+  } finally {
+    generatingMentorshipBriefingId = null;
+    render();
+  }
 }
 
 async function addMentorshipTask(event) {

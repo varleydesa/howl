@@ -259,6 +259,7 @@ Estado atual em 03/09/2026:
 - A edição de sessão cadastrada foi implementada para gestores e mentores, incluindo data, duração, pauta, contexto, resumo e próximos passos.
 - A edição de tarefa pós-sessão foi implementada para gestores e mentores, incluindo título, descrição, prioridade e prazo.
 - A avaliação da sessão pela startup foi criada com tabela real no Supabase (`mentorship_session_feedback`), permitindo nota de 1 a 5 e comentário após sessão concluída.
+- O primeiro bloco de IA foi iniciado com briefing pré-sessão: botão `Gerar briefing com IA`, Edge Function `generate-mentorship-briefing` e preenchimento revisável do campo `Contexto pré-sessão`.
 
 Próxima sequência recomendada:
 
@@ -296,8 +297,10 @@ Próxima sequência recomendada:
    - tarefas concluídas;
    - startups sem sessão recente;
    - mentores com maior carga.
-10. Iniciar `Mentor IA` leve usando dados reais:
-   - briefing pré-sessão;
+10. Ativar em produção o `Mentor IA` leve usando dados reais:
+   - configurar `OPENAI_API_KEY` nos secrets da Edge Function;
+   - publicar/deployar a Edge Function `generate-mentorship-briefing`;
+   - validar briefing pré-sessão em uma sessão real;
    - sugestão de pauta;
    - resumo pós-sessão;
    - sugestão de tarefas;

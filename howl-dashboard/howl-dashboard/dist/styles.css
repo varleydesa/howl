@@ -2063,6 +2063,24 @@ textarea {
   line-height: 1.45;
 }
 
+.mentorship-ai-draft {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-left: 4px solid var(--gold);
+  border-radius: 8px;
+  background: #fff6df;
+}
+
+.mentorship-ai-draft strong {
+  color: var(--navy);
+}
+
+.mentorship-ai-draft span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .mentorship-kanban {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
