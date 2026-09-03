@@ -258,6 +258,7 @@ let mobileMenuOpen = false;
 let selectedStartupId = "agrosense";
 let selectedDashboardProgramId = "all";
 let selectedMonthIndex = 3;
+let activeMentorshipTab = "agenda";
 let activeJourney = "conceito";
 let draftSaved = false;
 let draftAnswers = {};
@@ -1931,43 +1932,81 @@ function renderMentorship() {
     : isEvaluator()
       ? "Acompanhe suas startups vinculadas, sessões e próximos itens de ação."
       : "Veja seu mentor, próximas sessões e tarefas combinadas.";
+  if (!["agenda", "portfolio", "tasks", "process"].includes(activeMentorshipTab)) {
+    activeMentorshipTab = "agenda";
+  }
   return `
     <section class="page">
-      <div class="section-title"><h1>${title}</h1><p>${subtitle}</p></div>
+      <div class="section-title mentorship-title">
+        <div>
+          <h1>${title}</h1>
+          <p>${subtitle}</p>
+        </div>
+        <span class="badge blue">Supabase real</span>
+      </div>
       <div class="grid kpis" style="margin-top:18px">
         ${metric("Vínculos ativos", activeLinks.length, "mentor-startup")}
         ${metric("Sessões agendadas", scheduledSessions.length, "próximas mentorias")}
         ${metric("Sessões concluídas", completedSessions.length, "histórico registrado")}
         ${metric("Tarefas abertas", openTasks.length, "plano de ação")}
       </div>
-      ${
-        isManager()
-          ? `<div class="grid two startup-onboarding">
-              ${mentorLinkForm()}
-              ${mentorshipSessionForm(activeLinks)}
-            </div>
-            <div class="grid two startup-onboarding">
-              ${mentorshipTaskForm(visibleSessions)}
-              ${mentorshipWorkflowCard()}
-            </div>`
-          : `<div class="grid two startup-onboarding">
-              ${mentorPortfolioCard(activeLinks)}
-              ${mentorshipWorkflowCard()}
-            </div>`
-      }
-      <div class="grid two" style="margin-top:16px">
-        ${mentorLinksCard(visibleLinks)}
-        ${mentorshipSessionsCard(visibleSessions)}
+      <div class="mentorship-shell">
+        ${mentorshipTabs(activeMentorshipTab, { activeLinks, scheduledSessions, openTasks })}
+        ${mentorshipTabPanel(activeMentorshipTab, { visibleLinks, activeLinks, visibleSessions, visibleTasks })}
       </div>
-      <div style="margin-top:16px">${mentorshipTasksCard(visibleTasks)}</div>
     </section>
   `;
+}
+
+function mentorshipTabs(activeTab, counts) {
+  const tabs = [
+    ["agenda", "Agenda", counts.scheduledSessions.length],
+    ["portfolio", "Portfólio", counts.activeLinks.length],
+    ["tasks", "Plano de Ação", counts.openTasks.length],
+    ["process", "Processo", "IA"],
+  ];
+  return `<div class="tabs mentorship-tabs" role="tablist" aria-label="Áreas de mentoria">
+    ${tabs.map(([id, label, count]) => `<button type="button" class="${activeTab === id ? "active" : ""}" onclick="setMentorshipTab('${id}')" aria-selected="${activeTab === id}">
+      <span>${label}</span>
+      <small>${count}</small>
+    </button>`).join("")}
+  </div>`;
+}
+
+function mentorshipTabPanel(tab, data) {
+  if (tab === "portfolio") {
+    return `<div class="grid two mentorship-workspace">
+      ${isManager() ? mentorLinkForm() : mentorPortfolioCard(data.activeLinks)}
+      ${mentorLinksCard(data.visibleLinks)}
+    </div>`;
+  }
+  if (tab === "tasks") {
+    return `<div class="mentorship-stacked">
+      ${isManager() ? mentorshipTaskForm(data.visibleSessions) : mentorshipWorkflowCard()}
+      ${mentorshipTasksCard(data.visibleTasks)}
+    </div>`;
+  }
+  if (tab === "process") {
+    return `<div class="grid two mentorship-workspace">
+      ${mentorshipWorkflowCard()}
+      ${mentorshipAiCard()}
+    </div>`;
+  }
+  return `<div class="grid two mentorship-workspace">
+    ${isManager() ? mentorshipSessionForm(data.activeLinks) : mentorPortfolioCard(data.activeLinks)}
+    ${mentorshipSessionsCard(data.visibleSessions)}
+  </div>`;
+}
+
+function setMentorshipTab(tab) {
+  activeMentorshipTab = tab;
+  render();
 }
 
 function mentorLinkForm() {
   const visibleStartups = accessibleStartups();
   const mentors = mentorUsersForManager();
-  return `<form class="card pad startup-form" onsubmit="addMentorStartupLink(event)">
+  return `<form class="card pad startup-form mentorship-form" onsubmit="addMentorStartupLink(event)">
     <div class="row between wrap">
       <div>
         <span class="metric-label">Matching operacional</span>
@@ -1985,7 +2024,7 @@ function mentorLinkForm() {
 }
 
 function mentorshipSessionForm(activeLinks) {
-  return `<form class="card pad startup-form" onsubmit="addMentorshipSession(event)">
+  return `<form class="card pad startup-form mentorship-form" onsubmit="addMentorshipSession(event)">
     <div class="row between wrap">
       <div>
         <span class="metric-label">Agenda de mentoria</span>
@@ -2008,7 +2047,7 @@ function mentorshipSessionForm(activeLinks) {
 
 function mentorshipTaskForm(visibleSessions) {
   const sessions = visibleSessions.filter((session) => session.status !== "canceled");
-  return `<form class="card pad startup-form" onsubmit="addMentorshipTask(event)">
+  return `<form class="card pad startup-form mentorship-form" onsubmit="addMentorshipTask(event)">
     <div class="row between wrap">
       <div>
         <span class="metric-label">Plano de ação</span>
@@ -2034,10 +2073,30 @@ function mentorshipWorkflowCard() {
     ["Plano de ação", "Próximos passos viram tarefas rastreáveis para a startup."],
     ["Acompanhamento", "Gestor e mentor monitoram progresso até a próxima mentoria."],
   ];
-  return `<div class="card pad">
+  return `<div class="card pad mentorship-process-card">
     <span class="metric-label">Fluxo inspirado no Lovable</span>
     <h2>Processo de mentoria</h2>
-    <div class="alerts">${steps.map(([name, description], index) => `<div class="alert"><strong>${index + 1}. ${name}</strong><br>${description}</div>`).join("")}</div>
+    <div class="mentorship-timeline">${steps.map(([name, description], index) => `<div class="mentorship-step">
+      <span>${index + 1}</span>
+      <div><strong>${name}</strong><p>${description}</p></div>
+    </div>`).join("")}</div>
+  </div>`;
+}
+
+function mentorshipAiCard() {
+  return `<div class="card pad mentorship-ai-card">
+    <div class="row between wrap">
+      <div>
+        <span class="metric-label">Próxima fase</span>
+        <h2>Mentoria com IA</h2>
+      </div>
+      <span class="badge amber">Meta salva</span>
+    </div>
+    <div class="mini-list">
+      <div><strong>Preparar contexto</strong><span>Usar dados reais de avaliação, sessões, tarefas e histórico da startup.</span></div>
+      <div><strong>Sugerir pauta</strong><span>Gerar perguntas e riscos antes da sessão, sem substituir o mentor.</span></div>
+      <div><strong>Converter decisões</strong><span>Transformar resumo pós-sessão em tarefas rastreáveis no plano de ação.</span></div>
+    </div>
   </div>`;
 }
 
@@ -2061,46 +2120,92 @@ function mentorLinksCard(links) {
   if (!links.length) {
     return `<div class="card pad empty-state"><span class="metric-label">Vínculos</span><h2>Nenhum vínculo mentor-startup.</h2><p>Crie o primeiro vínculo para habilitar agenda, sessões e tarefas de mentoria.</p></div>`;
   }
-  const rows = links.map((link) => `<tr>
-    <td><strong>${escapeHtml(startupName(link.startupId))}</strong><br><span class="subtle">${escapeHtml(programById(link.programId)?.name || "")}</span></td>
-    <td>${escapeHtml(mentorName(link.mentorId))}</td>
-    <td>${escapeHtml(link.notes || "—")}</td>
-    <td><span class="badge ${link.status === "active" ? "green" : "gray"}">${link.status === "active" ? "Ativo" : "Inativo"}</span></td>
-    <td>${isManager() && link.status === "active" ? `<button class="btn" type="button" onclick='deactivateMentorStartupLink(${JSON.stringify(link.id)})'>Desativar</button>` : ""}</td>
-  </tr>`).join("");
-  return `<div><div class="section-title compact-title"><h2>Vínculos mentor-startup</h2><p>Relações reais que definem portfólio e permissões de mentoria.</p></div>${table(["Startup", "Mentor", "Observações", "Status", "Ações"], rows)}</div>`;
+  return `<div class="card pad mentorship-panel-card">
+    <div class="section-title compact-title"><h2>Vínculos mentor-startup</h2><p>Relações reais que definem portfólio e permissões de mentoria.</p></div>
+    <div class="mentorship-card-list">
+      ${links.map((link) => `<article class="mentor-link-card">
+        <div class="mentor-card-head">
+          <div>
+            <span class="metric-label">${escapeHtml(programById(link.programId)?.name || "Programa")}</span>
+            <h3>${escapeHtml(startupName(link.startupId))}</h3>
+          </div>
+          <span class="badge ${link.status === "active" ? "green" : "gray"}">${link.status === "active" ? "Ativo" : "Inativo"}</span>
+        </div>
+        <div class="mentorship-meta">
+          <span><strong>Mentor</strong>${escapeHtml(mentorName(link.mentorId))}</span>
+          <span><strong>Foco</strong>${escapeHtml(link.notes || "Mentoria ativa")}</span>
+        </div>
+        ${isManager() && link.status === "active" ? `<button class="btn" type="button" onclick='deactivateMentorStartupLink(${JSON.stringify(link.id)})'>Desativar vínculo</button>` : ""}
+      </article>`).join("")}
+    </div>
+  </div>`;
 }
 
 function mentorshipSessionsCard(sessions) {
   if (!sessions.length) {
     return `<div class="card pad empty-state"><span class="metric-label">Sessões</span><h2>Nenhuma sessão registrada.</h2><p>Agende a primeira mentoria para começar o histórico operacional.</p></div>`;
   }
-  const rows = sessions.map((session) => `<tr>
-    <td><strong>${escapeHtml(session.topic)}</strong><br><span class="subtle">${escapeHtml(startupName(session.startupId))}</span></td>
-    <td>${escapeHtml(mentorName(session.mentorId))}</td>
-    <td>${formatDateTime(session.scheduledAt)}</td>
-    <td>${session.durationMinutes} min</td>
-    <td><span class="badge ${mentorshipStatusColor(session.status)}">${mentorshipStatusLabel(session.status)}</span></td>
-    <td>${escapeHtml(session.summary || session.agenda || "—")}</td>
-    <td>${isManager() || isEvaluator() ? mentorshipStatusSelect(session) : ""}</td>
-  </tr>`).join("");
-  return `<div><div class="section-title compact-title"><h2>Sessões de mentoria</h2><p>Agenda e histórico com contexto pré-sessão e resumo pós-sessão.</p></div>${table(["Pauta", "Mentor", "Data", "Duração", "Status", "Registro", "Atualizar"], rows)}</div>`;
+  const orderedSessions = [...sessions].sort((a, b) => new Date(a.scheduledAt || 0) - new Date(b.scheduledAt || 0));
+  return `<div class="card pad mentorship-panel-card">
+    <div class="section-title compact-title"><h2>Sessões de mentoria</h2><p>Agenda e histórico com contexto pré-sessão e resumo pós-sessão.</p></div>
+    <div class="mentorship-card-list">
+      ${orderedSessions.map((session) => `<article class="mentor-session-card">
+        <div class="mentor-card-head">
+          <div>
+            <span class="metric-label">${formatDateTime(session.scheduledAt)} • ${session.durationMinutes} min</span>
+            <h3>${escapeHtml(session.topic)}</h3>
+          </div>
+          <span class="badge ${mentorshipStatusColor(session.status)}">${mentorshipStatusLabel(session.status)}</span>
+        </div>
+        <div class="mentorship-meta">
+          <span><strong>Startup</strong>${escapeHtml(startupName(session.startupId))}</span>
+          <span><strong>Mentor</strong>${escapeHtml(mentorName(session.mentorId))}</span>
+        </div>
+        <div class="mentorship-notes">
+          <p><strong>Contexto</strong>${escapeHtml(session.agenda || "Sem contexto registrado.")}</p>
+          <p><strong>Registro</strong>${escapeHtml(session.summary || session.nextSteps || "Aguardando resumo pós-sessão.")}</p>
+        </div>
+        ${isManager() || isEvaluator() ? `<div class="mentorship-card-actions"><label>Atualizar</label>${mentorshipStatusSelect(session)}</div>` : ""}
+      </article>`).join("")}
+    </div>
+  </div>`;
 }
 
 function mentorshipTasksCard(tasks) {
   if (!tasks.length) {
     return `<div class="card pad empty-state"><span class="metric-label">Tarefas pós-sessão</span><h2>Nenhuma tarefa criada.</h2><p>As decisões da mentoria viram ações acompanháveis aqui.</p></div>`;
   }
-  const rows = tasks.map((task) => `<tr>
-    <td><strong>${escapeHtml(task.title)}</strong><br><span class="subtle">${escapeHtml(task.description || "Sem descrição")}</span></td>
-    <td>${escapeHtml(startupName(task.startupId))}</td>
-    <td>${escapeHtml(mentorName(task.mentorId))}</td>
-    <td><span class="badge ${priorityColor(task.priority)}">${priorityLabel(task.priority)}</span></td>
-    <td>${task.dueDate ? formatDate(task.dueDate) : "Sem prazo"}</td>
-    <td><span class="badge ${task.status === "done" ? "green" : task.status === "in_progress" ? "blue" : "amber"}">${taskStatusLabel(task.status)}</span></td>
-    <td>${isManager() || isEvaluator() ? taskStatusSelect(task) : ""}</td>
-  </tr>`).join("");
-  return `<div><div class="section-title compact-title"><h2>Plano de ação</h2><p>Tarefas geradas a partir das sessões de mentoria.</p></div>${table(["Tarefa", "Startup", "Mentor", "Prioridade", "Prazo", "Status", "Atualizar"], rows)}</div>`;
+  const columns = [
+    ["todo", "A fazer"],
+    ["in_progress", "Em andamento"],
+    ["done", "Concluídas"],
+  ];
+  return `<div class="card pad mentorship-panel-card">
+    <div class="section-title compact-title"><h2>Plano de ação</h2><p>Tarefas geradas a partir das sessões de mentoria.</p></div>
+    <div class="mentorship-kanban">
+      ${columns.map(([status, label]) => {
+        const statusTasks = tasks.filter((task) => task.status === status);
+        return `<section class="task-column">
+          <div class="task-column-head"><strong>${label}</strong><span>${statusTasks.length}</span></div>
+          <div class="task-list">
+            ${statusTasks.length ? statusTasks.map((task) => `<article class="task-card">
+              <div class="row between wrap">
+                <span class="badge ${priorityColor(task.priority)}">${priorityLabel(task.priority)}</span>
+                <span class="subtle">${task.dueDate ? formatDate(task.dueDate) : "Sem prazo"}</span>
+              </div>
+              <h3>${escapeHtml(task.title)}</h3>
+              <p>${escapeHtml(task.description || "Sem descrição")}</p>
+              <div class="mentorship-meta compact">
+                <span><strong>Startup</strong>${escapeHtml(startupName(task.startupId))}</span>
+                <span><strong>Mentor</strong>${escapeHtml(mentorName(task.mentorId))}</span>
+              </div>
+              ${isManager() || isEvaluator() ? `<div class="mentorship-card-actions"><label>Status</label>${taskStatusSelect(task)}</div>` : ""}
+            </article>`).join("") : `<div class="empty-pill">Sem itens</div>`}
+          </div>
+        </section>`;
+      }).join("")}
+    </div>
+  </div>`;
 }
 
 function renderRegistration() {

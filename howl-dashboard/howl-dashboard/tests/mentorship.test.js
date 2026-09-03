@@ -102,12 +102,18 @@ const result = vm.runInContext(
 
     activeUserId = "admin-demo";
     activeRoute = "mentorship";
+    activeMentorshipTab = "agenda";
     render();
     const adminHtml = document.getElementById("app").innerHTML;
     const adminLinks = mentorshipLinksVisibleToUser().map((link) => link.id);
 
+    activeMentorshipTab = "portfolio";
+    render();
+    const adminPortfolioHtml = document.getElementById("app").innerHTML;
+
     activeUserId = "avaliador-demo-1";
     activeRoute = "mentorship";
+    activeMentorshipTab = "agenda";
     render();
     const mentorHtml = document.getElementById("app").innerHTML;
     const mentorLinks = mentorshipLinksVisibleToUser().map((link) => link.id);
@@ -115,6 +121,7 @@ const result = vm.runInContext(
 
     activeUserId = "empreendedor-demo";
     activeRoute = "mentorship";
+    activeMentorshipTab = "agenda";
     render();
     const founderHtml = document.getElementById("app").innerHTML;
     const founderLinks = mentorshipLinksVisibleToUser().map((link) => link.id);
@@ -123,6 +130,7 @@ const result = vm.runInContext(
     ({
       adminHtml,
       adminLinks,
+      adminPortfolioHtml,
       mentorHtml,
       mentorLinks,
       mentorSessions,
@@ -135,7 +143,10 @@ const result = vm.runInContext(
 );
 
 assert(result.adminHtml.includes("Mentores, vínculos e mentorias"));
-assert(result.adminHtml.includes("Vincular mentor a startup"));
+assert(result.adminHtml.includes("Agenda"));
+assert(result.adminHtml.includes("Portfólio"));
+assert(result.adminHtml.includes("Plano de Ação"));
+assert(result.adminPortfolioHtml.includes("Vincular mentor a startup"));
 assert(result.adminHtml.includes('name="durationMinutes" type="number" min="15" step="15" value="60"'));
 assert(!result.adminHtml.includes('<label>Status</label><select name="status"'));
 assert(result.adminHtml.includes("Atualizar status da sessão"));

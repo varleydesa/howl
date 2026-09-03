@@ -719,6 +719,250 @@ textarea {
   border-bottom-color: var(--blue);
 }
 
+.mentorship-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.mentorship-shell {
+  margin-top: 18px;
+}
+
+.mentorship-tabs {
+  margin: 0 0 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: 0 1px 2px rgba(17, 14, 8, 0.05);
+}
+
+.mentorship-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  border-bottom: 1px solid transparent;
+}
+
+.mentorship-tabs button.active {
+  color: #795716;
+  background: #faf0d5;
+  border-color: #e8d095;
+}
+
+.mentorship-tabs small {
+  min-width: 24px;
+  border-radius: 999px;
+  padding: 2px 7px;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  text-align: center;
+}
+
+.mentorship-workspace {
+  align-items: start;
+}
+
+.mentorship-stacked {
+  display: grid;
+  gap: 16px;
+}
+
+.mentorship-form {
+  align-content: start;
+}
+
+.mentorship-form > .btn {
+  justify-self: start;
+  min-width: 170px;
+}
+
+.mentorship-panel-card {
+  display: grid;
+  gap: 14px;
+}
+
+.mentorship-card-list {
+  display: grid;
+  gap: 12px;
+}
+
+.mentor-link-card,
+.mentor-session-card,
+.task-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdf8;
+  padding: 14px;
+}
+
+.mentor-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mentor-card-head h3,
+.task-card h3 {
+  margin: 4px 0 0;
+  color: var(--navy);
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.mentorship-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mentorship-meta.compact {
+  grid-template-columns: 1fr;
+}
+
+.mentorship-meta span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.mentorship-meta strong,
+.mentorship-card-actions label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mentorship-notes {
+  display: grid;
+  gap: 8px;
+}
+
+.mentorship-notes p,
+.task-card p,
+.mentorship-step p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.mentorship-notes strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--navy);
+}
+
+.mentorship-card-actions {
+  display: grid;
+  gap: 6px;
+  max-width: 240px;
+}
+
+.mentorship-kanban {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.task-column {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  padding: 10px;
+}
+
+.task-column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--navy);
+  font-weight: 850;
+}
+
+.task-column-head span,
+.empty-pill {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: white;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.task-list {
+  display: grid;
+  gap: 10px;
+}
+
+.task-card {
+  background: white;
+}
+
+.empty-pill {
+  border-radius: 8px;
+  min-height: 48px;
+}
+
+.mentorship-process-card,
+.mentorship-ai-card {
+  align-self: start;
+}
+
+.mentorship-timeline {
+  display: grid;
+  gap: 11px;
+}
+
+.mentorship-step {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 11px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.mentorship-step > span {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--blue);
+  color: white;
+  font-weight: 850;
+}
+
+.mentorship-step strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--navy);
+}
+
 .question-card {
   display: grid;
   gap: 12px;
@@ -1153,16 +1397,21 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .mentorship-title {
+    display: grid;
+  }
+
   .grid.kpis,
   .grid.three,
   .filters,
   .form-grid,
   .form-grid.compact,
-  .access-grid,
-  .application-details,
-  .choice-grid,
-  .scale-items,
-  .score-inputs {
+    .access-grid,
+    .application-details,
+    .choice-grid,
+    .scale-items,
+    .score-inputs,
+    .mentorship-kanban {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1187,12 +1436,29 @@ textarea {
   .filters,
   .form-grid,
   .form-grid.compact,
-  .access-grid,
-  .application-details,
-  .choice-grid,
-  .scale-items,
-  .score-inputs {
+    .access-grid,
+    .application-details,
+    .choice-grid,
+    .scale-items,
+    .score-inputs,
+    .mentorship-meta,
+    .mentorship-kanban {
     grid-template-columns: 1fr;
+  }
+
+  .mentorship-tabs {
+    padding: 5px;
+  }
+
+  .mentorship-tabs button {
+    flex: 1 0 145px;
+    justify-content: center;
+  }
+
+  .mentorship-form > .btn,
+  .mentorship-card-actions {
+    width: 100%;
+    max-width: none;
   }
 
   .choice-row {
