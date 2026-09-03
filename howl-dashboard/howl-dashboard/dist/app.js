@@ -2255,29 +2255,66 @@ function mentorPortfolioDashboardCard(activeLinks) {
       <p>O gestor do programa ainda não atribuiu startups ao seu acompanhamento.</p>
     </div>`;
   }
+  const sessions = mentorshipSessionsVisibleToUser();
+  const tasks = mentorshipTasksVisibleToUser();
   return `<div class="card pad mentor-dashboard-card">
     <div class="row between wrap">
       <div><span class="metric-label">Portfólio</span><h2>Startups acompanhadas</h2></div>
-      <button class="btn" type="button" onclick="go('startups')">Ver portfólio</button>
+      <span class="badge gray">${activeLinks.length} vinculadas</span>
     </div>
-    <div class="mentor-startup-list">
-      ${activeLinks.slice(0, 5).map((link) => {
+    <div class="mentor-startup-list detailed">
+      ${activeLinks.map((link) => {
         const startup = startups.find((item) => item.id === link.startupId);
         const result = latestAssessment(link.startupId);
+        const health = result?.hasResponses ? startupHealthLabel(result.howlScore) : "Sem avaliação";
         const score = result?.hasResponses ? Math.round(result.howlScore) : 0;
-        return `<article class="mentor-startup-summary">
-          <div>
-            <strong>${escapeHtml(startup?.name || startupName(link.startupId))}</strong>
-            <span>${escapeHtml(startup?.stage || "Estágio não informado")} • ${escapeHtml(link.notes || "Mentoria ativa")}</span>
+        const startupSessions = sessions.filter((session) => session.startupId === link.startupId);
+        const nextSession = nextMentorSessionForStartup(startupSessions);
+        const openTasks = tasks.filter((task) => task.startupId === link.startupId && task.status !== "done");
+        return `<article class="mentor-portfolio-card">
+          <div class="mentor-portfolio-head">
+            <div>
+              <span class="metric-label">${escapeHtml(programById(link.programId)?.name || "Programa HORDA")}</span>
+              <h3>${escapeHtml(startup?.name || startupName(link.startupId))}</h3>
+              <p>${escapeHtml(startup?.sector || "Setor não informado")} • ${escapeHtml(startup?.city || "Cidade não informada")}/${escapeHtml(startup?.state || "--")}</p>
+            </div>
+            <span class="badge ${statusColor(health)}">${escapeHtml(health)}</span>
           </div>
-          <div class="mentor-score">
-            <span>${result?.hasResponses ? `${score}%` : "—"}</span>
+          <div class="mentor-portfolio-metrics">
+            <div><strong>${escapeHtml(startup?.stage || "—")}</strong><span>Estágio</span></div>
+            <div><strong>${result?.hasResponses ? `${score}%` : "—"}</strong><span>Score</span></div>
+            <div><strong>${result?.hasResponses ? escapeHtml(result.label) : "Pendente"}</strong><span>Última avaliação</span></div>
+          </div>
+          <div class="mentor-portfolio-progress">
+            <div class="bar-label"><span>Saúde e progresso</span><span>${result?.hasResponses ? `${score}%` : "sem dados"}</span></div>
             <div class="bar value"><span style="width:${score}%;background:var(--blue)"><b>${score}</b></span></div>
+          </div>
+          <div class="mentor-portfolio-details">
+            <div><strong>Próxima sessão</strong><span>${nextSession ? `${escapeHtml(nextSession.topic || "Mentoria")} • ${formatDateTime(nextSession.scheduledAt)}` : "Nenhuma sessão agendada"}</span></div>
+            <div><strong>Tarefas abertas</strong><span>${openTasks.length ? `${openTasks.length} abertas • ${escapeHtml(openTasks[0].title)}` : "Nenhuma tarefa aberta"}</span></div>
+          </div>
+          <div class="mentor-portfolio-actions">
+            <button class="btn" type="button" onclick='openMentorStartup(${JSON.stringify(link.startupId)})'>Abrir startup</button>
+            <button class="btn" type="button" onclick="setMentorDashboardTab('agenda')">Ver agenda</button>
           </div>
         </article>`;
       }).join("")}
     </div>
   </div>`;
+}
+
+function nextMentorSessionForStartup(sessions) {
+  const future = sessions
+    .filter((session) => session.status === "scheduled" && session.scheduledAt && new Date(session.scheduledAt) >= new Date())
+    .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));
+  return future[0] || sessions.filter((session) => session.status === "scheduled").sort((a, b) => new Date(a.scheduledAt || 0) - new Date(b.scheduledAt || 0))[0];
+}
+
+function openMentorStartup(startupId) {
+  if (accessibleStartups().some((startup) => startup.id === startupId)) {
+    selectedStartupId = startupId;
+  }
+  go("startups");
 }
 
 function mentorImpactDashboardCard(stats, latestLinked) {

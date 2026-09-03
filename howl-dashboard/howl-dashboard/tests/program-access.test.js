@@ -117,6 +117,10 @@ const result = vm.runInContext(
     const mentorCalendarWeekOffset = activeMentorCalendarWeekOffset;
     setMentorDashboardTab("portfolio");
     const mentorPortfolioHtml = document.getElementById("app").innerHTML;
+    openMentorStartup("agrosense");
+    const mentorSelectedStartupId = selectedStartupId;
+    const mentorStartupRoute = activeRoute;
+    activeRoute = "dashboard";
     setMentorDashboardTab("analytics");
     const mentorAnalyticsHtml = document.getElementById("app").innerHTML;
     const mentorNavLabels = navItemsForUser().map((item) => item[2]);
@@ -137,6 +141,8 @@ const result = vm.runInContext(
       mentorDashboardHtml,
       mentorCalendarWeekOffset,
       mentorPortfolioHtml,
+      mentorSelectedStartupId,
+      mentorStartupRoute,
       mentorAnalyticsHtml,
       mentorNavLabels,
       founderDashboardHtml,
@@ -169,7 +175,16 @@ assert(result.mentorDashboardHtml.includes("shiftMentorCalendarWeek(-1)"));
 assert(result.mentorDashboardHtml.includes("shiftMentorCalendarWeek(1)"));
 assert.strictEqual(result.mentorCalendarWeekOffset, 1);
 assert(result.mentorPortfolioHtml.includes("Startup Alpha"));
+assert(result.mentorPortfolioHtml.includes("Estágio"));
+assert(result.mentorPortfolioHtml.includes("Score"));
+assert(result.mentorPortfolioHtml.includes("Última avaliação"));
+assert(result.mentorPortfolioHtml.includes("Próxima sessão"));
+assert(result.mentorPortfolioHtml.includes("Tarefas abertas"));
 assert(result.mentorPortfolioHtml.includes("Validar ICP prioritário"));
+assert(result.mentorPortfolioHtml.includes("Abrir startup"));
+assert(result.mentorPortfolioHtml.includes("Ver agenda"));
+assert.strictEqual(result.mentorSelectedStartupId, "agrosense");
+assert.strictEqual(result.mentorStartupRoute, "startups");
 assert(result.mentorAnalyticsHtml.includes("Evolução do portfólio"));
 assert.deepStrictEqual(Array.from(result.mentorNavLabels), [
   "Dashboard",

@@ -1244,6 +1244,91 @@ button {
   gap: 11px;
 }
 
+.mentor-startup-list.detailed {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.mentor-portfolio-card {
+  min-height: 342px;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdf8;
+  padding: 16px;
+}
+
+.mentor-portfolio-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mentor-portfolio-head h3 {
+  margin: 4px 0 6px;
+  color: var(--navy);
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.mentor-portfolio-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.mentor-portfolio-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mentor-portfolio-metrics div,
+.mentor-portfolio-details div {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  padding: 10px;
+}
+
+.mentor-portfolio-metrics strong,
+.mentor-portfolio-details strong {
+  display: block;
+  color: var(--navy);
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.mentor-portfolio-metrics span,
+.mentor-portfolio-details span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.mentor-portfolio-progress {
+  display: grid;
+  gap: 6px;
+}
+
+.mentor-portfolio-details {
+  display: grid;
+  gap: 10px;
+}
+
+.mentor-portfolio-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-self: end;
+}
+
 .mentor-session-row,
 .mentor-startup-summary,
 .mentor-task-row {
@@ -2492,6 +2577,7 @@ textarea {
   .startup-kpi-grid,
   .startup-growth-track,
   .mentor-week-grid,
+  .mentor-startup-list.detailed,
   .filters,
   .form-grid,
   .form-grid.compact,
@@ -2730,6 +2816,24 @@ textarea {
 
   .mentor-day-card {
     min-height: 112px;
+  }
+
+  .mentor-portfolio-card {
+    min-height: auto;
+  }
+
+  .mentor-portfolio-head,
+  .mentor-portfolio-actions {
+    display: grid;
+  }
+
+  .mentor-portfolio-head .badge,
+  .mentor-portfolio-actions .btn {
+    justify-self: start;
+  }
+
+  .mentor-portfolio-metrics {
+    grid-template-columns: 1fr;
   }
 
   .mentorship-form > .btn,
