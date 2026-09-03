@@ -113,6 +113,10 @@ const result = vm.runInContext(
     const evaluatorIds = accessibleStartups().map((startup) => startup.id);
     render();
     const mentorDashboardHtml = document.getElementById("app").innerHTML;
+    setMentorDashboardTab("portfolio");
+    const mentorPortfolioHtml = document.getElementById("app").innerHTML;
+    setMentorDashboardTab("analytics");
+    const mentorAnalyticsHtml = document.getElementById("app").innerHTML;
     const mentorNavLabels = navItemsForUser().map((item) => item[2]);
 
     activeUserId = "empreendedor-demo";
@@ -129,6 +133,8 @@ const result = vm.runInContext(
       filteredAdminIds,
       evaluatorIds,
       mentorDashboardHtml,
+      mentorPortfolioHtml,
+      mentorAnalyticsHtml,
       mentorNavLabels,
       founderDashboardHtml,
       founderNavLabels,
@@ -153,9 +159,13 @@ assert(result.adminSessionsHtml.includes("Nenhuma sessão encontrada"));
 assert(result.mentorDashboardHtml.includes("Dashboard do Mentor"));
 assert(result.mentorDashboardHtml.includes("Mentor IA (em Breve)"));
 assert(result.mentorDashboardHtml.includes("Avaliador Demo 1"));
-assert(result.mentorDashboardHtml.includes("Startup Alpha"));
+assert(result.mentorDashboardHtml.includes("Agenda de Mentorias"));
+assert(result.mentorDashboardHtml.includes("Conectar Google Calendar"));
+assert(result.mentorDashboardHtml.includes("Agendar"));
 assert(result.mentorDashboardHtml.includes("Revisão de tração"));
-assert(result.mentorDashboardHtml.includes("Validar ICP prioritário"));
+assert(result.mentorPortfolioHtml.includes("Startup Alpha"));
+assert(result.mentorPortfolioHtml.includes("Validar ICP prioritário"));
+assert(result.mentorAnalyticsHtml.includes("Evolução do portfólio"));
 assert.deepStrictEqual(Array.from(result.mentorNavLabels), [
   "Dashboard",
   "Agenda",

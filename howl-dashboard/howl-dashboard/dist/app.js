@@ -260,6 +260,7 @@ let selectedDashboardProgramId = "all";
 let selectedMonthIndex = 3;
 let activeMentorshipTab = "agenda";
 let activeProgramDashboardTab = "executive";
+let activeMentorDashboardTab = "agenda";
 let programSessionSearch = "";
 let programSessionStatusFilter = "all";
 let programSessionDateFilter = "all";
@@ -2070,6 +2071,22 @@ function renderMentorDashboard() {
     const now = new Date();
     return scheduledAt.getMonth() === now.getMonth() && scheduledAt.getFullYear() === now.getFullYear();
   }).length;
+  const context = {
+    mentor,
+    activeLinks,
+    mentorStartups,
+    latestLinked,
+    mentorStats,
+    sessions,
+    scheduledSessions,
+    completedSessions,
+    tasks,
+    openTasks,
+    averageRating,
+  };
+  if (!["agenda", "portfolio", "analytics"].includes(activeMentorDashboardTab)) {
+    activeMentorDashboardTab = "agenda";
+  }
 
   return `
     <section class="page mentor-dashboard-page">
@@ -2083,20 +2100,8 @@ function renderMentorDashboard() {
             <p>Acompanhe suas startups vinculadas, agenda de sessões, tarefas pós-mentoria e impacto do portfólio.</p>
           </div>
           ${mentorProfileSummary(mentor, activeLinks, program, monthSessions)}
-          <div class="program-kpi-grid mentor-kpi-grid">
-            ${programKpiCard("Startups acompanhadas", activeLinks.length, "vínculos ativos", "◎")}
-            ${programKpiCard("Sessões agendadas", scheduledSessions.length, "próximas mentorias", "▣", "amber")}
-            ${programKpiCard("Tarefas abertas", openTasks.length, "plano de ação", "☑", openTasks.length ? "amber" : "green")}
-            ${programKpiCard("Avaliação média", averageRating ? fmt(averageRating, 1) : "—", averageRating ? "feedback das sessões" : "aguardando avaliação", "☆", averageRating ? "green" : "gray")}
-          </div>
-          <div class="grid two mentor-dashboard-grid">
-            ${mentorAgendaDashboardCard(sessions)}
-            ${mentorPortfolioDashboardCard(activeLinks)}
-          </div>
-          <div class="grid two mentor-dashboard-grid">
-            ${mentorImpactDashboardCard(mentorStats, latestLinked)}
-            ${mentorTasksDashboardCard(openTasks)}
-          </div>
+          ${mentorDashboardTabs(context)}
+          ${mentorDashboardPanel(activeMentorDashboardTab, context)}
         </div>
         ${programAiAgentsPanel()}
       </div>
@@ -2119,30 +2124,121 @@ function mentorProfileSummary(mentor, activeLinks, program, monthSessions) {
   </article>`;
 }
 
-function mentorAgendaDashboardCard(sessions) {
-  const orderedSessions = [...sessions].sort((a, b) => new Date(a.scheduledAt || 0) - new Date(b.scheduledAt || 0));
-  if (!orderedSessions.length) {
-    return `<div class="card pad empty-state">
-      <span class="metric-label">Agenda</span>
-      <h2>Nenhuma sessão registrada.</h2>
-      <p>Quando o gestor agendar mentorias para suas startups, elas aparecerão aqui.</p>
+function mentorDashboardTabs(context) {
+  const tabs = [
+    ["agenda", "▣", "Agenda", context.sessions.length],
+    ["portfolio", "♢", "Portfólio", context.activeLinks.length],
+    ["analytics", "▥", "Analytics", context.latestLinked.filter((result) => result?.hasResponses).length],
+  ];
+  return `<div class="tabs mentor-dashboard-tabs" role="tablist" aria-label="Áreas do dashboard do mentor">
+    ${tabs.map(([id, icon, label, count]) => `<button type="button" class="${activeMentorDashboardTab === id ? "active" : ""}" onclick="setMentorDashboardTab('${id}')" aria-selected="${activeMentorDashboardTab === id}">
+      <span aria-hidden="true">${icon}</span>
+      <strong>${label}</strong>
+      <small>${count}</small>
+    </button>`).join("")}
+  </div>`;
+}
+
+function mentorDashboardPanel(tab, context) {
+  if (tab === "portfolio") {
+    return `<div class="mentor-dashboard-panel">
+      <div class="program-kpi-grid mentor-kpi-grid compact">
+        ${programKpiCard("Startups acompanhadas", context.activeLinks.length, "vínculos ativos", "◎")}
+        ${programKpiCard("Tarefas abertas", context.openTasks.length, "plano de ação", "☑", context.openTasks.length ? "amber" : "green")}
+        ${programKpiCard("Progresso médio", fmt(context.mentorStats.avgScore, 0), "startups acompanhadas", "↗")}
+      </div>
+      <div class="grid two mentor-dashboard-grid">
+        ${mentorPortfolioDashboardCard(context.activeLinks)}
+        ${mentorTasksDashboardCard(context.openTasks)}
+      </div>
     </div>`;
   }
+  if (tab === "analytics") {
+    return `<div class="mentor-dashboard-panel">
+      <div class="program-kpi-grid mentor-kpi-grid">
+        ${programKpiCard("Progresso médio", fmt(context.mentorStats.avgScore, 0), "startups acompanhadas", "↗")}
+        ${programKpiCard("Sessões concluídas", context.completedSessions.length, "histórico registrado", "✓", "green")}
+        ${programKpiCard("Avaliação média", context.averageRating ? fmt(context.averageRating, 1) : "—", context.averageRating ? "feedback das sessões" : "aguardando avaliação", "☆", context.averageRating ? "green" : "gray")}
+        ${programKpiCard("Tarefas abertas", context.openTasks.length, "pós-mentoria", "☑", context.openTasks.length ? "amber" : "green")}
+      </div>
+      ${mentorImpactDashboardCard(context.mentorStats, context.latestLinked)}
+    </div>`;
+  }
+  return `<div class="mentor-dashboard-panel">
+    ${mentorAgendaCalendarCard(context.sessions)}
+  </div>`;
+}
+
+function setMentorDashboardTab(tab) {
+  activeMentorDashboardTab = tab;
+  render();
+}
+
+function mentorAgendaCalendarCard(sessions) {
+  const orderedSessions = [...sessions].sort((a, b) => new Date(a.scheduledAt || 0) - new Date(b.scheduledAt || 0));
+  const focusDate = orderedSessions[0]?.scheduledAt ? new Date(orderedSessions[0].scheduledAt) : new Date();
+  const weekDays = mentorWeekDays(focusDate);
+  const monthLabel = focusDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const monthlySessions = sessions.filter((session) => sameMonth(session.scheduledAt, focusDate));
+  const scheduledSessions = monthlySessions.filter((session) => session.status === "scheduled");
+  const completedSessions = monthlySessions.filter((session) => session.status === "completed");
   return `<div class="card pad mentor-dashboard-card">
     <div class="row between wrap">
-      <div><span class="metric-label">Agenda</span><h2>Próximas sessões</h2></div>
-      <button class="btn" type="button" onclick="go('mentorship')">Abrir agenda</button>
+      <div class="row wrap mentor-card-title"><span aria-hidden="true">▣</span><h2>Agenda de Mentorias</h2></div>
+      <div class="row wrap mentor-calendar-actions">
+        <button class="btn" type="button" title="Integração prevista para uma próxima etapa">▣ Conectar Google Calendar</button>
+        <button class="btn" type="button" onclick="go('mentorship')">+ Agendar</button>
+      </div>
     </div>
-    <div class="mentor-session-list">
-      ${orderedSessions.slice(0, 5).map((session) => `<article class="mentor-session-row">
-        <div>
-          <strong>${escapeHtml(session.topic || "Mentoria sem pauta")}</strong>
-          <span>${escapeHtml(startupName(session.startupId))} • ${formatDateTime(session.scheduledAt)} • ${session.durationMinutes || 60} min</span>
-        </div>
-        <span class="badge ${mentorshipStatusColor(session.status)}">${mentorshipStatusLabel(session.status)}</span>
-      </article>`).join("")}
+    <div class="mentor-calendar-nav">
+      <button class="btn icon" type="button" aria-label="Semana anterior">‹</button>
+      <strong>${escapeHtml(monthLabel)}</strong>
+      <button class="btn icon" type="button" aria-label="Próxima semana">›</button>
+    </div>
+    <div class="mentor-week-grid">
+      ${weekDays.map((day) => mentorDayCard(day, sessions)).join("")}
+    </div>
+    <div class="mentor-calendar-summary">
+      <div><strong>${monthlySessions.length}</strong><span>Este mês</span></div>
+      <div><strong>${scheduledSessions.length}</strong><span>Agendadas</span></div>
+      <div><strong>${completedSessions.length}</strong><span>Concluídas</span></div>
     </div>
   </div>`;
+}
+
+function mentorWeekDays(date) {
+  const start = new Date(date);
+  const day = start.getDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  start.setDate(start.getDate() + diffToMonday);
+  return Array.from({ length: 5 }, (_, index) => {
+    const value = new Date(start);
+    value.setDate(start.getDate() + index);
+    return value;
+  });
+}
+
+function mentorDayCard(day, sessions) {
+  const daySessions = sessions.filter((session) => sameDay(session.scheduledAt, day));
+  const today = sameDay(day, new Date());
+  const label = day.toLocaleDateString("pt-BR", { weekday: "long" });
+  return `<article class="mentor-day-card ${today ? "active" : ""}">
+    <span>${escapeHtml(label)}</span>
+    <strong>${day.getDate()}</strong>
+    <small>${daySessions.length ? daySessions.map((session) => escapeHtml(session.topic || "Sessão")).join("<br>") : "—"}</small>
+  </article>`;
+}
+
+function sameDay(value, date) {
+  if (!value) return false;
+  const item = new Date(value);
+  return item.getDate() === date.getDate() && item.getMonth() === date.getMonth() && item.getFullYear() === date.getFullYear();
+}
+
+function sameMonth(value, date) {
+  if (!value) return false;
+  const item = new Date(value);
+  return item.getMonth() === date.getMonth() && item.getFullYear() === date.getFullYear();
 }
 
 function mentorPortfolioDashboardCard(activeLinks) {

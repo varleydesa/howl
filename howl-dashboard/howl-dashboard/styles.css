@@ -1075,6 +1075,55 @@ button {
   margin-top: 22px;
 }
 
+.mentor-dashboard-tabs {
+  margin: 24px 0;
+  padding: 5px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  border: 0;
+  border-radius: 8px;
+  background: #f1f2f4;
+}
+
+.mentor-dashboard-tabs button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 0;
+  border-bottom: 0;
+  border-radius: 7px;
+  color: #697587;
+  font-weight: 850;
+}
+
+.mentor-dashboard-tabs button.active {
+  background: white;
+  color: var(--navy);
+  box-shadow: 0 1px 4px rgba(17, 14, 8, 0.08);
+}
+
+.mentor-dashboard-tabs button > span {
+  color: inherit;
+  font-size: 18px;
+}
+
+.mentor-dashboard-tabs strong {
+  font-size: 16px;
+}
+
+.mentor-dashboard-tabs small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.mentor-dashboard-panel {
+  display: grid;
+  gap: 18px;
+}
+
 .mentor-dashboard-grid {
   margin-top: 18px;
 }
@@ -1087,6 +1136,105 @@ button {
 
 .mentor-dashboard-card h2 {
   margin: 0;
+}
+
+.mentor-card-title {
+  align-items: center;
+}
+
+.mentor-card-title > span {
+  color: var(--blue);
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.mentor-calendar-actions {
+  justify-content: flex-end;
+}
+
+.mentor-calendar-nav {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  text-align: center;
+}
+
+.mentor-calendar-nav strong {
+  color: var(--navy);
+  font-size: 17px;
+}
+
+.mentor-week-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.mentor-day-card {
+  min-height: 150px;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdf8;
+  padding: 16px 10px;
+  text-align: center;
+}
+
+.mentor-day-card.active {
+  border-color: #d8bb72;
+  background: #fff6df;
+}
+
+.mentor-day-card span {
+  color: #667085;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.mentor-day-card strong {
+  color: var(--navy);
+  font-size: 25px;
+  line-height: 1;
+}
+
+.mentor-day-card small {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.mentor-calendar-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 22px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+  text-align: center;
+}
+
+.mentor-calendar-summary strong {
+  display: block;
+  color: var(--blue);
+  font-size: 30px;
+  line-height: 1;
+}
+
+.mentor-calendar-summary div:nth-child(3) strong {
+  color: var(--green);
+}
+
+.mentor-calendar-summary span {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .mentor-session-list,
@@ -2343,6 +2491,7 @@ textarea {
   .program-session-filters,
   .startup-kpi-grid,
   .startup-growth-track,
+  .mentor-week-grid,
   .filters,
   .form-grid,
   .form-grid.compact,
@@ -2452,6 +2601,20 @@ textarea {
     font-size: 15px;
   }
 
+  .mentor-dashboard-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .mentor-calendar-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .mentor-calendar-actions .btn {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+
   .startup-identity-card {
     grid-template-columns: 54px minmax(0, 1fr);
     align-items: start;
@@ -2558,6 +2721,15 @@ textarea {
   .mentor-task-row select {
     width: 100%;
     min-width: 0;
+  }
+
+  .mentor-week-grid,
+  .mentor-calendar-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .mentor-day-card {
+    min-height: 112px;
   }
 
   .mentorship-form > .btn,
