@@ -562,6 +562,15 @@ function ensureAccessibleStartup() {
 }
 
 function navItemsForUser() {
+  if (normalizedRole() === "empreendedor") {
+    return [
+      ["dashboard", "◎", "Minha Jornada"],
+      ["mentorship", "☑", "Plano de Ação"],
+      ["assessment", "◉", "Avaliação"],
+      ["compare", "⌁", "Análise de Rota"],
+      ["history", "↗", "Evolução"],
+    ];
+  }
   const base = [
     ["dashboard", "⌂", "Dashboard"],
     ["startups", "▦", "Startups"],
@@ -1769,6 +1778,9 @@ function renderDashboard() {
       : isClient()
         ? `Visão executiva das startups do programa ${programById(activeUser().programId)?.name || ""}.`
       : "Visão executiva das startups atribuídas ao seu perfil de avaliador.";
+  if (isFounderDashboard) {
+    return renderStartupFounderDashboard({ ownStartup, ownResult, generalStats, scoreDelta });
+  }
   if (!isFounderDashboard && isManager()) {
     return renderProgramManagerDashboard({
       visibleStartups,
@@ -1839,6 +1851,188 @@ function renderDashboard() {
       </div>
     </section>
   `;
+}
+
+function renderStartupFounderDashboard({ ownStartup, ownResult, generalStats, scoreDelta }) {
+  const activeLinks = mentorshipLinksVisibleToUser().filter((link) => link.status === "active");
+  const sessions = mentorshipSessionsVisibleToUser();
+  const tasks = mentorshipTasksVisibleToUser();
+  const openTasks = tasks.filter((task) => task.status !== "done");
+  const mentorLabel = activeLinks.length ? mentorName(activeLinks[0].mentorId) : "Pendente";
+  const progress = Math.round(ownResult.howlScore);
+  const health = startupHealthLabel(ownResult.howlScore);
+  return `
+    <section class="page startup-dashboard-page">
+      <div class="startup-dashboard-layout">
+        <div class="startup-dashboard-main">
+          <div class="startup-dashboard-header">
+            <div class="row wrap">
+              <h1>Minha Jornada de Startup</h1>
+              <span class="badge blue">AI Agents (em Breve)</span>
+            </div>
+            <p>${escapeHtml(ownStartup.description || "Acompanhe sua evolução, mentorias e plano de ação com dados reais da plataforma.")}</p>
+          </div>
+          ${startupIdentityCard(ownStartup, health)}
+          <div class="startup-kpi-grid">
+            ${startupKpiCard("Progresso", `${progress}%`, `${scoreDelta >= 0 ? "+" : ""}${fmt(scoreDelta, 0)} vs média`, `Meta: 100%`, progress, "◎", statusColor(evolutionText(scoreDelta)))}
+            ${startupKpiCard("Estágio", ownStartup.stage || "Não informado", "atual", "Jornada de crescimento", null, "♢", "blue")}
+            ${startupKpiCard("Status", health, ownResult.classification, "Saúde atual", null, "↗", statusColor(ownResult.classification))}
+            ${startupKpiCard("Mentor", mentorLabel, activeLinks.length ? "Vinculado" : "Aguardando", `${sessions.length} sessões`, null, "♧", activeLinks.length ? "green" : "gray")}
+          </div>
+          ${startupEventsCard(sessions, openTasks)}
+          ${startupGrowthJourneyCard(ownResult)}
+          <div class="grid two startup-dashboard-grid">
+            ${startupActionPlanCard(openTasks)}
+            ${startupMentorshipCard(activeLinks, sessions)}
+          </div>
+          <div class="grid two startup-dashboard-grid">
+            ${startupRouteAnalysisCard(ownResult, generalStats, scoreDelta)}
+            ${startupResourcesCard()}
+          </div>
+        </div>
+        ${programAiAgentsPanel()}
+      </div>
+    </section>
+  `;
+}
+
+function startupIdentityCard(startup, health) {
+  const initial = escapeHtml((startup.name || "S").trim()[0] || "S").toUpperCase();
+  return `<article class="card pad startup-identity-card">
+    <div class="startup-avatar">${initial}</div>
+    <div>
+      <h2>${escapeHtml(startup.name)}</h2>
+      <p>${escapeHtml(startup.description || `${startup.sector || "Startup"} em estágio ${startup.stage || "não informado"}.`)}</p>
+    </div>
+    <span class="badge ${statusColor(health)}">${escapeHtml(health)}</span>
+  </article>`;
+}
+
+function startupKpiCard(label, value, pill, detail, progress, icon, color) {
+  return `<article class="card pad startup-kpi-card ${color}">
+    <div class="row between wrap">
+      <span aria-hidden="true" class="startup-kpi-icon">${icon}</span>
+      <span class="badge ${color}">${escapeHtml(pill)}</span>
+    </div>
+    <strong>${escapeHtml(value)}</strong>
+    <p>${escapeHtml(label)}</p>
+    ${progress === null ? `<small>${escapeHtml(detail)}</small>` : `<div>
+      <div class="bar-label"><span>${escapeHtml(detail)}</span><span>${progress}%</span></div>
+      <div class="bar value"><span style="width:${progress}%;background:var(--blue)"><b>${progress}</b></span></div>
+    </div>`}
+  </article>`;
+}
+
+function startupEventsCard(sessions, tasks) {
+  const upcomingSessions = sessions
+    .filter((session) => session.status === "scheduled" && session.scheduledAt && new Date(session.scheduledAt) >= new Date())
+    .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));
+  const upcomingTasks = tasks
+    .filter((task) => task.dueDate)
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+  const events = [
+    upcomingSessions[0] ? ["Sessão com Mentor", relativeDateLabel(upcomingSessions[0].scheduledAt), "blue"] : null,
+    upcomingTasks[0] ? ["Prazo de tarefa", relativeDateLabel(upcomingTasks[0].dueDate), "amber"] : null,
+    ["Avaliação mensal", "Ciclo atual", "green"],
+  ].filter(Boolean);
+  return `<div class="card pad startup-events-card">
+    <div class="row wrap"><span aria-hidden="true">▣</span><h2>Próximos Eventos</h2></div>
+    <div class="startup-event-list">
+      ${events.map(([title, date, color]) => `<span class="startup-event-chip ${color}"><strong>${escapeHtml(title)}</strong> • ${escapeHtml(date)}</span>`).join("")}
+    </div>
+  </div>`;
+}
+
+function startupGrowthJourneyCard(result) {
+  const currentTrail = result.currentTrail;
+  return `<div class="card pad startup-growth-card">
+    <div class="row wrap"><span aria-hidden="true">♢</span><h2>Jornada de Crescimento</h2></div>
+    <div class="startup-growth-track">
+      ${result.journeyResults.map((journey) => {
+        const percent = Math.round(journey.finalAverage * 20);
+        const active = journey.name === currentTrail || currentTrail.includes(journey.name);
+        const done = percent >= 70;
+        return `<article class="${active ? "active" : done ? "done" : ""}">
+          <span>${done ? "✓" : active ? "●" : "○"}</span>
+          <strong>${escapeHtml(journey.name)}</strong>
+          <small>${percent}% • ${escapeHtml(journey.gate)}</small>
+        </article>`;
+      }).join("")}
+    </div>
+  </div>`;
+}
+
+function startupActionPlanCard(tasks) {
+  return `<div class="card pad startup-panel-card">
+    <div class="row between wrap">
+      <div><span class="metric-label">Plano de ação</span><h2>Tarefas prioritárias</h2></div>
+      <span class="badge amber">${tasks.length} abertas</span>
+    </div>
+    <div class="mini-list">
+      ${tasks.slice(0, 5).map((task) => `<div><strong>${escapeHtml(task.title)}</strong><span>${escapeHtml(taskStatusLabel(task.status))} • ${task.dueDate ? formatDate(task.dueDate) : "Sem prazo"} • ${escapeHtml(priorityLabel(task.priority))}</span></div>`).join("") || `<div><strong>Nenhuma tarefa aberta</strong><span>Quando houver próximos passos de mentoria, eles aparecerão aqui.</span></div>`}
+    </div>
+  </div>`;
+}
+
+function startupMentorshipCard(links, sessions) {
+  const nextSession = sessions
+    .filter((session) => session.status === "scheduled")
+    .sort((a, b) => new Date(a.scheduledAt || 0) - new Date(b.scheduledAt || 0))[0];
+  return `<div class="card pad startup-panel-card">
+    <div class="row between wrap">
+      <div><span class="metric-label">Mentoria</span><h2>${links.length ? mentorName(links[0].mentorId) : "Mentor pendente"}</h2></div>
+      <span class="badge ${links.length ? "green" : "gray"}">${links.length ? "Vinculado" : "Pendente"}</span>
+    </div>
+    <div class="mini-list">
+      <div><strong>Próxima sessão</strong><span>${nextSession ? `${escapeHtml(nextSession.topic)} • ${formatDateTime(nextSession.scheduledAt)}` : "Nenhuma sessão agendada"}</span></div>
+      <div><strong>Histórico</strong><span>${sessions.filter((session) => session.status === "completed").length} sessões concluídas</span></div>
+    </div>
+  </div>`;
+}
+
+function startupRouteAnalysisCard(result, stats, scoreDelta) {
+  const weakestAvg = stats.journeyAverages.find((journey) => journey.id === result.weakestJourney.id)?.avg || 0;
+  return `<div class="card pad startup-panel-card">
+    <span class="metric-label">Análise de rota</span>
+    <h2>Próximo foco</h2>
+    <div class="alerts">
+      <div class="alert">${scoreDelta >= 0 ? "Sua startup está acima da média geral." : "Sua startup está abaixo da média geral."}</div>
+      <div class="alert">Prioridade: ${escapeHtml(result.weakestJourney.name)} com ${fmt(result.weakestJourney.finalAverage)}/5 contra ${fmt(weakestAvg)}/5 da média.</div>
+      <div class="alert">${escapeHtml(result.strategicRecommendation)}</div>
+    </div>
+  </div>`;
+}
+
+function startupResourcesCard() {
+  const resources = [
+    ["Template de entrevista", "Validação de problema e ICP"],
+    ["Canvas de hipótese", "Organização de aprendizados"],
+    ["Roteiro de mentoria", "Preparação para próxima sessão"],
+  ];
+  return `<div class="card pad startup-panel-card">
+    <span class="metric-label">Recursos</span>
+    <h2>Materiais do programa</h2>
+    <div class="mini-list">
+      ${resources.map(([title, text]) => `<div><strong>${title}</strong><span>${text}</span></div>`).join("")}
+    </div>
+  </div>`;
+}
+
+function startupHealthLabel(score) {
+  if (score >= 75) return "Saudável";
+  if (score >= 50) return "Em atenção";
+  return "Crítico";
+}
+
+function relativeDateLabel(value) {
+  if (!value) return "sem data";
+  const today = new Date();
+  const target = new Date(value);
+  const diffDays = Math.ceil((target.setHours(0, 0, 0, 0) - today.setHours(0, 0, 0, 0)) / 86400000);
+  if (diffDays === 0) return "Hoje";
+  if (diffDays === 1) return "Amanhã";
+  if (diffDays > 1) return `Em ${diffDays} dias`;
+  return formatDate(value);
 }
 
 function renderProgramManagerDashboard(context) {

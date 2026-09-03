@@ -70,12 +70,21 @@ const result = vm.runInContext(
     selectedDashboardProgramId = "all";
     const evaluatorIds = accessibleStartups().map((startup) => startup.id);
 
+    activeUserId = "empreendedor-demo";
+    activeRoute = "dashboard";
+    selectedStartupId = "agrosense";
+    render();
+    const founderDashboardHtml = document.getElementById("app").innerHTML;
+    const founderNavLabels = navItemsForUser().map((item) => item[2]);
+
     ({
       adminDashboardHtml,
       adminSessionsHtml,
       adminHasFilter,
       filteredAdminIds,
       evaluatorIds,
+      founderDashboardHtml,
+      founderNavLabels,
       currentProgramStartupIds: startups
         .filter((startup) => startup.programId === "programa-howl-atual")
         .map((startup) => startup.id)
@@ -94,6 +103,17 @@ assert(result.adminSessionsHtml.includes("Total de Sessões"));
 assert(result.adminSessionsHtml.includes("Avaliação Média"));
 assert(result.adminSessionsHtml.includes("Buscar por título, startup ou mentor"));
 assert(result.adminSessionsHtml.includes("Nenhuma sessão encontrada"));
+assert(result.founderDashboardHtml.includes("Minha Jornada de Startup"));
+assert(result.founderDashboardHtml.includes("Próximos Eventos"));
+assert(result.founderDashboardHtml.includes("Jornada de Crescimento"));
+assert(result.founderDashboardHtml.includes("Agentes de IA"));
+assert.deepStrictEqual(Array.from(result.founderNavLabels), [
+  "Minha Jornada",
+  "Plano de Ação",
+  "Avaliação",
+  "Análise de Rota",
+  "Evolução",
+]);
 assert.deepStrictEqual(Array.from(result.filteredAdminIds), ["startup-externa"]);
 assert(!result.evaluatorIds.includes("startup-externa"));
 assert.deepStrictEqual(
