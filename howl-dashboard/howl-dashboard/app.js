@@ -1960,7 +1960,7 @@ function programExecutivePanel(context) {
       ${programKpiCard("Startups", context.visibleStartups.length, `${context.completionRate}% com avaliação`, "♢", "blue")}
       ${programKpiCard("Mentores", context.visibleMentors.length, `${context.links.filter((link) => link.status === "active").length} mentorias ativas`, "♧", "blue")}
       ${programKpiCard("Sessões", context.sessions.length, `${context.scheduledSessions.length} agendadas`, "▣", "green")}
-      ${programKpiCard("Avaliação Média", fmt(context.dashboardStats.avgScore, 1), `${classifyHowlScore(context.dashboardStats.avgScore)} • ${context.completionRate}% com avaliação`, "☆", "amber")}
+      ${programKpiCard("Avaliação Média", fmt(context.dashboardStats.avgScore, 1), classifyHowlScore(context.dashboardStats.avgScore), "☆", "amber")}
     </div>
     <div class="grid two program-card-grid">
       <div class="card pad chart-card">
