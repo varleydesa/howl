@@ -10,6 +10,12 @@ Ambiente oficial atual: `https://horda1.vercel.app`.
 
 Usar o protótipo Lovable como referência de produto para evoluir o HORDA oficial, sem tratar o Lovable como base de produção. O foco é aproveitar os fluxos de mentoria, IA, tarefas, memória estratégica e painéis por perfil, conectando tudo ao Supabase real já configurado no projeto oficial.
 
+## Diretriz de implementação visual
+
+Nas próximas etapas, cada tela nova deve seguir a estrutura, ordem dos blocos, abas e fluxos observados no Lovable, porque a entrega final precisa ficar equivalente ao protótipo de referência. A adaptação deve preservar a identidade visual HORDA construída no projeto oficial: marca, paleta preto/dourado, cards, botões, tipografia, espaçamentos e linguagem visual já usados no sistema.
+
+Regra prática: antes de implementar uma área, consultar o Lovable em `https://horda-pathfinder.lovable.app/app`, mapear a tela de referência do perfil correto e só então adaptar para dados reais no Supabase com visual HORDA.
+
 ## Diagnóstico geral
 
 O Lovable apresenta uma experiência mais completa de plataforma SaaS, com telas separadas para Gestor, Mentor e Startup/Empreendedor. A proposta visual e funcional é boa, mas o protótipo ainda parece demonstrativo:
