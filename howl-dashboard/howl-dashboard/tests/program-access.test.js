@@ -113,6 +113,8 @@ const result = vm.runInContext(
     const evaluatorIds = accessibleStartups().map((startup) => startup.id);
     render();
     const mentorDashboardHtml = document.getElementById("app").innerHTML;
+    shiftMentorCalendarWeek(1);
+    const mentorCalendarWeekOffset = activeMentorCalendarWeekOffset;
     setMentorDashboardTab("portfolio");
     const mentorPortfolioHtml = document.getElementById("app").innerHTML;
     setMentorDashboardTab("analytics");
@@ -133,6 +135,7 @@ const result = vm.runInContext(
       filteredAdminIds,
       evaluatorIds,
       mentorDashboardHtml,
+      mentorCalendarWeekOffset,
       mentorPortfolioHtml,
       mentorAnalyticsHtml,
       mentorNavLabels,
@@ -162,7 +165,9 @@ assert(result.mentorDashboardHtml.includes("Avaliador Demo 1"));
 assert(result.mentorDashboardHtml.includes("Agenda de Mentorias"));
 assert(result.mentorDashboardHtml.includes("Conectar Google Calendar"));
 assert(result.mentorDashboardHtml.includes("Agendar"));
-assert(result.mentorDashboardHtml.includes("Revisão de tração"));
+assert(result.mentorDashboardHtml.includes("shiftMentorCalendarWeek(-1)"));
+assert(result.mentorDashboardHtml.includes("shiftMentorCalendarWeek(1)"));
+assert.strictEqual(result.mentorCalendarWeekOffset, 1);
 assert(result.mentorPortfolioHtml.includes("Startup Alpha"));
 assert(result.mentorPortfolioHtml.includes("Validar ICP prioritário"));
 assert(result.mentorAnalyticsHtml.includes("Evolução do portfólio"));

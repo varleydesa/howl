@@ -261,6 +261,7 @@ let selectedMonthIndex = 3;
 let activeMentorshipTab = "agenda";
 let activeProgramDashboardTab = "executive";
 let activeMentorDashboardTab = "agenda";
+let activeMentorCalendarWeekOffset = 0;
 let programSessionSearch = "";
 let programSessionStatusFilter = "all";
 let programSessionDateFilter = "all";
@@ -2174,9 +2175,14 @@ function setMentorDashboardTab(tab) {
   render();
 }
 
+function shiftMentorCalendarWeek(direction) {
+  activeMentorCalendarWeekOffset += Number(direction) || 0;
+  render();
+}
+
 function mentorAgendaCalendarCard(sessions) {
-  const orderedSessions = [...sessions].sort((a, b) => new Date(a.scheduledAt || 0) - new Date(b.scheduledAt || 0));
-  const focusDate = orderedSessions[0]?.scheduledAt ? new Date(orderedSessions[0].scheduledAt) : new Date();
+  const focusDate = new Date();
+  focusDate.setDate(focusDate.getDate() + activeMentorCalendarWeekOffset * 7);
   const weekDays = mentorWeekDays(focusDate);
   const monthLabel = focusDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   const monthlySessions = sessions.filter((session) => sameMonth(session.scheduledAt, focusDate));
@@ -2191,9 +2197,9 @@ function mentorAgendaCalendarCard(sessions) {
       </div>
     </div>
     <div class="mentor-calendar-nav">
-      <button class="btn icon" type="button" aria-label="Semana anterior">‹</button>
+      <button class="btn icon" type="button" onclick="shiftMentorCalendarWeek(-1)" aria-label="Semana anterior">‹</button>
       <strong>${escapeHtml(monthLabel)}</strong>
-      <button class="btn icon" type="button" aria-label="Próxima semana">›</button>
+      <button class="btn icon" type="button" onclick="shiftMentorCalendarWeek(1)" aria-label="Próxima semana">›</button>
     </div>
     <div class="mentor-week-grid">
       ${weekDays.map((day) => mentorDayCard(day, sessions)).join("")}
