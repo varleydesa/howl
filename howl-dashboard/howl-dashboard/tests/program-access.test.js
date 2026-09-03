@@ -58,9 +58,8 @@ const result = vm.runInContext(
     activeUserId = "admin-demo";
     activeRoute = "dashboard";
     render();
-    const adminHasFilter = document
-      .getElementById("app")
-      .innerHTML.includes("Todos os programas");
+    const adminDashboardHtml = document.getElementById("app").innerHTML;
+    const adminHasFilter = adminDashboardHtml.includes("Todos os programas");
     selectDashboardProgram("programa-externo");
     const filteredAdminIds = dashboardStartups().map((startup) => startup.id);
 
@@ -69,6 +68,7 @@ const result = vm.runInContext(
     const evaluatorIds = accessibleStartups().map((startup) => startup.id);
 
     ({
+      adminDashboardHtml,
       adminHasFilter,
       filteredAdminIds,
       evaluatorIds,
@@ -81,6 +81,11 @@ const result = vm.runInContext(
 );
 
 assert(result.adminHasFilter);
+assert(result.adminDashboardHtml.includes("Dashboard do Programa"));
+assert(result.adminDashboardHtml.includes("AI Analytics Ativo"));
+assert(result.adminDashboardHtml.includes("Agentes de IA"));
+assert(result.adminDashboardHtml.includes("Executivo"));
+assert(result.adminDashboardHtml.includes("Memória"));
 assert.deepStrictEqual(Array.from(result.filteredAdminIds), ["startup-externa"]);
 assert(!result.evaluatorIds.includes("startup-externa"));
 assert.deepStrictEqual(

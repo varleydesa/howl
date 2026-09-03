@@ -259,6 +259,7 @@ let selectedStartupId = "agrosense";
 let selectedDashboardProgramId = "all";
 let selectedMonthIndex = 3;
 let activeMentorshipTab = "agenda";
+let activeProgramDashboardTab = "executive";
 let activeJourney = "conceito";
 let draftSaved = false;
 let draftAnswers = {};
@@ -1739,6 +1740,16 @@ function renderDashboard() {
       : isClient()
         ? `Visão executiva das startups do programa ${programById(activeUser().programId)?.name || ""}.`
       : "Visão executiva das startups atribuídas ao seu perfil de avaliador.";
+  if (!isFounderDashboard && isManager()) {
+    return renderProgramManagerDashboard({
+      visibleStartups,
+      latestVisible,
+      dashboardStats,
+      introText,
+      selectedProgram,
+      programFilterActive,
+    });
+  }
   return `
     <section class="page">
       <div class="hero">
@@ -1799,6 +1810,368 @@ function renderDashboard() {
       </div>
     </section>
   `;
+}
+
+function renderProgramManagerDashboard(context) {
+  const dashboardContext = buildProgramDashboardContext(context);
+  if (!["executive", "overview", "progress", "sessions", "applications", "startups", "mentors", "analytics", "tasks", "memory"].includes(activeProgramDashboardTab)) {
+    activeProgramDashboardTab = "executive";
+  }
+  return `
+    <section class="page program-dashboard-page">
+      <div class="program-dashboard-layout">
+        <div class="program-dashboard-main">
+          ${programDashboardHeader(dashboardContext)}
+          ${programDashboardTabs(activeProgramDashboardTab, dashboardContext)}
+          ${programDashboardPanel(activeProgramDashboardTab, dashboardContext)}
+        </div>
+        ${programAiAgentsPanel()}
+      </div>
+    </section>
+  `;
+}
+
+function buildProgramDashboardContext(context) {
+  const startupIds = new Set(context.visibleStartups.map((startup) => startup.id));
+  const programIds = new Set(context.visibleStartups.map((startup) => startup.programId));
+  if (isClient() && activeUser().programId) {
+    programIds.add(activeUser().programId);
+  }
+  const allProgramsVisible = isAdmin() && selectedDashboardProgramId === "all";
+  const visibleMentors = users
+    .filter((user) => user.active !== false && user.role === "avaliador")
+    .filter((user) => allProgramsVisible || programIds.has(user.programId));
+  const links = mentorshipLinksVisibleToUser().filter((link) => startupIds.has(link.startupId));
+  const sessions = mentorshipSessionsVisibleToUser().filter((session) => startupIds.has(session.startupId));
+  const tasks = mentorshipTasksVisibleToUser().filter((task) => startupIds.has(task.startupId));
+  const applications = applicationsVisibleToUser().filter((application) =>
+    allProgramsVisible || !application.programId || programIds.has(application.programId)
+  );
+  const pendingApplications = applications.filter((application) => application.status === "pending");
+  const completedTasks = tasks.filter((task) => task.status === "done");
+  const scheduledSessions = sessions.filter((session) => session.status === "scheduled");
+  const completedSessions = sessions.filter((session) => session.status === "completed");
+  const completionRate = context.visibleStartups.length
+    ? Math.round((context.dashboardStats.evaluated / context.visibleStartups.length) * 100)
+    : 0;
+  return {
+    ...context,
+    visibleMentors,
+    links,
+    sessions,
+    tasks,
+    applications,
+    pendingApplications,
+    completedTasks,
+    scheduledSessions,
+    completedSessions,
+    completionRate,
+  };
+}
+
+function programDashboardHeader(context) {
+  const programName = isAdmin() && !context.programFilterActive
+    ? "Todos os programas"
+    : context.selectedProgram?.name || programById(activeUser().programId)?.name || "Programa HORDA";
+  return `<div class="program-dashboard-header">
+    <div>
+      <div class="row wrap">
+        <h1>Dashboard do Programa</h1>
+        <span class="badge blue">AI Analytics Ativo</span>
+      </div>
+      <p>${escapeHtml(context.introText)} Visão operacional de programas, performance das startups e mentorias com dados reais.</p>
+    </div>
+    ${isAdmin() ? `<div class="field program-filter no-print">
+      <label>Programa</label>
+      <select onchange="selectDashboardProgram(this.value)">
+        <option value="all" ${selectedDashboardProgramId === "all" ? "selected" : ""}>Todos os programas</option>
+        ${programs.map((program) => `<option value="${program.id}" ${program.id === selectedDashboardProgramId ? "selected" : ""}>${escapeHtml(program.name)} • ${escapeHtml(program.client)}</option>`).join("")}
+      </select>
+    </div>` : `<span class="badge gray">${escapeHtml(programName)}</span>`}
+  </div>`;
+}
+
+function programDashboardTabs(activeTab, context) {
+  const tabs = [
+    ["executive", "◷", "Executivo", context.visibleStartups.length],
+    ["overview", "▦", "Visão Geral", context.dashboardStats.evaluated],
+    ["progress", "↗", "Progresso", context.dashboardStats.evolved],
+    ["sessions", "▣", "Sessões", context.sessions.length],
+    ["applications", "◇", "Inscrições", context.pendingApplications.length],
+    ["startups", "♢", "Startups", context.visibleStartups.length],
+    ["mentors", "♧", "Mentores", context.visibleMentors.length],
+    ["analytics", "▤", "Analytics", context.completionRate],
+    ["tasks", "☑", "Tarefas", context.tasks.filter((task) => task.status !== "done").length],
+    ["memory", "✧", "Memória", "IA"],
+  ];
+  return `<div class="tabs program-tabs" role="tablist" aria-label="Áreas do dashboard do programa">
+    ${tabs.map(([id, icon, label, count]) => `<button type="button" class="${activeTab === id ? "active" : ""}" onclick="setProgramDashboardTab('${id}')" aria-selected="${activeTab === id}">
+      <span aria-hidden="true">${icon}</span>${label}<small>${count}</small>
+    </button>`).join("")}
+  </div>`;
+}
+
+function programDashboardPanel(tab, context) {
+  if (tab === "overview") return programOverviewPanel(context);
+  if (tab === "progress") return programProgressPanel(context);
+  if (tab === "sessions") return programSessionsPanel(context);
+  if (tab === "applications") return programApplicationsPanel(context);
+  if (tab === "startups") return programStartupsPanel(context);
+  if (tab === "mentors") return programMentorsPanel(context);
+  if (tab === "analytics") return programAnalyticsPanel(context);
+  if (tab === "tasks") return programTasksPanel(context);
+  if (tab === "memory") return programMemoryPanel(context);
+  return programExecutivePanel(context);
+}
+
+function programExecutivePanel(context) {
+  return `<div class="program-tab-panel">
+    <div class="section-title compact-title">
+      <h2>Dashboard Executivo</h2>
+      <p>Visão consolidada do programa de aceleração, avaliação e mentoria.</p>
+    </div>
+    <div class="program-kpi-grid">
+      ${programKpiCard("Startups", context.visibleStartups.length, `${context.completionRate}% conclusão`, "♢", "blue")}
+      ${programKpiCard("Mentores", context.visibleMentors.length, `${context.links.filter((link) => link.status === "active").length} mentorias ativas`, "♧", "blue")}
+      ${programKpiCard("Sessões", context.sessions.length, `${context.scheduledSessions.length} agendadas`, "▣", "green")}
+      ${programKpiCard("Avaliação Média", fmt(context.dashboardStats.avgScore, 1), `${classifyHowlScore(context.dashboardStats.avgScore)} • ${context.completionRate}% conclusão`, "☆", "amber")}
+    </div>
+    <div class="grid two program-card-grid">
+      <div class="card pad chart-card">
+        <h2>Tendência Mensal</h2>
+        ${portfolioEvolutionChart(context.visibleStartups)}
+      </div>
+      <div class="card pad">
+        <h2>Distribuição por Trilha</h2>
+        ${distributionChart(context.latestVisible)}
+      </div>
+    </div>
+    <div class="grid two program-card-grid">
+      ${programHealthCard(context)}
+      ${programHighlightsCard(context)}
+    </div>
+  </div>`;
+}
+
+function programOverviewPanel(context) {
+  return `<div class="grid two program-card-grid">
+    <div class="card pad chart-card">
+      <h2>Maturidade por Jornada</h2>
+      ${portfolioJourneyBars(context.dashboardStats)}
+    </div>
+    <div class="card pad">
+      <h2>Ranking Executivo</h2>
+      ${ranking(context.latestVisible, "monthlyEvolution")}
+    </div>
+    ${programHealthCard(context)}
+    ${programHighlightsCard(context)}
+  </div>`;
+}
+
+function programProgressPanel(context) {
+  const weakest = context.dashboardStats.weakestJourney;
+  const strongest = context.dashboardStats.strongestJourney;
+  return `<div class="grid two program-card-grid">
+    <div class="card pad chart-card">
+      <h2>Evolução Média do Portfólio</h2>
+      ${portfolioEvolutionChart(context.visibleStartups)}
+    </div>
+    <div class="card pad">
+      <span class="metric-label">Leitura de progresso</span>
+      <h2>Prioridades do ciclo</h2>
+      <div class="alerts">
+        <div class="alert"><strong>Jornada mais forte:</strong> ${escapeHtml(strongest.name)} com média ${fmt(strongest.avg)}/5.</div>
+        <div class="alert"><strong>Jornada prioritária:</strong> ${escapeHtml(weakest.name)} com média ${fmt(weakest.avg)}/5.</div>
+        <div class="alert"><strong>Evolução:</strong> ${context.dashboardStats.evolved} startups evoluíram e ${context.dashboardStats.regressed} regrediram no ciclo.</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function programSessionsPanel(context) {
+  return `<div class="program-tab-panel">
+    <div class="program-kpi-grid compact">
+      ${programKpiCard("Agendadas", context.scheduledSessions.length, "próximas mentorias", "▣", "blue")}
+      ${programKpiCard("Concluídas", context.completedSessions.length, "histórico registrado", "✓", "green")}
+      ${programKpiCard("Tarefas abertas", context.tasks.filter((task) => task.status !== "done").length, "pós-sessão", "☑", "amber")}
+    </div>
+    ${mentorshipSessionsCard(context.sessions)}
+  </div>`;
+}
+
+function programApplicationsPanel(context) {
+  const pending = context.pendingApplications.length;
+  const approved = context.applications.filter((application) => application.status === "approved").length;
+  const rejected = context.applications.filter((application) => application.status === "rejected").length;
+  return `<div class="program-tab-panel">
+    <div class="program-kpi-grid compact">
+      ${programKpiCard("Pendentes", pending, "aguardando análise", "◇", "amber")}
+      ${programKpiCard("Aprovadas", approved, "convertidas em cadastro", "✓", "green")}
+      ${programKpiCard("Rejeitadas", rejected, "fora do escopo atual", "×", "gray")}
+    </div>
+    <div class="program-list-card card pad">
+      <div class="section-title compact-title"><h2>Inscrições recentes</h2><p>Fila pública de startups e mentores.</p></div>
+      ${context.applications.length ? `<div class="program-list">${context.applications.slice(0, 8).map((application) => `<article>
+        <div><strong>${escapeHtml(application.name)}</strong><span>${escapeHtml(application.type === "mentor" ? "Mentor" : "Startup")} • ${escapeHtml(application.email)}</span></div>
+        <span class="badge ${applicationStatusColor(application.status)}">${applicationStatusLabel(application.status)}</span>
+      </article>`).join("")}</div>` : `<p class="chart-note">Nenhuma inscrição visível para este escopo.</p>`}
+    </div>
+  </div>`;
+}
+
+function programStartupsPanel(context) {
+  return `<div class="program-grid-list">
+    ${context.visibleStartups.map((startup) => {
+      const result = latestAssessment(startup.id);
+      return `<article class="card pad program-entity-card">
+        <div class="row between wrap">
+          <span class="metric-label">${escapeHtml(startup.sector)} • ${escapeHtml(startup.stage)}</span>
+          <span class="badge ${result?.hasResponses ? statusColor(result.classification) : "gray"}">${result?.hasResponses ? result.classification : "Sem avaliação"}</span>
+        </div>
+        <h2>${escapeHtml(startup.name)}</h2>
+        <p>${escapeHtml(startup.city)}/${escapeHtml(startup.state)} • ${escapeHtml(startup.founder)}</p>
+        <div class="bar value"><span style="width:${result?.hasResponses ? result.howlScore : 0}%;background:var(--blue)"><b>${result?.hasResponses ? fmt(result.howlScore, 0) : "0"}</b></span></div>
+      </article>`;
+    }).join("") || `<div class="card pad empty-state"><span class="metric-label">Startups</span><h2>Nenhuma startup neste escopo.</h2></div>`}
+  </div>`;
+}
+
+function programMentorsPanel(context) {
+  return `<div class="program-grid-list">
+    ${context.visibleMentors.map((mentor) => {
+      const mentorLinks = context.links.filter((link) => link.mentorId === mentor.id && link.status === "active");
+      const mentorSessions = context.sessions.filter((session) => session.mentorId === mentor.id);
+      return `<article class="card pad program-entity-card">
+        <div class="row between wrap">
+          <span class="metric-label">${escapeHtml(mentor.organization || "Mentor")}</span>
+          <span class="badge green">Ativo</span>
+        </div>
+        <h2>${escapeHtml(mentor.name)}</h2>
+        <p>${mentorLinks.length} startups vinculadas • ${mentorSessions.length} sessões</p>
+        <div class="mini-list">
+          ${mentorLinks.slice(0, 3).map((link) => `<div><strong>${escapeHtml(startupName(link.startupId))}</strong><span>${escapeHtml(link.notes || "Mentoria ativa")}</span></div>`).join("") || `<div><strong>Sem vínculo ativo</strong><span>Disponível para matching.</span></div>`}
+        </div>
+      </article>`;
+    }).join("") || `<div class="card pad empty-state"><span class="metric-label">Mentores</span><h2>Nenhum mentor ativo neste escopo.</h2></div>`}
+  </div>`;
+}
+
+function programAnalyticsPanel(context) {
+  return `<div class="grid two program-card-grid">
+    <div class="card pad chart-card">
+      <h2>Média por Jornada</h2>
+      ${portfolioJourneyBars(context.dashboardStats)}
+    </div>
+    <div class="card pad">
+      <h2>Distribuição por Trilha</h2>
+      ${distributionChart(context.latestVisible)}
+    </div>
+    <div class="card pad chart-card">
+      <h2>Evolução Mensal</h2>
+      ${portfolioEvolutionChart(context.visibleStartups)}
+    </div>
+    <div class="card pad">
+      <h2>Maiores Variações</h2>
+      ${ranking(context.latestVisible, "monthlyEvolution")}
+    </div>
+  </div>`;
+}
+
+function programTasksPanel(context) {
+  return `<div class="program-tab-panel">${mentorshipTasksCard(context.tasks)}</div>`;
+}
+
+function programMemoryPanel(context) {
+  const insights = [
+    [`Etapa prioritária`, `${context.dashboardStats.weakestJourney.name} é a jornada com menor média no escopo atual.`],
+    [`Mentorias`, `${context.scheduledSessions.length} sessões agendadas e ${context.completedSessions.length} concluídas.`],
+    [`Execução`, `${context.tasks.filter((task) => task.status !== "done").length} tarefas ainda abertas no plano de ação.`],
+    [`Inscrições`, `${context.pendingApplications.length} inscrições pendentes para análise.`],
+  ];
+  return `<div class="grid two program-card-grid">
+    <div class="card pad">
+      <span class="metric-label">Memória estratégica</span>
+      <h2>Registro do programa</h2>
+      <div class="mini-list">${insights.map(([title, text]) => `<div><strong>${title}</strong><span>${text}</span></div>`).join("")}</div>
+    </div>
+    ${programHighlightsCard(context)}
+  </div>`;
+}
+
+function programKpiCard(label, value, detail, icon, color = "blue") {
+  return `<article class="card pad program-kpi ${color}">
+    <div>
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+      <small>${escapeHtml(detail)}</small>
+    </div>
+    <i aria-hidden="true">${icon}</i>
+  </article>`;
+}
+
+function programHealthCard(context) {
+  const evaluated = context.dashboardStats.evaluated;
+  const atRisk = context.latestVisible.filter((result) => result?.hasResponses && result.howlScore < 60).length;
+  const noAssessment = context.visibleStartups.length - evaluated;
+  return `<div class="card pad">
+    <span class="metric-label">Saúde do portfólio</span>
+    <h2>Status operacional</h2>
+    <div class="program-health-list">
+      <div><strong>${evaluated}</strong><span>startups avaliadas</span></div>
+      <div><strong>${atRisk}</strong><span>abaixo de 60 pontos</span></div>
+      <div><strong>${noAssessment}</strong><span>sem avaliação preenchida</span></div>
+      <div><strong>${context.completionRate}%</strong><span>conclusão do ciclo</span></div>
+    </div>
+  </div>`;
+}
+
+function programHighlightsCard(context) {
+  const latest = context.latestVisible.filter((result) => result?.hasResponses);
+  const best = latest.length ? maxBy(latest, "howlScore") : null;
+  const strongest = context.dashboardStats.strongestJourney;
+  const weakest = context.dashboardStats.weakestJourney;
+  return `<div class="card pad">
+    <span class="metric-label">Destaques do ciclo</span>
+    <h2>Leitura rápida</h2>
+    <div class="alerts">
+      <div class="alert">${best ? `<strong>${escapeHtml(startupName(best.startupId))}</strong> lidera o portfólio com ${fmt(best.howlScore, 0)} pontos.` : "Ainda não há avaliações suficientes para destacar uma startup líder."}</div>
+      <div class="alert"><strong>${escapeHtml(strongest.name)}</strong> é a jornada mais forte do escopo atual.</div>
+      <div class="alert"><strong>${escapeHtml(weakest.name)}</strong> deve orientar mentorias e tarefas do próximo ciclo.</div>
+    </div>
+  </div>`;
+}
+
+function programAiAgentsPanel() {
+  const agents = [
+    ["◎", "Analisador de Estratégia", "Planejamento e análise estratégica", "blue"],
+    ["▥", "Processador de Dados", "Métricas e insights", "green"],
+    ["▤", "Gerador de Conteúdo", "Documentos e relatórios", "blue"],
+    ["✦", "Mentor IA", "Orientação e frameworks", "amber"],
+    ["⌕", "Assistente de Pesquisa", "Pesquisa de mercado", "gray"],
+  ];
+  return `<aside class="program-ai-panel">
+    <div class="program-ai-head">
+      <div>
+        <span class="metric-label">Agentes de IA</span>
+        <h2>Agentes de IA</h2>
+      </div>
+      <span class="badge gray">${agents.length} disponíveis</span>
+    </div>
+    <p>Clique em qualquer agente para iniciar uma conversa quando a camada de IA estiver ativada.</p>
+    <div class="program-agent-list">
+      ${agents.map(([icon, title, subtitle, color]) => `<button type="button" class="program-agent-card" onclick="setProgramDashboardTab('memory')">
+        <span class="${color}" aria-hidden="true">${icon}</span>
+        <strong>${title}</strong>
+        <small>${subtitle}</small>
+        <b>Conversar</b>
+      </button>`).join("")}
+    </div>
+  </aside>`;
+}
+
+function setProgramDashboardTab(tab) {
+  activeProgramDashboardTab = tab;
+  render();
 }
 
 function metric(label, value, detail) {
