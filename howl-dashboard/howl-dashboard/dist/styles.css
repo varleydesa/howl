@@ -2030,6 +2030,39 @@ textarea {
   max-width: 240px;
 }
 
+.mentorship-inline-form,
+.mentorship-feedback-summary {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #ead7a9;
+  border-radius: 8px;
+  background: #fffaf0;
+  padding: 14px;
+}
+
+.mentorship-inline-form h3 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 18px;
+}
+
+.mentorship-inline-form .row {
+  align-items: center;
+}
+
+.mentorship-feedback-form {
+  border-color: #d8bb72;
+}
+
+.mentorship-feedback-summary strong {
+  color: var(--navy);
+}
+
+.mentorship-feedback-summary span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .mentorship-kanban {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

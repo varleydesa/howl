@@ -256,6 +256,9 @@ Estado atual em 03/09/2026:
 - A visão da startup/empreendedor já mostra jornada, progresso, mentorias, tarefas, análise de rota e recursos com dados reais quando existirem.
 - A visão do mentor/avaliador está em implementação como dashboard próprio, com startups vinculadas, agenda, tarefas e impacto do portfólio.
 - A aba `Analytics` do mentor já usa dados reais para progresso médio, evolução, sessões, tarefas, startups sem sessão recente e alertas de foco.
+- A edição de sessão cadastrada foi implementada para gestores e mentores, incluindo data, duração, pauta, contexto, resumo e próximos passos.
+- A edição de tarefa pós-sessão foi implementada para gestores e mentores, incluindo título, descrição, prioridade e prazo.
+- A avaliação da sessão pela startup foi criada com tabela real no Supabase (`mentorship_session_feedback`), permitindo nota de 1 a 5 e comentário após sessão concluída.
 
 Próxima sequência recomendada:
 
@@ -267,8 +270,11 @@ Próxima sequência recomendada:
    - criar tarefa pós-sessão;
    - alterar status da tarefa no quadro.
 3. Ajustar detalhes visuais percebidos na produção.
-4. Criar edição de sessão já cadastrada, incluindo pauta, contexto, resumo e próximos passos.
-5. Criar edição de tarefa já cadastrada, incluindo título, descrição, prioridade e prazo.
+4. Aplicar no Supabase a migration `20260903_mentorship_session_feedback.sql` para ativar avaliação real de sessões em produção.
+5. Validar a visão da startup avaliando uma sessão concluída:
+   - confirmar que apenas sessões concluídas podem ser avaliadas;
+   - confirmar que a nota aparece nos cards e nos indicadores;
+   - confirmar que a startup pode atualizar a própria avaliação.
 6. Validar a visão do mentor em produção:
    - dashboard próprio;
    - agenda própria;
@@ -276,7 +282,7 @@ Próxima sequência recomendada:
    - sessões futuras;
    - tarefas associadas às mentorias;
    - indicadores de impacto.
-7. Criar edição de vínculos, sessões e tarefas sem depender de recriar registros.
+7. Criar edição de vínculos mentor-startup sem depender de recriar registros.
 8. Criar filtros para sessões e tarefas:
    - por startup;
    - por mentor;

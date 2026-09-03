@@ -21,6 +21,7 @@ let publicApplications = [];
 let mentorStartupLinks = [];
 let mentorshipSessions = [];
 let mentorshipTasks = [];
+let mentorshipSessionFeedback = [];
 let publicApplicationMessage = "";
 let programTypes = [
   { id: "aceleracao", type: "Aceleração" },
@@ -272,6 +273,8 @@ let activeUserId = "admin-demo";
 let backendStatus = "Conectando ao Supabase...";
 let assessmentResponses = {};
 let editingUserId = null;
+let editingMentorshipSessionId = null;
+let editingMentorshipTaskId = null;
 
 let assessments = buildAssessments();
 let importStatus = "Aguardando planilha da primeira rodada.";
@@ -653,6 +656,10 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function escapeJsString(value) {
+  return JSON.stringify(String(value ?? "")).replaceAll('"', "&quot;");
+}
+
 function normalizeText(value) {
   return String(value ?? "")
     .trim()
@@ -757,6 +764,7 @@ async function loadSupabaseData() {
     mentorLinksResult,
     mentorshipSessionsResult,
     mentorshipTasksResult,
+    mentorshipFeedbackResult,
   ] = await Promise.all([
     client.from("program_types").select("*").order("type"),
     client.from("programs").select("*").order("name"),
@@ -790,6 +798,10 @@ async function loadSupabaseData() {
       .from("mentorship_tasks")
       .select("*")
       .order("created_at", { ascending: false }),
+    client
+      .from("mentorship_session_feedback")
+      .select("*")
+      .order("updated_at", { ascending: false }),
   ]);
 
   [
@@ -808,7 +820,7 @@ async function loadSupabaseData() {
   if (applicationsResult.error && !isMissingSupabaseRelation(applicationsResult.error)) {
     throwIfSupabaseError(applicationsResult.error);
   }
-  [mentorLinksResult, mentorshipSessionsResult, mentorshipTasksResult].forEach((result) => {
+  [mentorLinksResult, mentorshipSessionsResult, mentorshipTasksResult, mentorshipFeedbackResult].forEach((result) => {
     if (result.error && !isMissingSupabaseRelation(result.error)) {
       throwIfSupabaseError(result.error);
     }
@@ -931,6 +943,19 @@ async function loadSupabaseData() {
     createdBy: session.created_by || null,
     createdAt: session.created_at,
     updatedAt: session.updated_at,
+  }));
+
+  mentorshipSessionFeedback = mentorshipFeedbackResult.error ? [] : (mentorshipFeedbackResult.data || []).map((feedback) => ({
+    id: feedback.id,
+    sessionId: feedback.session_id,
+    programId: feedback.program_id,
+    startupId: feedback.startup_id,
+    mentorId: feedback.mentor_profile_id,
+    rating: feedback.rating,
+    comment: feedback.comment || "",
+    createdBy: feedback.created_by || null,
+    createdAt: feedback.created_at,
+    updatedAt: feedback.updated_at,
   }));
 
   mentorshipTasks = mentorshipTasksResult.error ? [] : (mentorshipTasksResult.data || []).map((task) => ({
@@ -1204,6 +1229,24 @@ async function updateMentorshipTask(taskId, payload) {
     .eq("id", taskId);
   if (isMissingSupabaseRelation(result.error)) {
     throw new Error("A migration de mentorias ainda não foi aplicada no Supabase.");
+  }
+  throwIfSupabaseError(result.error);
+}
+
+async function upsertMentorshipSessionFeedback(feedback) {
+  const client = requireSupabase();
+  const result = await client.from("mentorship_session_feedback").upsert({
+    id: feedback.id,
+    session_id: feedback.sessionId,
+    program_id: feedback.programId,
+    startup_id: feedback.startupId,
+    mentor_profile_id: feedback.mentorId,
+    rating: feedback.rating,
+    comment: feedback.comment,
+    created_by: activeUserId,
+  }, { onConflict: "session_id" });
+  if (isMissingSupabaseRelation(result.error)) {
+    throw new Error("A migration de avaliação de sessão ainda não foi aplicada no Supabase.");
   }
   throwIfSupabaseError(result.error);
 }
@@ -2834,9 +2877,14 @@ function programKpiCard(label, value, detail, icon, color = "blue") {
 }
 
 function sessionEvaluationScore(session) {
-  const value = session.evaluationScore ?? session.rating ?? session.feedbackScore ?? session.evaluation;
+  const feedback = feedbackForSession(session.id);
+  const value = feedback?.rating ?? session.evaluationScore ?? session.rating ?? session.feedbackScore ?? session.evaluation;
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function feedbackForSession(sessionId) {
+  return mentorshipSessionFeedback.find((feedback) => feedback.sessionId === sessionId);
 }
 
 function averageSessionEvaluation(sessions) {
@@ -3281,7 +3329,11 @@ function mentorshipSessionsCard(sessions) {
   return `<div class="card pad mentorship-panel-card">
     <div class="section-title compact-title"><h2>Sessões de mentoria</h2><p>Agenda e histórico com contexto pré-sessão e resumo pós-sessão.</p></div>
     <div class="mentorship-card-list">
-      ${orderedSessions.map((session) => `<article class="mentor-session-card">
+      ${orderedSessions.map((session) => {
+        const canEdit = isManager() || isEvaluator();
+        const canEvaluate = normalizedRole() === "empreendedor" && session.status === "completed";
+        const feedback = feedbackForSession(session.id);
+        return `<article class="mentor-session-card">
         <div class="mentor-card-head">
           <div>
             <span class="metric-label">${formatDateTime(session.scheduledAt)} • ${session.durationMinutes} min</span>
@@ -3297,8 +3349,12 @@ function mentorshipSessionsCard(sessions) {
           <p><strong>Contexto</strong>${escapeHtml(session.agenda || "Sem contexto registrado.")}</p>
           <p><strong>Registro</strong>${escapeHtml(session.summary || session.nextSteps || "Aguardando resumo pós-sessão.")}</p>
         </div>
-        ${isManager() || isEvaluator() ? `<div class="mentorship-card-actions"><label>Atualizar</label>${mentorshipStatusSelect(session)}</div>` : ""}
-      </article>`).join("")}
+        ${feedback ? `<div class="mentorship-feedback-summary"><strong>Avaliação da startup</strong><span>${"★".repeat(feedback.rating)}${"☆".repeat(5 - feedback.rating)} • ${escapeHtml(feedback.comment || "Sem comentário")}</span></div>` : ""}
+        ${canEdit ? `<div class="mentorship-card-actions"><label>Atualizar</label>${mentorshipStatusSelect(session)}<button class="btn" type="button" onclick='openMentorshipSessionEditor(${JSON.stringify(session.id)})'>Editar sessão</button></div>` : ""}
+        ${editingMentorshipSessionId === session.id ? mentorshipSessionEditForm(session) : ""}
+        ${canEvaluate ? mentorshipSessionFeedbackForm(session, feedback) : ""}
+      </article>`;
+      }).join("")}
     </div>
   </div>`;
 }
@@ -3331,13 +3387,60 @@ function mentorshipTasksCard(tasks) {
                 <span><strong>Startup</strong>${escapeHtml(startupName(task.startupId))}</span>
                 <span><strong>Mentor</strong>${escapeHtml(mentorName(task.mentorId))}</span>
               </div>
-              ${isManager() || isEvaluator() ? `<div class="mentorship-card-actions"><label>Status</label>${taskStatusSelect(task)}</div>` : ""}
+              ${isManager() || isEvaluator() ? `<div class="mentorship-card-actions"><label>Status</label>${taskStatusSelect(task)}<button class="btn" type="button" onclick='openMentorshipTaskEditor(${JSON.stringify(task.id)})'>Editar tarefa</button></div>` : ""}
+              ${editingMentorshipTaskId === task.id ? mentorshipTaskEditForm(task) : ""}
             </article>`).join("") : `<div class="empty-pill">Sem itens</div>`}
           </div>
         </section>`;
       }).join("")}
     </div>
   </div>`;
+}
+
+function mentorshipSessionEditForm(session) {
+  return `<form class="mentorship-inline-form" onsubmit="editMentorshipSession(event, ${escapeJsString(session.id)})">
+    <div class="form-grid compact">
+      <div class="field"><label>Data e hora</label><input name="scheduledAt" type="datetime-local" value="${dateTimeLocalValue(session.scheduledAt)}" required></div>
+      <div class="field"><label>Duração</label><input name="durationMinutes" type="number" min="15" max="360" step="1" value="${session.durationMinutes || 60}" required></div>
+      <div class="field wide"><label>Pauta</label><input name="topic" value="${escapeHtml(session.topic)}" required></div>
+      <div class="field wide"><label>Contexto pré-sessão</label><textarea name="agenda">${escapeHtml(session.agenda || "")}</textarea></div>
+      <div class="field wide"><label>Resumo pós-sessão</label><textarea name="summary">${escapeHtml(session.summary || "")}</textarea></div>
+      <div class="field wide"><label>Decisões e próximos passos</label><textarea name="nextSteps">${escapeHtml(session.nextSteps || "")}</textarea></div>
+    </div>
+    <div class="row wrap">
+      <button class="btn primary" type="submit">Salvar edição</button>
+      <button class="btn" type="button" onclick="closeMentorshipEditors()">Cancelar</button>
+    </div>
+  </form>`;
+}
+
+function mentorshipTaskEditForm(task) {
+  return `<form class="mentorship-inline-form" onsubmit="editMentorshipTask(event, ${escapeJsString(task.id)})">
+    <div class="form-grid compact">
+      <div class="field wide"><label>Tarefa</label><input name="title" value="${escapeHtml(task.title)}" required></div>
+      <div class="field"><label>Prioridade</label><select name="priority"><option value="high" ${task.priority === "high" ? "selected" : ""}>Alta</option><option value="medium" ${task.priority === "medium" ? "selected" : ""}>Média</option><option value="low" ${task.priority === "low" ? "selected" : ""}>Baixa</option></select></div>
+      <div class="field"><label>Prazo</label><input name="dueDate" type="date" value="${escapeHtml(task.dueDate || "")}"></div>
+      <div class="field wide"><label>Descrição</label><textarea name="description">${escapeHtml(task.description || "")}</textarea></div>
+    </div>
+    <div class="row wrap">
+      <button class="btn primary" type="submit">Salvar edição</button>
+      <button class="btn" type="button" onclick="closeMentorshipEditors()">Cancelar</button>
+    </div>
+  </form>`;
+}
+
+function mentorshipSessionFeedbackForm(session, feedback) {
+  return `<form class="mentorship-inline-form mentorship-feedback-form" onsubmit="submitMentorshipSessionFeedback(event, ${escapeJsString(session.id)})">
+    <div class="row between wrap">
+      <div><span class="metric-label">Avaliação da sessão</span><h3>${feedback ? "Atualizar avaliação" : "Avaliar mentoria"}</h3></div>
+      <span class="badge amber">Startup</span>
+    </div>
+    <div class="form-grid compact">
+      <div class="field"><label>Nota</label><select name="rating" required>${[5, 4, 3, 2, 1].map((value) => `<option value="${value}" ${feedback?.rating === value ? "selected" : ""}>${value} estrela${value > 1 ? "s" : ""}</option>`).join("")}</select></div>
+      <div class="field wide"><label>Comentário</label><textarea name="comment" placeholder="Como foi a sessão? O que ajudou ou pode melhorar?">${escapeHtml(feedback?.comment || "")}</textarea></div>
+    </div>
+    <button class="btn primary" type="submit">${feedback ? "Atualizar avaliação" : "Enviar avaliação"}</button>
+  </form>`;
 }
 
 function renderRegistration() {
@@ -3953,6 +4056,14 @@ function formatDateTime(value) {
     dateStyle: "short",
     timeStyle: "short",
   });
+}
+
+function dateTimeLocalValue(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return localDate.toISOString().slice(0, 16);
 }
 
 async function refreshApplications() {
@@ -4998,6 +5109,70 @@ async function changeMentorshipSessionStatus(sessionId, status) {
   render();
 }
 
+function openMentorshipSessionEditor(sessionId) {
+  if (!isManager() && !isEvaluator()) return;
+  editingMentorshipSessionId = sessionId;
+  editingMentorshipTaskId = null;
+  render();
+}
+
+function openMentorshipTaskEditor(taskId) {
+  if (!isManager() && !isEvaluator()) return;
+  editingMentorshipTaskId = taskId;
+  editingMentorshipSessionId = null;
+  render();
+}
+
+function closeMentorshipEditors() {
+  editingMentorshipSessionId = null;
+  editingMentorshipTaskId = null;
+  render();
+}
+
+async function editMentorshipSession(event, sessionId) {
+  event.preventDefault();
+  if (!isManager() && !isEvaluator()) {
+    window.alert("Apenas gestores e mentores podem editar sessões de mentoria.");
+    return;
+  }
+  const session = mentorshipSessionsVisibleToUser().find((item) => item.id === sessionId);
+  if (!session) return;
+  const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+  const scheduledAt = new Date(String(data.scheduledAt || ""));
+  if (Number.isNaN(scheduledAt.getTime())) {
+    window.alert("Informe uma data válida para a sessão.");
+    return;
+  }
+  const updates = {
+    scheduledAt: scheduledAt.toISOString(),
+    durationMinutes: parseDurationMinutes(data.durationMinutes),
+    topic: String(data.topic || "").trim(),
+    agenda: String(data.agenda || "").trim(),
+    summary: String(data.summary || "").trim(),
+    nextSteps: String(data.nextSteps || "").trim(),
+  };
+  try {
+    if (backendStatus.includes("conectado")) {
+      await updateMentorshipSession(session.id, {
+        scheduled_at: updates.scheduledAt,
+        duration_minutes: updates.durationMinutes,
+        topic: updates.topic,
+        agenda: updates.agenda,
+        summary: updates.summary,
+        next_steps: updates.nextSteps,
+      });
+      await loadSupabaseData();
+    } else {
+      Object.assign(session, updates);
+    }
+    editingMentorshipSessionId = null;
+    window.alert("Sessão atualizada.");
+  } catch (error) {
+    window.alert(error.message || "Não foi possível atualizar a sessão.");
+  }
+  render();
+}
+
 async function addMentorshipTask(event) {
   event.preventDefault();
   if (!isManager() && !isEvaluator()) {
@@ -5051,6 +5226,87 @@ async function changeMentorshipTaskStatus(taskId, status) {
     }
   } catch (error) {
     window.alert(error.message || "Não foi possível atualizar a tarefa.");
+  }
+  render();
+}
+
+async function editMentorshipTask(event, taskId) {
+  event.preventDefault();
+  if (!isManager() && !isEvaluator()) {
+    window.alert("Apenas gestores e mentores podem editar tarefas pós-sessão.");
+    return;
+  }
+  const task = mentorshipTasksVisibleToUser().find((item) => item.id === taskId);
+  if (!task) return;
+  const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+  const updates = {
+    title: String(data.title || "").trim(),
+    description: String(data.description || "").trim(),
+    priority: String(data.priority || "medium"),
+    dueDate: String(data.dueDate || ""),
+  };
+  try {
+    if (backendStatus.includes("conectado")) {
+      await updateMentorshipTask(task.id, {
+        title: updates.title,
+        description: updates.description,
+        priority: updates.priority,
+        due_date: updates.dueDate || null,
+      });
+      await loadSupabaseData();
+    } else {
+      Object.assign(task, updates);
+    }
+    editingMentorshipTaskId = null;
+    window.alert("Tarefa atualizada.");
+  } catch (error) {
+    window.alert(error.message || "Não foi possível atualizar a tarefa.");
+  }
+  render();
+}
+
+async function submitMentorshipSessionFeedback(event, sessionId) {
+  event.preventDefault();
+  if (normalizedRole() !== "empreendedor") {
+    window.alert("A avaliação da sessão é feita pela startup.");
+    return;
+  }
+  const session = mentorshipSessionsVisibleToUser().find((item) => item.id === sessionId && item.status === "completed");
+  if (!session) {
+    window.alert("Apenas sessões concluídas podem ser avaliadas pela startup.");
+    return;
+  }
+  const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+  const rating = Math.max(1, Math.min(5, Number.parseInt(String(data.rating || ""), 10)));
+  if (!Number.isFinite(rating)) {
+    window.alert("Informe uma nota válida para a sessão.");
+    return;
+  }
+  const existing = feedbackForSession(session.id);
+  const feedback = {
+    id: existing?.id || createMentorshipId("mentorship-feedback"),
+    sessionId: session.id,
+    programId: session.programId,
+    startupId: session.startupId,
+    mentorId: session.mentorId,
+    rating,
+    comment: String(data.comment || "").trim(),
+    createdBy: activeUserId,
+    createdAt: existing?.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  try {
+    if (backendStatus.includes("conectado")) {
+      await upsertMentorshipSessionFeedback(feedback);
+      await loadSupabaseData();
+    } else if (existing) {
+      Object.assign(existing, feedback);
+    } else {
+      mentorshipSessionFeedback.unshift(feedback);
+    }
+    window.alert("Avaliação da sessão salva.");
+  } catch (error) {
+    window.alert(error.message || "Não foi possível salvar a avaliação da sessão.");
   }
   render();
 }
@@ -5169,6 +5425,7 @@ function currentDatabaseSnapshot() {
     mentorStartupLinks,
     mentorshipSessions,
     mentorshipTasks,
+    mentorshipSessionFeedback,
     scoreProfiles,
     assessmentResponses,
     months,
@@ -5202,6 +5459,7 @@ async function importDatabaseFile(file) {
     mentorStartupLinks = database.mentorStartupLinks || [];
     mentorshipSessions = database.mentorshipSessions || [];
     mentorshipTasks = database.mentorshipTasks || [];
+    mentorshipSessionFeedback = database.mentorshipSessionFeedback || [];
     Object.keys(scoreProfiles).forEach((key) => delete scoreProfiles[key]);
     Object.assign(scoreProfiles, database.scoreProfiles || {});
     assessmentResponses = database.assessmentResponses || {};

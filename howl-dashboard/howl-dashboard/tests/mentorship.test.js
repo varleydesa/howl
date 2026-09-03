@@ -62,13 +62,13 @@ const result = vm.runInContext(
         programId: "programa-howl-atual",
         startupId: "agrosense",
         mentorId: "avaliador-demo-1",
-        status: "scheduled",
+        status: "completed",
         scheduledAt: "2026-09-10T13:00:00.000Z",
         durationMinutes: 60,
         topic: "Validação de pricing",
         agenda: "Revisar entrevistas",
-        summary: "",
-        nextSteps: ""
+        summary: "Sessão realizada",
+        nextSteps: "Revisar hipótese de preço"
       },
       {
         id: "session-beta",
@@ -99,6 +99,20 @@ const result = vm.runInContext(
         dueDate: "2026-09-20"
       }
     ];
+    mentorshipSessionFeedback = [
+      {
+        id: "feedback-alpha",
+        sessionId: "session-alpha",
+        programId: "programa-howl-atual",
+        startupId: "agrosense",
+        mentorId: "avaliador-demo-1",
+        rating: 4,
+        comment: "Mentoria objetiva",
+        createdBy: "empreendedor-demo",
+        createdAt: "2026-09-10T14:00:00.000Z",
+        updatedAt: "2026-09-10T14:00:00.000Z"
+      }
+    ];
 
     activeUserId = "admin-demo";
     activeRoute = "mentorship";
@@ -106,10 +120,16 @@ const result = vm.runInContext(
     render();
     const adminHtml = document.getElementById("app").innerHTML;
     const adminLinks = mentorshipLinksVisibleToUser().map((link) => link.id);
+    openMentorshipSessionEditor("session-alpha");
+    const adminSessionEditorHtml = document.getElementById("app").innerHTML;
 
     activeMentorshipTab = "portfolio";
     render();
     const adminPortfolioHtml = document.getElementById("app").innerHTML;
+    activeMentorshipTab = "tasks";
+    render();
+    openMentorshipTaskEditor("task-alpha");
+    const adminTaskEditorHtml = document.getElementById("app").innerHTML;
 
     activeUserId = "avaliador-demo-1";
     activeRoute = "mentorship";
@@ -130,7 +150,9 @@ const result = vm.runInContext(
     ({
       adminHtml,
       adminLinks,
+      adminSessionEditorHtml,
       adminPortfolioHtml,
+      adminTaskEditorHtml,
       mentorHtml,
       mentorLinks,
       mentorSessions,
@@ -150,6 +172,12 @@ assert(result.adminPortfolioHtml.includes("Vincular mentor a startup"));
 assert(result.adminHtml.includes('name="durationMinutes" type="number" min="15" step="15" value="60"'));
 assert(!result.adminHtml.includes('<label>Status</label><select name="status"'));
 assert(result.adminHtml.includes("Atualizar status da sessão"));
+assert(result.adminHtml.includes("Avaliação da startup"));
+assert(result.adminHtml.includes("Editar sessão"));
+assert(result.adminSessionEditorHtml.includes("Salvar edição"));
+assert(result.adminSessionEditorHtml.includes("Resumo pós-sessão"));
+assert(result.adminTaskEditorHtml.includes("Editar tarefa"));
+assert(result.adminTaskEditorHtml.includes("Descrição"));
 assert.deepStrictEqual(Array.from(result.adminLinks).sort(), ["link-alpha", "link-beta"]);
 
 assert(result.mentorHtml.includes("Dashboard de mentoria"));
@@ -159,8 +187,14 @@ assert.deepStrictEqual(Array.from(result.mentorSessions), ["session-alpha"]);
 
 assert(result.founderHtml.includes("Minha mentoria"));
 assert(result.founderHtml.includes("Avaliador Demo 1"));
+assert(result.founderHtml.includes("Avaliação da sessão"));
+assert(result.founderHtml.includes("Atualizar avaliação"));
 assert.deepStrictEqual(Array.from(result.founderLinks), ["link-alpha"]);
 assert.deepStrictEqual(Array.from(result.founderTasks), ["task-alpha"]);
+assert.strictEqual(
+  vm.runInContext(`averageSessionEvaluation(mentorshipSessionsVisibleToUser())`, context),
+  4
+);
 
 const durations = vm.runInContext(
   `
