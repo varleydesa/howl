@@ -1565,7 +1565,6 @@ function appShell(content) {
   if (!routeAllowed(activeRoute)) activeRoute = "dashboard";
   const nav = navItemsForUser();
   const user = activeUser();
-  const allowedStartups = accessibleStartups();
   return `
     <div class="shell">
       <aside class="sidebar ${mobileMenuOpen ? "menu-open" : ""}">
@@ -1597,35 +1596,62 @@ function appShell(content) {
         </div>
       </aside>
       <main class="main">
-        <header class="topbar">
-          <div>
-            <strong>${pageTitle()}</strong><br />
-            <span class="subtle">Cockpit executivo para banca, investidor e hub de inovação</span>
-          </div>
-          <div class="topbar-actions no-print">
-            <select onchange="selectStartup(this.value)" aria-label="Selecionar startup">
-              ${allowedStartups
-                .map((s) => `<option value="${s.id}" ${s.id === selectedStartupId ? "selected" : ""}>${s.name}</option>`)
-                .join("")}
-            </select>
-            ${
-              isManager()
-                ? `<button class="btn download-btn" title="Baixar avaliações em CSV" aria-label="Baixar avaliações em CSV" onclick="exportCsv()">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v3h14v-3"></path>
-                    </svg>
-                    <span class="download-label">Exportar CSV</span>
-                  </button>`
-                : ""
-            }
-            <button class="btn primary" onclick="go('assessment')">${isManager() ? "Ver respostas" : isEvaluator() ? "Responder perguntas" : "Minha autoavaliação"}</button>
-            <button class="btn" onclick="logout()">Sair</button>
-          </div>
-        </header>
+        ${appTopbar(user)}
         ${content}
       </main>
     </div>
   `;
+}
+
+function appTopbar(user) {
+  return `<header class="topbar app-topbar">
+    <div class="topbar-brand">
+      <button
+        class="topbar-menu-button no-print"
+        type="button"
+        aria-label="${mobileMenuOpen ? "Recolher menu" : "Expandir menu"}"
+        aria-expanded="${mobileMenuOpen}"
+        aria-controls="main-navigation"
+        onclick="toggleMobileMenu()"
+      >
+        <span aria-hidden="true">▥</span>
+      </button>
+      <strong>Plataforma HORDA</strong>
+    </div>
+    <label class="topbar-search no-print" aria-label="Buscar na plataforma">
+      <span aria-hidden="true">⌕</span>
+      <input type="search" placeholder="Buscar..." onkeydown="handleTopbarSearch(event)" />
+      <kbd>Ctrl K</kbd>
+    </label>
+    <div class="topbar-actions no-print">
+      <button class="btn topbar-action" type="button" onclick="setProgramDashboardTab('memory');go('dashboard')" title="Abrir memória estratégica">
+        <span aria-hidden="true">◉</span>Gravar
+      </button>
+      <button class="btn topbar-action" type="button" onclick="setProgramDashboardTab('overview');go('dashboard')" title="Abrir visão geral do tour">
+        <span aria-hidden="true">✦</span>Tour
+      </button>
+      <button class="btn icon topbar-icon" type="button" onclick="go('${isManager() ? "applications" : "mentorship"}')" title="${isManager() ? "Inscrições" : "Mentorias"}" aria-label="${isManager() ? "Inscrições" : "Mentorias"}">⌁</button>
+      <button class="btn icon topbar-icon" type="button" onclick="go('${isManager() ? "users" : "dashboard"}')" title="${escapeHtml(user.roleLabel)}: ${escapeHtml(user.name)}" aria-label="Perfil ativo">♙</button>
+      <button class="btn topbar-logout" type="button" onclick="logout()"><span aria-hidden="true">↪</span>Sair</button>
+    </div>
+  </header>`;
+}
+
+function handleTopbarSearch(event) {
+  if (event.key !== "Enter") return;
+  const query = normalizeText(event.currentTarget.value);
+  if (!query) return;
+  const targets = [
+    ["mentorias mentor mentoria sessoes agenda tarefas", "mentorship"],
+    ["startups projetos empresas portfolio", "startups"],
+    ["avaliacoes respostas perguntas howl score", "assessment"],
+    ["inscricoes inscricao candidaturas fila", "applications"],
+    ["usuarios acessos perfil conta", "users"],
+    ["relatorios exportar csv pdf", "reports"],
+    ["dashboard programa executivo analytics progresso memoria", "dashboard"],
+  ];
+  const match = targets.find(([terms, route]) => routeAllowed(route) && terms.includes(query));
+  if (match) go(match[1]);
 }
 
 function pageTitle() {
