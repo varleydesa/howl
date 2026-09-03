@@ -1137,6 +1137,18 @@ async function persistMentorshipSession(session) {
   throwIfSupabaseError(result.error);
 }
 
+async function updateMentorshipSession(sessionId, payload) {
+  const client = requireSupabase();
+  const result = await client
+    .from("mentorship_sessions")
+    .update(payload)
+    .eq("id", sessionId);
+  if (isMissingSupabaseRelation(result.error)) {
+    throw new Error("A migration de mentorias ainda não foi aplicada no Supabase.");
+  }
+  throwIfSupabaseError(result.error);
+}
+
 async function persistMentorshipTask(task) {
   const client = requireSupabase();
   const result = await client.from("mentorship_tasks").insert({
@@ -1985,7 +1997,6 @@ function mentorshipSessionForm(activeLinks) {
       <div class="field wide"><label>Vínculo</label><select name="linkId" required>${activeLinks.map((link) => `<option value="${link.id}">${escapeHtml(startupName(link.startupId))} • ${escapeHtml(mentorName(link.mentorId))}</option>`).join("")}</select></div>
       <div class="field"><label>Data e hora</label><input name="scheduledAt" type="datetime-local" required></div>
       <div class="field"><label>Duração</label><input name="durationMinutes" type="number" min="15" step="15" value="60" required></div>
-      <div class="field"><label>Status</label><select name="status"><option value="scheduled">Agendada</option><option value="completed">Concluída</option><option value="canceled">Cancelada</option></select></div>
       <div class="field wide"><label>Pauta</label><input name="topic" required placeholder="Ex.: validação de pricing, vendas enterprise, roadmap"></div>
       <div class="field wide"><label>Contexto pré-sessão</label><textarea name="agenda" placeholder="Contexto, métricas e perguntas para preparar a mentoria."></textarea></div>
       <div class="field wide"><label>Resumo pós-sessão</label><textarea name="summary" placeholder="Preencha depois da sessão, quando houver."></textarea></div>
@@ -2071,8 +2082,9 @@ function mentorshipSessionsCard(sessions) {
     <td>${session.durationMinutes} min</td>
     <td><span class="badge ${mentorshipStatusColor(session.status)}">${mentorshipStatusLabel(session.status)}</span></td>
     <td>${escapeHtml(session.summary || session.agenda || "—")}</td>
+    <td>${isManager() || isEvaluator() ? mentorshipStatusSelect(session) : ""}</td>
   </tr>`).join("");
-  return `<div><div class="section-title compact-title"><h2>Sessões de mentoria</h2><p>Agenda e histórico com contexto pré-sessão e resumo pós-sessão.</p></div>${table(["Pauta", "Mentor", "Data", "Duração", "Status", "Registro"], rows)}</div>`;
+  return `<div><div class="section-title compact-title"><h2>Sessões de mentoria</h2><p>Agenda e histórico com contexto pré-sessão e resumo pós-sessão.</p></div>${table(["Pauta", "Mentor", "Data", "Duração", "Status", "Registro", "Atualizar"], rows)}</div>`;
 }
 
 function mentorshipTasksCard(tasks) {
@@ -2662,6 +2674,14 @@ function mentorshipStatusColor(status) {
   if (status === "completed") return "green";
   if (status === "canceled") return "gray";
   return "blue";
+}
+
+function mentorshipStatusSelect(session) {
+  return `<select aria-label="Atualizar status da sessão" onchange='changeMentorshipSessionStatus(${JSON.stringify(session.id)}, this.value)'>
+    <option value="scheduled" ${session.status === "scheduled" ? "selected" : ""}>Agendada</option>
+    <option value="completed" ${session.status === "completed" ? "selected" : ""}>Concluída</option>
+    <option value="canceled" ${session.status === "canceled" ? "selected" : ""}>Cancelada</option>
+  </select>`;
 }
 
 function priorityLabel(priority) {
@@ -3699,7 +3719,7 @@ async function addMentorshipSession(event) {
     programId: link.programId,
     startupId: link.startupId,
     mentorId: link.mentorId,
-    status: String(data.status || "scheduled"),
+    status: "scheduled",
     scheduledAt: scheduledAt.toISOString(),
     durationMinutes: parseDurationMinutes(data.durationMinutes),
     topic: String(data.topic || "").trim(),
@@ -3721,6 +3741,22 @@ async function addMentorshipSession(event) {
     window.alert("Sessão de mentoria salva.");
   } catch (error) {
     window.alert(error.message || "Não foi possível salvar a sessão.");
+  }
+  render();
+}
+
+async function changeMentorshipSessionStatus(sessionId, status) {
+  const session = mentorshipSessionsVisibleToUser().find((item) => item.id === sessionId);
+  if (!session || (!isManager() && !isEvaluator())) return;
+  try {
+    if (backendStatus.includes("conectado")) {
+      await updateMentorshipSession(session.id, { status });
+      await loadSupabaseData();
+    } else {
+      session.status = status;
+    }
+  } catch (error) {
+    window.alert(error.message || "Não foi possível atualizar a sessão.");
   }
   render();
 }

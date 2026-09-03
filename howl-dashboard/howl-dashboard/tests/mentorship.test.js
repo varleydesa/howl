@@ -137,6 +137,8 @@ const result = vm.runInContext(
 assert(result.adminHtml.includes("Mentores, vínculos e mentorias"));
 assert(result.adminHtml.includes("Vincular mentor a startup"));
 assert(result.adminHtml.includes('name="durationMinutes" type="number" min="15" step="15" value="60"'));
+assert(!result.adminHtml.includes('<label>Status</label><select name="status"'));
+assert(result.adminHtml.includes("Atualizar status da sessão"));
 assert.deepStrictEqual(Array.from(result.adminLinks).sort(), ["link-alpha", "link-beta"]);
 
 assert(result.mentorHtml.includes("Dashboard de mentoria"));
@@ -165,5 +167,17 @@ assert.strictEqual(durations.explicitSixty, 60);
 assert.strictEqual(durations.emptyDefault, 60);
 assert.strictEqual(durations.tooShort, 15);
 assert.strictEqual(durations.tooLong, 360);
+
+const sessionStatus = vm.runInContext(
+  `
+    activeUserId = "admin-demo";
+    backendStatus = "Base local";
+    changeMentorshipSessionStatus("session-alpha", "completed");
+    mentorshipSessions.find((session) => session.id === "session-alpha").status;
+  `,
+  context
+);
+
+assert.strictEqual(sessionStatus, "completed");
 
 console.log("Mentorias, vínculos e escopos por perfil validados.");
