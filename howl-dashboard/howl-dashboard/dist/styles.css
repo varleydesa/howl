@@ -1000,6 +1000,156 @@ button {
   margin-top: 0;
 }
 
+.mentor-dashboard-page {
+  padding-top: 0;
+  padding-right: 0;
+}
+
+.mentor-dashboard-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 336px;
+  min-height: calc(100vh - 72px);
+}
+
+.mentor-dashboard-main {
+  min-width: 0;
+  padding: 36px 32px 52px 0;
+}
+
+.mentor-dashboard-header h1 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 36px;
+  line-height: 1.08;
+}
+
+.mentor-dashboard-header p {
+  margin: 14px 0 0;
+  max-width: 820px;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.mentor-profile-card {
+  margin-top: 34px;
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  background: linear-gradient(135deg, #fffaf0, #f7fbff);
+}
+
+.mentor-avatar {
+  width: 62px;
+  height: 62px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: var(--soft);
+  color: var(--blue);
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.mentor-profile-card h2 {
+  margin: 4px 0 6px;
+  color: var(--navy);
+  font-size: 23px;
+}
+
+.mentor-profile-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.mentor-profile-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.mentor-kpi-grid {
+  margin-top: 22px;
+}
+
+.mentor-dashboard-grid {
+  margin-top: 18px;
+}
+
+.mentor-dashboard-card {
+  display: grid;
+  gap: 16px;
+  align-self: start;
+}
+
+.mentor-dashboard-card h2 {
+  margin: 0;
+}
+
+.mentor-session-list,
+.mentor-startup-list,
+.mentor-task-list {
+  display: grid;
+  gap: 11px;
+}
+
+.mentor-session-row,
+.mentor-startup-summary,
+.mentor-task-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  padding: 12px;
+}
+
+.mentor-session-row strong,
+.mentor-startup-summary strong,
+.mentor-task-row strong {
+  display: block;
+  color: var(--navy);
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.mentor-session-row span,
+.mentor-startup-summary span,
+.mentor-task-row span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.mentor-score {
+  width: 120px;
+  display: grid;
+  gap: 6px;
+}
+
+.mentor-score > span {
+  justify-self: end;
+  color: var(--navy);
+  font-weight: 900;
+}
+
+.mentor-impact-summary {
+  margin-bottom: 4px;
+}
+
+.mentor-chart-block {
+  margin-top: 2px;
+}
+
+.mentor-task-row select {
+  min-width: 160px;
+}
+
 .hero h1,
 .section-title h1 {
   margin: 8px 0 10px;
@@ -2148,17 +2298,20 @@ textarea {
   .grid.two,
   .login,
   .program-dashboard-layout,
-  .startup-dashboard-layout {
+  .startup-dashboard-layout,
+  .mentor-dashboard-layout {
     grid-template-columns: 1fr;
   }
 
   .program-dashboard-page,
-  .startup-dashboard-page {
+  .startup-dashboard-page,
+  .mentor-dashboard-page {
     padding-right: 32px;
   }
 
   .program-dashboard-main,
-  .startup-dashboard-main {
+  .startup-dashboard-main,
+  .mentor-dashboard-main {
     padding-right: 0;
   }
 
@@ -2271,7 +2424,15 @@ textarea {
     padding-right: 16px;
   }
 
+  .mentor-dashboard-page {
+    padding-right: 16px;
+  }
+
   .startup-dashboard-main {
+    padding-top: 24px;
+  }
+
+  .mentor-dashboard-main {
     padding-top: 24px;
   }
 
@@ -2283,7 +2444,20 @@ textarea {
     font-size: 15px;
   }
 
+  .mentor-dashboard-header h1 {
+    font-size: 28px;
+  }
+
+  .mentor-dashboard-header p {
+    font-size: 15px;
+  }
+
   .startup-identity-card {
+    grid-template-columns: 54px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .mentor-profile-card {
     grid-template-columns: 54px minmax(0, 1fr);
     align-items: start;
   }
@@ -2293,7 +2467,17 @@ textarea {
     justify-self: start;
   }
 
+  .mentor-profile-tags {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
   .startup-avatar {
+    width: 54px;
+    height: 54px;
+  }
+
+  .mentor-avatar {
     width: 54px;
     height: 54px;
   }
@@ -2355,6 +2539,25 @@ textarea {
 
   .program-agent-card small {
     grid-column: 2;
+  }
+
+  .mentor-session-row,
+  .mentor-startup-summary,
+  .mentor-task-row {
+    grid-template-columns: 1fr;
+  }
+
+  .mentor-score {
+    width: 100%;
+  }
+
+  .mentor-score > span {
+    justify-self: start;
+  }
+
+  .mentor-task-row select {
+    width: 100%;
+    min-width: 0;
   }
 
   .mentorship-form > .btn,

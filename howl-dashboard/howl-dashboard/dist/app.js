@@ -571,6 +571,16 @@ function navItemsForUser() {
       ["history", "↗", "Evolução"],
     ];
   }
+  if (isEvaluator()) {
+    return [
+      ["dashboard", "◎", "Dashboard"],
+      ["mentorship", "▣", "Agenda"],
+      ["startups", "♢", "Portfólio"],
+      ["assessment", "✎", "Avaliações"],
+      ["history", "↗", "Histórico"],
+      ["reports", "□", "Relatórios"],
+    ];
+  }
   const base = [
     ["dashboard", "⌂", "Dashboard"],
     ["startups", "▦", "Startups"],
@@ -1791,6 +1801,9 @@ function renderDashboard() {
       programFilterActive,
     });
   }
+  if (isEvaluator()) {
+    return renderMentorDashboard();
+  }
   return `
     <section class="page">
       <div class="hero">
@@ -2035,6 +2048,183 @@ function relativeDateLabel(value) {
   if (diffDays === 1) return "Amanhã";
   if (diffDays > 1) return `Em ${diffDays} dias`;
   return formatDate(value);
+}
+
+function renderMentorDashboard() {
+  const mentor = activeUser();
+  const links = mentorshipLinksVisibleToUser();
+  const activeLinks = links.filter((link) => link.status === "active");
+  const linkedStartupIds = new Set(activeLinks.map((link) => link.startupId));
+  const mentorStartups = startups.filter((startup) => linkedStartupIds.has(startup.id));
+  const latestLinked = mentorStartups.map((startup) => latestAssessment(startup.id));
+  const mentorStats = portfolioStats(latestLinked);
+  const sessions = mentorshipSessionsVisibleToUser();
+  const scheduledSessions = sessions.filter((session) => session.status === "scheduled");
+  const completedSessions = sessions.filter((session) => session.status === "completed");
+  const tasks = mentorshipTasksVisibleToUser();
+  const openTasks = tasks.filter((task) => task.status !== "done");
+  const averageRating = averageSessionEvaluation(sessions);
+  const program = programById(mentor.programId);
+  const monthSessions = sessions.filter((session) => {
+    const scheduledAt = new Date(session.scheduledAt || 0);
+    const now = new Date();
+    return scheduledAt.getMonth() === now.getMonth() && scheduledAt.getFullYear() === now.getFullYear();
+  }).length;
+
+  return `
+    <section class="page mentor-dashboard-page">
+      <div class="mentor-dashboard-layout">
+        <div class="mentor-dashboard-main">
+          <div class="mentor-dashboard-header">
+            <div class="row wrap">
+              <h1>Dashboard do Mentor</h1>
+              <span class="badge blue">Mentor IA (em Breve)</span>
+            </div>
+            <p>Acompanhe suas startups vinculadas, agenda de sessões, tarefas pós-mentoria e impacto do portfólio.</p>
+          </div>
+          ${mentorProfileSummary(mentor, activeLinks, program, monthSessions)}
+          <div class="program-kpi-grid mentor-kpi-grid">
+            ${programKpiCard("Startups acompanhadas", activeLinks.length, "vínculos ativos", "◎")}
+            ${programKpiCard("Sessões agendadas", scheduledSessions.length, "próximas mentorias", "▣", "amber")}
+            ${programKpiCard("Tarefas abertas", openTasks.length, "plano de ação", "☑", openTasks.length ? "amber" : "green")}
+            ${programKpiCard("Avaliação média", averageRating ? fmt(averageRating, 1) : "—", averageRating ? "feedback das sessões" : "aguardando avaliação", "☆", averageRating ? "green" : "gray")}
+          </div>
+          <div class="grid two mentor-dashboard-grid">
+            ${mentorAgendaDashboardCard(sessions)}
+            ${mentorPortfolioDashboardCard(activeLinks)}
+          </div>
+          <div class="grid two mentor-dashboard-grid">
+            ${mentorImpactDashboardCard(mentorStats, latestLinked)}
+            ${mentorTasksDashboardCard(openTasks)}
+          </div>
+        </div>
+        ${programAiAgentsPanel()}
+      </div>
+    </section>
+  `;
+}
+
+function mentorProfileSummary(mentor, activeLinks, program, monthSessions) {
+  return `<article class="card pad mentor-profile-card">
+    <div class="mentor-avatar">${escapeHtml((mentor.name || "M").trim()[0] || "M").toUpperCase()}</div>
+    <div>
+      <span class="metric-label">Área do mentor</span>
+      <h2>${escapeHtml(mentor.name)}</h2>
+      <p>${escapeHtml(mentor.organization || "Mentor associado")} • ${escapeHtml(program?.name || "Programa HORDA")}</p>
+    </div>
+    <div class="mentor-profile-tags">
+      <span class="badge green">${activeLinks.length} vínculos ativos</span>
+      <span class="badge amber">${monthSessions} sessões no mês</span>
+    </div>
+  </article>`;
+}
+
+function mentorAgendaDashboardCard(sessions) {
+  const orderedSessions = [...sessions].sort((a, b) => new Date(a.scheduledAt || 0) - new Date(b.scheduledAt || 0));
+  if (!orderedSessions.length) {
+    return `<div class="card pad empty-state">
+      <span class="metric-label">Agenda</span>
+      <h2>Nenhuma sessão registrada.</h2>
+      <p>Quando o gestor agendar mentorias para suas startups, elas aparecerão aqui.</p>
+    </div>`;
+  }
+  return `<div class="card pad mentor-dashboard-card">
+    <div class="row between wrap">
+      <div><span class="metric-label">Agenda</span><h2>Próximas sessões</h2></div>
+      <button class="btn" type="button" onclick="go('mentorship')">Abrir agenda</button>
+    </div>
+    <div class="mentor-session-list">
+      ${orderedSessions.slice(0, 5).map((session) => `<article class="mentor-session-row">
+        <div>
+          <strong>${escapeHtml(session.topic || "Mentoria sem pauta")}</strong>
+          <span>${escapeHtml(startupName(session.startupId))} • ${formatDateTime(session.scheduledAt)} • ${session.durationMinutes || 60} min</span>
+        </div>
+        <span class="badge ${mentorshipStatusColor(session.status)}">${mentorshipStatusLabel(session.status)}</span>
+      </article>`).join("")}
+    </div>
+  </div>`;
+}
+
+function mentorPortfolioDashboardCard(activeLinks) {
+  if (!activeLinks.length) {
+    return `<div class="card pad empty-state">
+      <span class="metric-label">Portfólio</span>
+      <h2>Nenhuma startup vinculada.</h2>
+      <p>O gestor do programa ainda não atribuiu startups ao seu acompanhamento.</p>
+    </div>`;
+  }
+  return `<div class="card pad mentor-dashboard-card">
+    <div class="row between wrap">
+      <div><span class="metric-label">Portfólio</span><h2>Startups acompanhadas</h2></div>
+      <button class="btn" type="button" onclick="go('startups')">Ver portfólio</button>
+    </div>
+    <div class="mentor-startup-list">
+      ${activeLinks.slice(0, 5).map((link) => {
+        const startup = startups.find((item) => item.id === link.startupId);
+        const result = latestAssessment(link.startupId);
+        const score = result?.hasResponses ? Math.round(result.howlScore) : 0;
+        return `<article class="mentor-startup-summary">
+          <div>
+            <strong>${escapeHtml(startup?.name || startupName(link.startupId))}</strong>
+            <span>${escapeHtml(startup?.stage || "Estágio não informado")} • ${escapeHtml(link.notes || "Mentoria ativa")}</span>
+          </div>
+          <div class="mentor-score">
+            <span>${result?.hasResponses ? `${score}%` : "—"}</span>
+            <div class="bar value"><span style="width:${score}%;background:var(--blue)"><b>${score}</b></span></div>
+          </div>
+        </article>`;
+      }).join("")}
+    </div>
+  </div>`;
+}
+
+function mentorImpactDashboardCard(stats, latestLinked) {
+  const evaluated = latestLinked.filter((result) => result?.hasResponses).length;
+  return `<div class="card pad mentor-dashboard-card">
+    <span class="metric-label">Impacto</span>
+    <h2>Evolução do portfólio</h2>
+    <div class="alerts mentor-impact-summary">
+      <div class="alert"><strong>${fmt(stats.avgScore, 0)}</strong> pontos de média nas startups acompanhadas.</div>
+      <div class="alert"><strong>${evaluated}</strong> startups com avaliação respondida no ciclo atual.</div>
+    </div>
+    ${mentorJourneyBars(stats)}
+  </div>`;
+}
+
+function mentorJourneyBars(stats) {
+  return `<div class="chart-block mentor-chart-block">
+    ${chartLegend([{ label: "Média das startups acompanhadas", color: "#b8892d" }])}
+    <div class="journey-bars">${stats.journeyAverages.map((journey) => `<div>
+      <div class="bar-label"><span>${escapeHtml(journey.name)}</span><span>${fmt(journey.avg)}/5</span></div>
+      <div class="bar value"><span style="width:${journey.avg * 20}%;background:var(--blue)"><b>${fmt(journey.avg)}</b></span></div>
+    </div>`).join("")}</div>
+  </div>`;
+}
+
+function mentorTasksDashboardCard(tasks) {
+  const orderedTasks = [...tasks].sort((a, b) => new Date(a.dueDate || "2999-12-31") - new Date(b.dueDate || "2999-12-31"));
+  if (!orderedTasks.length) {
+    return `<div class="card pad empty-state">
+      <span class="metric-label">Plano de ação</span>
+      <h2>Nenhuma tarefa aberta.</h2>
+      <p>As tarefas criadas depois das sessões aparecerão aqui para acompanhamento.</p>
+    </div>`;
+  }
+  return `<div class="card pad mentor-dashboard-card">
+    <div class="row between wrap">
+      <div><span class="metric-label">Plano de ação</span><h2>Tarefas prioritárias</h2></div>
+      <button class="btn" type="button" onclick="setMentorshipTab('tasks');go('mentorship')">Ver tarefas</button>
+    </div>
+    <div class="mentor-task-list">
+      ${orderedTasks.slice(0, 5).map((task) => `<article class="mentor-task-row">
+        <div>
+          <strong>${escapeHtml(task.title)}</strong>
+          <span>${escapeHtml(startupName(task.startupId))} • ${task.dueDate ? formatDate(task.dueDate) : "Sem prazo"} • ${priorityLabel(task.priority)}</span>
+        </div>
+        ${taskStatusSelect(task)}
+      </article>`).join("")}
+    </div>
+  </div>`;
 }
 
 function renderProgramManagerDashboard(context) {

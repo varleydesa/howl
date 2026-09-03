@@ -252,6 +252,9 @@ Estado atual em 03/09/2026:
 - O cadastro de nova sessão nasce como `Agendada`.
 - A alteração de status da sessão fica nas sessões cadastradas.
 - A duração da sessão aceita valores inteiros entre 15 e 360 minutos.
+- O dashboard do gestor já segue a estrutura Lovable, com abas executivas, painel de sessões, filtros e card de avaliação média.
+- A visão da startup/empreendedor já mostra jornada, progresso, mentorias, tarefas, análise de rota e recursos com dados reais quando existirem.
+- A visão do mentor/avaliador está em implementação como dashboard próprio, com startups vinculadas, agenda, tarefas e impacto do portfólio.
 
 Próxima sequência recomendada:
 
@@ -265,18 +268,14 @@ Próxima sequência recomendada:
 3. Ajustar detalhes visuais percebidos na produção.
 4. Criar edição de sessão já cadastrada, incluindo pauta, contexto, resumo e próximos passos.
 5. Criar edição de tarefa já cadastrada, incluindo título, descrição, prioridade e prazo.
-6. Evoluir a visão do mentor:
+6. Validar a visão do mentor em produção:
+   - dashboard próprio;
    - agenda própria;
    - startups vinculadas;
    - sessões futuras;
-   - histórico de sessões;
-   - tarefas associadas às mentorias.
-7. Evoluir a visão da startup/empreendedor:
-   - mentor vinculado;
-   - próximas sessões;
-   - histórico de mentorias;
-   - plano de ação;
-   - tarefas pendentes e concluídas.
+   - tarefas associadas às mentorias;
+   - indicadores de impacto.
+7. Criar edição de vínculos, sessões e tarefas sem depender de recriar registros.
 8. Criar filtros para sessões e tarefas:
    - por startup;
    - por mentor;
