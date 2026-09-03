@@ -2155,15 +2155,7 @@ function mentorDashboardPanel(tab, context) {
     </div>`;
   }
   if (tab === "analytics") {
-    return `<div class="mentor-dashboard-panel">
-      <div class="program-kpi-grid mentor-kpi-grid">
-        ${programKpiCard("Progresso médio", fmt(context.mentorStats.avgScore, 0), "startups acompanhadas", "↗")}
-        ${programKpiCard("Sessões concluídas", context.completedSessions.length, "histórico registrado", "✓", "green")}
-        ${programKpiCard("Avaliação média", context.averageRating ? fmt(context.averageRating, 1) : "—", context.averageRating ? "feedback das sessões" : "aguardando avaliação", "☆", context.averageRating ? "green" : "gray")}
-        ${programKpiCard("Tarefas abertas", context.openTasks.length, "pós-mentoria", "☑", context.openTasks.length ? "amber" : "green")}
-      </div>
-      ${mentorImpactDashboardCard(context.mentorStats, context.latestLinked)}
-    </div>`;
+    return mentorAnalyticsPanel(context);
   }
   return `<div class="mentor-dashboard-panel">
     ${mentorAgendaCalendarCard(context.sessions)}
@@ -2317,16 +2309,115 @@ function openMentorStartup(startupId) {
   go("startups");
 }
 
+function mentorAnalyticsPanel(context) {
+  const evaluated = context.latestLinked.filter((result) => result?.hasResponses);
+  const averageEvolution = average(evaluated.map((result) => result.monthlyEvolution));
+  const noRecentSession = mentorStartupsWithoutRecentSession(context.activeLinks, context.sessions);
+  const taskCompletionRate = context.tasks.length
+    ? Math.round((context.tasks.filter((task) => task.status === "done").length / context.tasks.length) * 100)
+    : 0;
+  return `<div class="mentor-dashboard-panel">
+    <div class="program-kpi-grid mentor-kpi-grid">
+      ${programKpiCard("Progresso médio", fmt(context.mentorStats.avgScore, 0), "startups acompanhadas", "↗")}
+      ${programKpiCard("Evolução média", `${averageEvolution >= 0 ? "+" : ""}${fmt(averageEvolution, 1)}`, "pontos no ciclo", "◷", averageEvolution >= 0 ? "green" : "red")}
+      ${programKpiCard("Sessões concluídas", context.completedSessions.length, `${context.scheduledSessions.length} agendadas`, "✓", "green")}
+      ${programKpiCard("Avaliação média", context.averageRating ? fmt(context.averageRating, 1) : "—", context.averageRating ? "feedback das sessões" : "aguardando avaliação", "☆", context.averageRating ? "green" : "gray")}
+    </div>
+    <div class="grid two mentor-dashboard-grid">
+      ${mentorImpactDashboardCard(context.mentorStats, context.latestLinked)}
+      ${mentorSessionAnalyticsCard(context, noRecentSession)}
+    </div>
+    <div class="grid two mentor-dashboard-grid">
+      ${mentorTaskAnalyticsCard(context, taskCompletionRate)}
+      ${mentorFocusAlertsCard(context, noRecentSession, averageEvolution)}
+    </div>
+  </div>`;
+}
+
+function mentorStartupsWithoutRecentSession(activeLinks, sessions) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 30);
+  return activeLinks.filter((link) => {
+    const startupSessions = sessions.filter((session) => session.startupId === link.startupId && session.status !== "canceled");
+    return !startupSessions.some((session) => {
+      const scheduledAt = new Date(session.scheduledAt || 0);
+      return scheduledAt >= cutoff || (session.status === "scheduled" && scheduledAt >= new Date());
+    });
+  });
+}
+
 function mentorImpactDashboardCard(stats, latestLinked) {
   const evaluated = latestLinked.filter((result) => result?.hasResponses).length;
   return `<div class="card pad mentor-dashboard-card">
     <span class="metric-label">Impacto</span>
-    <h2>Evolução do portfólio</h2>
+    <h2>Impacto por jornada</h2>
     <div class="alerts mentor-impact-summary">
       <div class="alert"><strong>${fmt(stats.avgScore, 0)}</strong> pontos de média nas startups acompanhadas.</div>
       <div class="alert"><strong>${evaluated}</strong> startups com avaliação respondida no ciclo atual.</div>
     </div>
     ${mentorJourneyBars(stats)}
+  </div>`;
+}
+
+function mentorSessionAnalyticsCard(context, noRecentSession) {
+  const total = context.sessions.length;
+  const completedRate = total ? Math.round((context.completedSessions.length / total) * 100) : 0;
+  return `<div class="card pad mentor-dashboard-card">
+    <span class="metric-label">Sessões</span>
+    <h2>Sessões concluídas vs agendadas</h2>
+    <div class="mentor-analytics-stack">
+      ${mentorAnalyticsRow("Concluídas", context.completedSessions.length, completedRate, "green")}
+      ${mentorAnalyticsRow("Agendadas", context.scheduledSessions.length, total ? Math.round((context.scheduledSessions.length / total) * 100) : 0, "amber")}
+      ${mentorAnalyticsRow("Sem sessão recente", noRecentSession.length, context.activeLinks.length ? Math.round((noRecentSession.length / context.activeLinks.length) * 100) : 0, "red")}
+    </div>
+    <div class="mini-list">
+      ${noRecentSession.slice(0, 3).map((link) => `<div><strong>${escapeHtml(startupName(link.startupId))}</strong><span>Sem sessão registrada nos últimos 30 dias.</span></div>`).join("") || `<div><strong>Ritmo em dia</strong><span>Todas as startups vinculadas têm sessão recente ou futura.</span></div>`}
+    </div>
+  </div>`;
+}
+
+function mentorTaskAnalyticsCard(context, completionRate) {
+  const done = context.tasks.filter((task) => task.status === "done").length;
+  const inProgress = context.tasks.filter((task) => task.status === "in_progress").length;
+  return `<div class="card pad mentor-dashboard-card">
+    <span class="metric-label">Plano de ação</span>
+    <h2>Tarefas abertas vs concluídas</h2>
+    <div class="mentor-analytics-stack">
+      ${mentorAnalyticsRow("Concluídas", done, completionRate, "green")}
+      ${mentorAnalyticsRow("Em andamento", inProgress, context.tasks.length ? Math.round((inProgress / context.tasks.length) * 100) : 0, "amber")}
+      ${mentorAnalyticsRow("Abertas", context.openTasks.length, context.tasks.length ? Math.round((context.openTasks.length / context.tasks.length) * 100) : 0, "blue")}
+    </div>
+    <div class="mini-list">
+      ${context.openTasks.slice(0, 3).map((task) => `<div><strong>${escapeHtml(task.title)}</strong><span>${escapeHtml(startupName(task.startupId))} • ${task.dueDate ? formatDate(task.dueDate) : "Sem prazo"}</span></div>`).join("") || `<div><strong>Nenhuma tarefa aberta</strong><span>O plano de ação está sem pendências no momento.</span></div>`}
+    </div>
+  </div>`;
+}
+
+function mentorFocusAlertsCard(context, noRecentSession, averageEvolution) {
+  const weakest = context.mentorStats.weakestJourney;
+  const atRisk = context.latestLinked.filter((result) => result?.hasResponses && result.howlScore < 60);
+  const overdueTasks = context.openTasks.filter((task) => task.dueDate && new Date(task.dueDate) < new Date());
+  const alerts = [
+    noRecentSession.length ? `${noRecentSession.length} startup(s) sem sessão recente. Priorize agenda antes de abrir novas tarefas.` : "Agenda em dia para as startups vinculadas.",
+    context.activeLinks.length ? `Jornada prioritária do portfólio: ${weakest.name}, média ${fmt(weakest.avg)}/5.` : "Nenhuma startup vinculada para calcular jornada prioritária.",
+    atRisk.length ? `${atRisk.length} startup(s) abaixo de 60 pontos exigem acompanhamento mais próximo.` : "Nenhuma startup vinculada está abaixo de 60 pontos.",
+    overdueTasks.length ? `${overdueTasks.length} tarefa(s) abertas estão com prazo vencido.` : "Não há tarefas vencidas no portfólio do mentor.",
+    averageEvolution < 0 ? "O portfólio recuou no ciclo; revise causas com o gestor do programa." : "O portfólio não apresenta queda média no ciclo atual.",
+  ];
+  return `<div class="card pad mentor-dashboard-card">
+    <span class="metric-label">Alertas de foco</span>
+    <h2>Onde atuar agora</h2>
+    <div class="alerts">
+      ${alerts.map((alert) => `<div class="alert">${escapeHtml(alert)}</div>`).join("")}
+    </div>
+  </div>`;
+}
+
+function mentorAnalyticsRow(label, value, percent, color) {
+  const safePercent = Math.max(0, Math.min(100, percent));
+  return `<div class="mentor-analytics-row">
+    <div class="bar-label"><span>${escapeHtml(label)}</span><span>${value} • ${safePercent}%</span></div>
+    <div class="bar value"><span class="${color}" style="width:${safePercent}%"><b>${safePercent}</b></span></div>
   </div>`;
 }
 

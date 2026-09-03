@@ -460,6 +460,10 @@ button {
   background: linear-gradient(135deg, #fff, #f2f4f7);
 }
 
+.program-kpi.red {
+  background: linear-gradient(135deg, #fff, #fff1f2);
+}
+
 .program-kpi span {
   display: block;
   color: var(--muted);
@@ -509,6 +513,11 @@ button {
 .program-kpi.gray i {
   background: #f1f4f8;
   color: var(--muted);
+}
+
+.program-kpi.red i {
+  background: rgba(207, 63, 70, 0.12);
+  color: var(--red);
 }
 
 .program-card-grid {
@@ -1373,6 +1382,32 @@ button {
 
 .mentor-impact-summary {
   margin-bottom: 4px;
+}
+
+.mentor-analytics-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.mentor-analytics-row {
+  display: grid;
+  gap: 7px;
+}
+
+.mentor-analytics-row .bar span.green {
+  background: var(--green);
+}
+
+.mentor-analytics-row .bar span.amber {
+  background: var(--amber);
+}
+
+.mentor-analytics-row .bar span.blue {
+  background: var(--blue);
+}
+
+.mentor-analytics-row .bar span.red {
+  background: var(--red);
 }
 
 .mentor-chart-block {

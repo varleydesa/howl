@@ -185,7 +185,11 @@ assert(result.mentorPortfolioHtml.includes("Abrir startup"));
 assert(result.mentorPortfolioHtml.includes("Ver agenda"));
 assert.strictEqual(result.mentorSelectedStartupId, "agrosense");
 assert.strictEqual(result.mentorStartupRoute, "startups");
-assert(result.mentorAnalyticsHtml.includes("Evolução do portfólio"));
+assert(result.mentorAnalyticsHtml.includes("Impacto por jornada"));
+assert(result.mentorAnalyticsHtml.includes("Sessões concluídas vs agendadas"));
+assert(result.mentorAnalyticsHtml.includes("Tarefas abertas vs concluídas"));
+assert(result.mentorAnalyticsHtml.includes("Alertas de foco"));
+assert(result.mentorAnalyticsHtml.includes("Onde atuar agora"));
 assert.deepStrictEqual(Array.from(result.mentorNavLabels), [
   "Dashboard",
   "Agenda",

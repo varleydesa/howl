@@ -255,6 +255,7 @@ Estado atual em 03/09/2026:
 - O dashboard do gestor já segue a estrutura Lovable, com abas executivas, painel de sessões, filtros e card de avaliação média.
 - A visão da startup/empreendedor já mostra jornada, progresso, mentorias, tarefas, análise de rota e recursos com dados reais quando existirem.
 - A visão do mentor/avaliador está em implementação como dashboard próprio, com startups vinculadas, agenda, tarefas e impacto do portfólio.
+- A aba `Analytics` do mentor já usa dados reais para progresso médio, evolução, sessões, tarefas, startups sem sessão recente e alertas de foco.
 
 Próxima sequência recomendada:
 
