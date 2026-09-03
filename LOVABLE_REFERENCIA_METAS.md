@@ -234,6 +234,63 @@ Depois disso, entra o `Mentor IA` para gerar:
 - Plano de ação sugerido.
 - Alertas simples para o gestor e mentor.
 
+## Próximas tarefas imediatas
+
+Estado atual em 03/09/2026:
+
+- A tela `Mentorias` já existe no HORDA oficial.
+- Os vínculos mentor-startup já usam tabela real no Supabase.
+- As sessões de mentoria já usam tabela real no Supabase.
+- As tarefas pós-sessão já usam tabela real no Supabase.
+- A tela já foi reorganizada com abas `Agenda`, `Portfólio`, `Plano de Ação` e `Processo`.
+- O cadastro de nova sessão nasce como `Agendada`.
+- A alteração de status da sessão fica nas sessões cadastradas.
+- A duração da sessão aceita valores inteiros entre 15 e 360 minutos.
+
+Próxima sequência recomendada:
+
+1. Validar a tela `Mentorias` em produção na Vercel.
+2. Testar como gestor:
+   - criar vínculo mentor-startup;
+   - criar sessão com duração variável;
+   - alterar status da sessão na lista;
+   - criar tarefa pós-sessão;
+   - alterar status da tarefa no quadro.
+3. Ajustar detalhes visuais percebidos na produção.
+4. Criar edição de sessão já cadastrada, incluindo pauta, contexto, resumo e próximos passos.
+5. Criar edição de tarefa já cadastrada, incluindo título, descrição, prioridade e prazo.
+6. Evoluir a visão do mentor:
+   - agenda própria;
+   - startups vinculadas;
+   - sessões futuras;
+   - histórico de sessões;
+   - tarefas associadas às mentorias.
+7. Evoluir a visão da startup/empreendedor:
+   - mentor vinculado;
+   - próximas sessões;
+   - histórico de mentorias;
+   - plano de ação;
+   - tarefas pendentes e concluídas.
+8. Criar filtros para sessões e tarefas:
+   - por startup;
+   - por mentor;
+   - por status;
+   - por prazo;
+   - por prioridade.
+9. Criar indicadores específicos de mentoria:
+   - sessões agendadas;
+   - sessões concluídas;
+   - tarefas abertas;
+   - tarefas concluídas;
+   - startups sem sessão recente;
+   - mentores com maior carga.
+10. Iniciar `Mentor IA` leve usando dados reais:
+   - briefing pré-sessão;
+   - sugestão de pauta;
+   - resumo pós-sessão;
+   - sugestão de tarefas;
+   - alertas simples para gestor e mentor.
+
 ## Observações de qualidade
 
 Antes de migrar qualquer ideia do Lovable, revisar:
