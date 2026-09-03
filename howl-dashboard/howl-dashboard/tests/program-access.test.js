@@ -86,7 +86,7 @@ const result = vm.runInContext(
 
 assert(result.adminHasFilter);
 assert(result.adminDashboardHtml.includes("Dashboard do Programa"));
-assert(result.adminDashboardHtml.includes("AI Analytics Ativo"));
+assert(result.adminDashboardHtml.includes("AI Analytics (em Breve)"));
 assert(result.adminDashboardHtml.includes("Agentes de IA"));
 assert(result.adminDashboardHtml.includes("Executivo"));
 assert(result.adminDashboardHtml.includes("Memória"));

@@ -1906,7 +1906,7 @@ function programDashboardHeader(context) {
     <div>
       <div class="row wrap">
         <h1>Dashboard do Programa</h1>
-        <span class="badge blue">AI Analytics Ativo</span>
+        <span class="badge blue">AI Analytics (em Breve)</span>
       </div>
       <p>${escapeHtml(context.introText)} Visão operacional de programas, performance das startups e mentorias com dados reais.</p>
     </div>
