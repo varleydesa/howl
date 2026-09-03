@@ -1957,10 +1957,10 @@ function programExecutivePanel(context) {
       <p>Visão consolidada do programa de aceleração, avaliação e mentoria.</p>
     </div>
     <div class="program-kpi-grid">
-      ${programKpiCard("Startups", context.visibleStartups.length, `${context.completionRate}% conclusão`, "♢", "blue")}
+      ${programKpiCard("Startups", context.visibleStartups.length, `${context.completionRate}% com avaliação`, "♢", "blue")}
       ${programKpiCard("Mentores", context.visibleMentors.length, `${context.links.filter((link) => link.status === "active").length} mentorias ativas`, "♧", "blue")}
       ${programKpiCard("Sessões", context.sessions.length, `${context.scheduledSessions.length} agendadas`, "▣", "green")}
-      ${programKpiCard("Avaliação Média", fmt(context.dashboardStats.avgScore, 1), `${classifyHowlScore(context.dashboardStats.avgScore)} • ${context.completionRate}% conclusão`, "☆", "amber")}
+      ${programKpiCard("Avaliação Média", fmt(context.dashboardStats.avgScore, 1), `${classifyHowlScore(context.dashboardStats.avgScore)} • ${context.completionRate}% com avaliação`, "☆", "amber")}
     </div>
     <div class="grid two program-card-grid">
       <div class="card pad chart-card">
@@ -2146,7 +2146,7 @@ function programHealthCard(context) {
       <div><strong>${evaluated}</strong><span>startups avaliadas</span></div>
       <div><strong>${atRisk}</strong><span>abaixo de 60 pontos</span></div>
       <div><strong>${noAssessment}</strong><span>sem avaliação preenchida</span></div>
-      <div><strong>${context.completionRate}%</strong><span>conclusão do ciclo</span></div>
+      <div><strong>${context.completionRate}%</strong><span>com avaliação</span></div>
     </div>
   </div>`;
 }
