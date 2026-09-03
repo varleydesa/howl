@@ -59,6 +59,9 @@ const result = vm.runInContext(
     activeRoute = "dashboard";
     render();
     const adminDashboardHtml = document.getElementById("app").innerHTML;
+    activeProgramDashboardTab = "sessions";
+    render();
+    const adminSessionsHtml = document.getElementById("app").innerHTML;
     const adminHasFilter = adminDashboardHtml.includes("Todos os programas");
     selectDashboardProgram("programa-externo");
     const filteredAdminIds = dashboardStartups().map((startup) => startup.id);
@@ -69,6 +72,7 @@ const result = vm.runInContext(
 
     ({
       adminDashboardHtml,
+      adminSessionsHtml,
       adminHasFilter,
       filteredAdminIds,
       evaluatorIds,
@@ -86,6 +90,10 @@ assert(result.adminDashboardHtml.includes("AI Analytics Ativo"));
 assert(result.adminDashboardHtml.includes("Agentes de IA"));
 assert(result.adminDashboardHtml.includes("Executivo"));
 assert(result.adminDashboardHtml.includes("Memória"));
+assert(result.adminSessionsHtml.includes("Total de Sessões"));
+assert(result.adminSessionsHtml.includes("Avaliação Média"));
+assert(result.adminSessionsHtml.includes("Buscar por título, startup ou mentor"));
+assert(result.adminSessionsHtml.includes("Nenhuma sessão encontrada"));
 assert.deepStrictEqual(Array.from(result.filteredAdminIds), ["startup-externa"]);
 assert(!result.evaluatorIds.includes("startup-externa"));
 assert.deepStrictEqual(

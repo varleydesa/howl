@@ -260,6 +260,9 @@ let selectedDashboardProgramId = "all";
 let selectedMonthIndex = 3;
 let activeMentorshipTab = "agenda";
 let activeProgramDashboardTab = "executive";
+let programSessionSearch = "";
+let programSessionStatusFilter = "all";
+let programSessionDateFilter = "all";
 let activeJourney = "conceito";
 let draftSaved = false;
 let draftAnswers = {};
@@ -2015,14 +2018,93 @@ function programProgressPanel(context) {
 }
 
 function programSessionsPanel(context) {
+  const filteredSessions = filteredProgramSessions(context.sessions);
+  const averageEvaluation = averageSessionEvaluation(context.sessions);
   return `<div class="program-tab-panel">
-    <div class="program-kpi-grid compact">
-      ${programKpiCard("Agendadas", context.scheduledSessions.length, "próximas mentorias", "▣", "blue")}
+    <div class="program-kpi-grid">
+      ${programKpiCard("Total de Sessões", context.sessions.length, "sessões registradas", "▣", "blue")}
       ${programKpiCard("Concluídas", context.completedSessions.length, "histórico registrado", "✓", "green")}
-      ${programKpiCard("Tarefas abertas", context.tasks.filter((task) => task.status !== "done").length, "pós-sessão", "☑", "amber")}
+      ${programKpiCard("Próximas", context.scheduledSessions.length, "mentorias agendadas", "◷", "blue")}
+      ${programKpiCard("Avaliação Média", averageEvaluation ? fmt(averageEvaluation, 1) : "—", averageEvaluation ? "avaliação da startup" : "aguardando avaliações", "☆", "amber")}
     </div>
-    ${mentorshipSessionsCard(context.sessions)}
+    ${programSessionFiltersCard()}
+    ${programSessionsTable(filteredSessions)}
   </div>`;
+}
+
+function filteredProgramSessions(sessions) {
+  const query = normalizeText(programSessionSearch);
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+  return sessions.filter((session) => {
+    const scheduledAt = session.scheduledAt ? new Date(session.scheduledAt) : null;
+    const matchesQuery = !query || normalizeText([
+      session.topic,
+      startupName(session.startupId),
+      mentorName(session.mentorId),
+      session.agenda,
+      session.summary,
+    ].join(" ")).includes(query);
+    const matchesStatus = programSessionStatusFilter === "all" || session.status === programSessionStatusFilter;
+    const matchesDate =
+      programSessionDateFilter === "all" ||
+      (programSessionDateFilter === "upcoming" && scheduledAt && scheduledAt >= today) ||
+      (programSessionDateFilter === "past" && scheduledAt && scheduledAt < today) ||
+      (programSessionDateFilter === "month" && scheduledAt && scheduledAt.getMonth() === currentMonth && scheduledAt.getFullYear() === currentYear);
+    return matchesQuery && matchesStatus && matchesDate;
+  });
+}
+
+function programSessionFiltersCard() {
+  return `<div class="card pad program-session-filters">
+    <label class="program-session-search">
+      <span aria-hidden="true">⌕</span>
+      <input
+        type="search"
+        value="${escapeHtml(programSessionSearch)}"
+        placeholder="Buscar por título, startup ou mentor..."
+        onchange="setProgramSessionSearch(this.value)"
+        onkeydown="handleProgramSessionSearch(event)"
+      />
+    </label>
+    <label class="program-filter-select">
+      <span aria-hidden="true">▽</span>
+      <select onchange="setProgramSessionStatusFilter(this.value)" aria-label="Filtrar sessões por status">
+        <option value="all" ${programSessionStatusFilter === "all" ? "selected" : ""}>Todos</option>
+        <option value="scheduled" ${programSessionStatusFilter === "scheduled" ? "selected" : ""}>Agendadas</option>
+        <option value="completed" ${programSessionStatusFilter === "completed" ? "selected" : ""}>Concluídas</option>
+        <option value="canceled" ${programSessionStatusFilter === "canceled" ? "selected" : ""}>Canceladas</option>
+      </select>
+    </label>
+    <label class="program-filter-select">
+      <span aria-hidden="true">▣</span>
+      <select onchange="setProgramSessionDateFilter(this.value)" aria-label="Filtrar sessões por período">
+        <option value="all" ${programSessionDateFilter === "all" ? "selected" : ""}>Todos</option>
+        <option value="upcoming" ${programSessionDateFilter === "upcoming" ? "selected" : ""}>Próximas</option>
+        <option value="past" ${programSessionDateFilter === "past" ? "selected" : ""}>Passadas</option>
+        <option value="month" ${programSessionDateFilter === "month" ? "selected" : ""}>Este mês</option>
+      </select>
+    </label>
+  </div>`;
+}
+
+function programSessionsTable(sessions) {
+  if (!sessions.length) {
+    return `<div class="card pad program-session-empty">
+      <strong>!</strong>
+      <p>Nenhuma sessão encontrada</p>
+    </div>`;
+  }
+  const rows = sessions.map((session) => `<tr>
+    <td><strong>${escapeHtml(session.topic)}</strong><br><span class="subtle">${escapeHtml(session.agenda || "Sem contexto pré-sessão")}</span></td>
+    <td>${escapeHtml(startupName(session.startupId))}</td>
+    <td>${escapeHtml(mentorName(session.mentorId))}</td>
+    <td>${formatDateTime(session.scheduledAt)}</td>
+    <td><span class="badge ${mentorshipStatusColor(session.status)}">${mentorshipStatusLabel(session.status)}</span></td>
+    <td>${sessionEvaluationLabel(session)}</td>
+  </tr>`).join("");
+  return `<div class="program-session-table">${table(["Sessão", "Startup", "Mentor", "Data/Hora", "Status", "Avaliação"], rows)}</div>`;
 }
 
 function programApplicationsPanel(context) {
@@ -2135,6 +2217,21 @@ function programKpiCard(label, value, detail, icon, color = "blue") {
   </article>`;
 }
 
+function sessionEvaluationScore(session) {
+  const value = session.evaluationScore ?? session.rating ?? session.feedbackScore ?? session.evaluation;
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function averageSessionEvaluation(sessions) {
+  return average(sessions.map(sessionEvaluationScore).filter(Boolean));
+}
+
+function sessionEvaluationLabel(session) {
+  const score = sessionEvaluationScore(session);
+  return score ? `<span class="badge green">${fmt(score, 1)}</span>` : `<span class="badge gray">—</span>`;
+}
+
 function programHealthCard(context) {
   const evaluated = context.dashboardStats.evaluated;
   const atRisk = context.latestVisible.filter((result) => result?.hasResponses && result.howlScore < 60).length;
@@ -2197,6 +2294,26 @@ function programAiAgentsPanel() {
 
 function setProgramDashboardTab(tab) {
   activeProgramDashboardTab = tab;
+  render();
+}
+
+function setProgramSessionSearch(value) {
+  programSessionSearch = value;
+  render();
+}
+
+function handleProgramSessionSearch(event) {
+  if (event.key !== "Enter") return;
+  setProgramSessionSearch(event.currentTarget.value);
+}
+
+function setProgramSessionStatusFilter(value) {
+  programSessionStatusFilter = value;
+  render();
+}
+
+function setProgramSessionDateFilter(value) {
+  programSessionDateFilter = value;
   render();
 }
 
