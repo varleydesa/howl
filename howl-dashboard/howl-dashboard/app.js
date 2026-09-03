@@ -18,6 +18,9 @@ let loginError = "";
 let assessmentCycleIds = {};
 let questionIds = {};
 let publicApplications = [];
+let mentorStartupLinks = [];
+let mentorshipSessions = [];
+let mentorshipTasks = [];
 let publicApplicationMessage = "";
 let programTypes = [
   { id: "aceleracao", type: "Aceleração" },
@@ -241,6 +244,7 @@ const ROUTE_ALIASES = {
   "/mentor-apply": "mentorApply",
   "/auth": "login",
   "/app": "dashboard",
+  "/app/mentorship": "mentorship",
 };
 
 function initialRoute() {
@@ -556,6 +560,7 @@ function navItemsForUser() {
   const base = [
     ["dashboard", "⌂", "Dashboard"],
     ["startups", "▦", "Startups"],
+    ["mentorship", "✦", "Mentorias"],
     ["assessment", "✎", "Avaliações"],
     ["history", "↗", "Histórico"],
     ["compare", "⇄", "Comparativo"],
@@ -723,6 +728,9 @@ async function loadSupabaseData() {
     cyclesResult,
     resultsResult,
     applicationsResult,
+    mentorLinksResult,
+    mentorshipSessionsResult,
+    mentorshipTasksResult,
   ] = await Promise.all([
     client.from("program_types").select("*").order("type"),
     client.from("programs").select("*").order("name"),
@@ -744,6 +752,18 @@ async function loadSupabaseData() {
       .from("horda_applications")
       .select("*")
       .order("created_at", { ascending: false }),
+    client
+      .from("mentor_startup_links")
+      .select("*")
+      .order("created_at", { ascending: false }),
+    client
+      .from("mentorship_sessions")
+      .select("*")
+      .order("scheduled_at", { ascending: false }),
+    client
+      .from("mentorship_tasks")
+      .select("*")
+      .order("created_at", { ascending: false }),
   ]);
 
   [
@@ -762,6 +782,11 @@ async function loadSupabaseData() {
   if (applicationsResult.error && !isMissingSupabaseRelation(applicationsResult.error)) {
     throwIfSupabaseError(applicationsResult.error);
   }
+  [mentorLinksResult, mentorshipSessionsResult, mentorshipTasksResult].forEach((result) => {
+    if (result.error && !isMissingSupabaseRelation(result.error)) {
+      throwIfSupabaseError(result.error);
+    }
+  });
 
   programTypes = (programTypesResult.data || []).map((programType) => ({
     id: programType.id,
@@ -849,6 +874,53 @@ async function loadSupabaseData() {
     reviewedAt: application.reviewed_at || null,
     rejectionReason: application.rejection_reason || "",
     createdAt: application.created_at,
+  }));
+
+  mentorStartupLinks = mentorLinksResult.error ? [] : (mentorLinksResult.data || []).map((link) => ({
+    id: link.id,
+    programId: link.program_id,
+    startupId: link.startup_id,
+    mentorId: link.mentor_profile_id,
+    status: link.status,
+    notes: link.notes || "",
+    createdBy: link.created_by || null,
+    createdAt: link.created_at,
+    updatedAt: link.updated_at,
+  }));
+
+  mentorshipSessions = mentorshipSessionsResult.error ? [] : (mentorshipSessionsResult.data || []).map((session) => ({
+    id: session.id,
+    linkId: session.link_id,
+    programId: session.program_id,
+    startupId: session.startup_id,
+    mentorId: session.mentor_profile_id,
+    status: session.status,
+    scheduledAt: session.scheduled_at,
+    durationMinutes: session.duration_minutes,
+    topic: session.topic || "",
+    agenda: session.agenda || "",
+    summary: session.summary || "",
+    decisions: session.decisions || "",
+    nextSteps: session.next_steps || "",
+    createdBy: session.created_by || null,
+    createdAt: session.created_at,
+    updatedAt: session.updated_at,
+  }));
+
+  mentorshipTasks = mentorshipTasksResult.error ? [] : (mentorshipTasksResult.data || []).map((task) => ({
+    id: task.id,
+    sessionId: task.session_id,
+    programId: task.program_id,
+    startupId: task.startup_id,
+    mentorId: task.mentor_profile_id,
+    title: task.title,
+    description: task.description || "",
+    priority: task.priority,
+    status: task.status,
+    dueDate: task.due_date || "",
+    createdBy: task.created_by || null,
+    createdAt: task.created_at,
+    updatedAt: task.updated_at,
   }));
 
   const signedInProfile = profileResult.data;
@@ -1008,6 +1080,92 @@ async function updatePublicApplication(applicationId, payload) {
     .eq("id", applicationId);
   if (isMissingSupabaseRelation(result.error)) {
     throw new Error("A migration de inscrições públicas ainda não foi aplicada no Supabase.");
+  }
+  throwIfSupabaseError(result.error);
+}
+
+async function persistMentorStartupLink(link) {
+  const client = requireSupabase();
+  const result = await client.from("mentor_startup_links").insert({
+    id: link.id,
+    program_id: link.programId,
+    startup_id: link.startupId,
+    mentor_profile_id: link.mentorId,
+    status: link.status,
+    notes: link.notes,
+    created_by: activeUserId,
+  });
+  if (isMissingSupabaseRelation(result.error)) {
+    throw new Error("A migration de mentorias ainda não foi aplicada no Supabase.");
+  }
+  throwIfSupabaseError(result.error);
+}
+
+async function updateMentorStartupLink(linkId, payload) {
+  const client = requireSupabase();
+  const result = await client
+    .from("mentor_startup_links")
+    .update(payload)
+    .eq("id", linkId);
+  if (isMissingSupabaseRelation(result.error)) {
+    throw new Error("A migration de mentorias ainda não foi aplicada no Supabase.");
+  }
+  throwIfSupabaseError(result.error);
+}
+
+async function persistMentorshipSession(session) {
+  const client = requireSupabase();
+  const result = await client.from("mentorship_sessions").insert({
+    id: session.id,
+    link_id: session.linkId,
+    program_id: session.programId,
+    startup_id: session.startupId,
+    mentor_profile_id: session.mentorId,
+    status: session.status,
+    scheduled_at: session.scheduledAt,
+    duration_minutes: session.durationMinutes,
+    topic: session.topic,
+    agenda: session.agenda,
+    summary: session.summary,
+    decisions: session.decisions,
+    next_steps: session.nextSteps,
+    created_by: activeUserId,
+  });
+  if (isMissingSupabaseRelation(result.error)) {
+    throw new Error("A migration de mentorias ainda não foi aplicada no Supabase.");
+  }
+  throwIfSupabaseError(result.error);
+}
+
+async function persistMentorshipTask(task) {
+  const client = requireSupabase();
+  const result = await client.from("mentorship_tasks").insert({
+    id: task.id,
+    session_id: task.sessionId,
+    program_id: task.programId,
+    startup_id: task.startupId,
+    mentor_profile_id: task.mentorId,
+    title: task.title,
+    description: task.description,
+    priority: task.priority,
+    status: task.status,
+    due_date: task.dueDate || null,
+    created_by: activeUserId,
+  });
+  if (isMissingSupabaseRelation(result.error)) {
+    throw new Error("A migration de mentorias ainda não foi aplicada no Supabase.");
+  }
+  throwIfSupabaseError(result.error);
+}
+
+async function updateMentorshipTask(taskId, payload) {
+  const client = requireSupabase();
+  const result = await client
+    .from("mentorship_tasks")
+    .update(payload)
+    .eq("id", taskId);
+  if (isMissingSupabaseRelation(result.error)) {
+    throw new Error("A migration de mentorias ainda não foi aplicada no Supabase.");
   }
   throwIfSupabaseError(result.error);
 }
@@ -1460,6 +1618,7 @@ function pageTitle() {
   return {
     dashboard: "Dashboard geral",
     startups: "Lista de startups",
+    mentorship: "Mentorias",
     portfolio: "Inteligência de portfólio",
     registration: "Cadastro",
     assessment: "Nova avaliação mensal",
@@ -1503,6 +1662,7 @@ function render() {
   const views = {
     dashboard: renderDashboard,
     startups: renderStartups,
+    mentorship: renderMentorship,
     portfolio: renderPortfolio,
     registration: renderRegistration,
     assessment: renderAssessment,
@@ -1739,6 +1899,196 @@ function renderStartups() {
       ${table(["Nome", "Programa", "Setor", "Cidade", "Estágio", "Score", "Trilha atual", "Etapa da jornada", "Evolução", "Status"], rows.join(""))}
     </section>
   `;
+}
+
+function renderMentorship() {
+  const visibleLinks = mentorshipLinksVisibleToUser();
+  const activeLinks = visibleLinks.filter((link) => link.status === "active");
+  const visibleSessions = mentorshipSessionsVisibleToUser();
+  const visibleTasks = mentorshipTasksVisibleToUser();
+  const openTasks = visibleTasks.filter((task) => task.status !== "done");
+  const scheduledSessions = visibleSessions.filter((session) => session.status === "scheduled");
+  const completedSessions = visibleSessions.filter((session) => session.status === "completed");
+  const title = isManager()
+    ? "Mentores, vínculos e mentorias"
+    : isEvaluator()
+      ? "Dashboard de mentoria"
+      : "Minha mentoria";
+  const subtitle = isManager()
+    ? "Vincule mentores a startups, agende sessões e acompanhe tarefas pós-sessão."
+    : isEvaluator()
+      ? "Acompanhe suas startups vinculadas, sessões e próximos itens de ação."
+      : "Veja seu mentor, próximas sessões e tarefas combinadas.";
+  return `
+    <section class="page">
+      <div class="section-title"><h1>${title}</h1><p>${subtitle}</p></div>
+      <div class="grid kpis" style="margin-top:18px">
+        ${metric("Vínculos ativos", activeLinks.length, "mentor-startup")}
+        ${metric("Sessões agendadas", scheduledSessions.length, "próximas mentorias")}
+        ${metric("Sessões concluídas", completedSessions.length, "histórico registrado")}
+        ${metric("Tarefas abertas", openTasks.length, "plano de ação")}
+      </div>
+      ${
+        isManager()
+          ? `<div class="grid two startup-onboarding">
+              ${mentorLinkForm()}
+              ${mentorshipSessionForm(activeLinks)}
+            </div>
+            <div class="grid two startup-onboarding">
+              ${mentorshipTaskForm(visibleSessions)}
+              ${mentorshipWorkflowCard()}
+            </div>`
+          : `<div class="grid two startup-onboarding">
+              ${mentorPortfolioCard(activeLinks)}
+              ${mentorshipWorkflowCard()}
+            </div>`
+      }
+      <div class="grid two" style="margin-top:16px">
+        ${mentorLinksCard(visibleLinks)}
+        ${mentorshipSessionsCard(visibleSessions)}
+      </div>
+      <div style="margin-top:16px">${mentorshipTasksCard(visibleTasks)}</div>
+    </section>
+  `;
+}
+
+function mentorLinkForm() {
+  const visibleStartups = accessibleStartups();
+  const mentors = mentorUsersForManager();
+  return `<form class="card pad startup-form" onsubmit="addMentorStartupLink(event)">
+    <div class="row between wrap">
+      <div>
+        <span class="metric-label">Matching operacional</span>
+        <h2>Vincular mentor a startup</h2>
+      </div>
+      <span class="badge blue">Dados reais</span>
+    </div>
+    <div class="form-grid compact">
+      <div class="field wide"><label>Startup</label><select name="startupId" required>${visibleStartups.map((startup) => `<option value="${startup.id}">${escapeHtml(startup.name)} • ${escapeHtml(programById(startup.programId)?.name || "")}</option>`).join("")}</select></div>
+      <div class="field wide"><label>Mentor</label><select name="mentorId" required>${mentors.map((mentor) => `<option value="${mentor.id}">${escapeHtml(mentor.name)} • ${escapeHtml(mentor.organization || "Mentor")}</option>`).join("")}</select></div>
+      <div class="field wide"><label>Observações</label><textarea name="notes" placeholder="Ex.: foco em produto, vendas, captação ou estratégia."></textarea></div>
+    </div>
+    <button class="btn primary" type="submit" ${visibleStartups.length && mentors.length ? "" : "disabled"}>Vincular mentor</button>
+  </form>`;
+}
+
+function mentorshipSessionForm(activeLinks) {
+  return `<form class="card pad startup-form" onsubmit="addMentorshipSession(event)">
+    <div class="row between wrap">
+      <div>
+        <span class="metric-label">Agenda de mentoria</span>
+        <h2>Nova sessão</h2>
+      </div>
+      <span class="badge green">Sessão</span>
+    </div>
+    <div class="form-grid compact">
+      <div class="field wide"><label>Vínculo</label><select name="linkId" required>${activeLinks.map((link) => `<option value="${link.id}">${escapeHtml(startupName(link.startupId))} • ${escapeHtml(mentorName(link.mentorId))}</option>`).join("")}</select></div>
+      <div class="field"><label>Data e hora</label><input name="scheduledAt" type="datetime-local" required></div>
+      <div class="field"><label>Duração</label><input name="durationMinutes" type="number" min="15" step="15" value="60" required></div>
+      <div class="field"><label>Status</label><select name="status"><option value="scheduled">Agendada</option><option value="completed">Concluída</option><option value="canceled">Cancelada</option></select></div>
+      <div class="field wide"><label>Pauta</label><input name="topic" required placeholder="Ex.: validação de pricing, vendas enterprise, roadmap"></div>
+      <div class="field wide"><label>Contexto pré-sessão</label><textarea name="agenda" placeholder="Contexto, métricas e perguntas para preparar a mentoria."></textarea></div>
+      <div class="field wide"><label>Resumo pós-sessão</label><textarea name="summary" placeholder="Preencha depois da sessão, quando houver."></textarea></div>
+      <div class="field wide"><label>Decisões e próximos passos</label><textarea name="nextSteps" placeholder="Decisões tomadas, responsáveis e próximos passos."></textarea></div>
+    </div>
+    <button class="btn primary" type="submit" ${activeLinks.length ? "" : "disabled"}>Salvar sessão</button>
+  </form>`;
+}
+
+function mentorshipTaskForm(visibleSessions) {
+  const sessions = visibleSessions.filter((session) => session.status !== "canceled");
+  return `<form class="card pad startup-form" onsubmit="addMentorshipTask(event)">
+    <div class="row between wrap">
+      <div>
+        <span class="metric-label">Plano de ação</span>
+        <h2>Tarefa pós-sessão</h2>
+      </div>
+      <span class="badge amber">Execução</span>
+    </div>
+    <div class="form-grid compact">
+      <div class="field wide"><label>Sessão relacionada</label><select name="sessionId" required>${sessions.map((session) => `<option value="${session.id}">${escapeHtml(startupName(session.startupId))} • ${escapeHtml(session.topic)} • ${formatDate(session.scheduledAt)}</option>`).join("")}</select></div>
+      <div class="field wide"><label>Tarefa</label><input name="title" required placeholder="Ex.: entrevistar 10 clientes do ICP"></div>
+      <div class="field"><label>Prioridade</label><select name="priority"><option value="high">Alta</option><option value="medium" selected>Média</option><option value="low">Baixa</option></select></div>
+      <div class="field"><label>Prazo</label><input name="dueDate" type="date"></div>
+      <div class="field wide"><label>Descrição</label><textarea name="description" placeholder="Detalhe evidência esperada, responsável ou critério de conclusão."></textarea></div>
+    </div>
+    <button class="btn primary" type="submit" ${sessions.length ? "" : "disabled"}>Criar tarefa</button>
+  </form>`;
+}
+
+function mentorshipWorkflowCard() {
+  const steps = [
+    ["Preparação", "Startup compartilha contexto, métricas e dúvidas antes da sessão."],
+    ["Sessão", "Mentor conduz a conversa e registra aprendizados, decisões e riscos."],
+    ["Plano de ação", "Próximos passos viram tarefas rastreáveis para a startup."],
+    ["Acompanhamento", "Gestor e mentor monitoram progresso até a próxima mentoria."],
+  ];
+  return `<div class="card pad">
+    <span class="metric-label">Fluxo inspirado no Lovable</span>
+    <h2>Processo de mentoria</h2>
+    <div class="alerts">${steps.map(([name, description], index) => `<div class="alert"><strong>${index + 1}. ${name}</strong><br>${description}</div>`).join("")}</div>
+  </div>`;
+}
+
+function mentorPortfolioCard(activeLinks) {
+  const ownLinks = activeLinks.length ? activeLinks : mentorshipLinksVisibleToUser().filter((link) => link.status === "active");
+  if (!ownLinks.length) {
+    return `<div class="card pad empty-state">
+      <span class="metric-label">${isEvaluator() ? "Portfólio do mentor" : "Mentoria"}</span>
+      <h2>Nenhum vínculo ativo ainda.</h2>
+      <p>${isEvaluator() ? "O gestor do programa ainda não vinculou startups ao seu perfil." : "O gestor do programa ainda não vinculou um mentor à sua startup."}</p>
+    </div>`;
+  }
+  return `<div class="card pad">
+    <span class="metric-label">${isEvaluator() ? "Portfólio do mentor" : "Mentor vinculado"}</span>
+    <h2>${isEvaluator() ? "Startups acompanhadas" : mentorName(ownLinks[0].mentorId)}</h2>
+    <div class="mini-list">${ownLinks.map((link) => `<div class="mini-item"><strong>${escapeHtml(startupName(link.startupId))}</strong><span>${escapeHtml(programById(link.programId)?.name || "")} • ${escapeHtml(link.notes || "Mentoria ativa")}</span></div>`).join("")}</div>
+  </div>`;
+}
+
+function mentorLinksCard(links) {
+  if (!links.length) {
+    return `<div class="card pad empty-state"><span class="metric-label">Vínculos</span><h2>Nenhum vínculo mentor-startup.</h2><p>Crie o primeiro vínculo para habilitar agenda, sessões e tarefas de mentoria.</p></div>`;
+  }
+  const rows = links.map((link) => `<tr>
+    <td><strong>${escapeHtml(startupName(link.startupId))}</strong><br><span class="subtle">${escapeHtml(programById(link.programId)?.name || "")}</span></td>
+    <td>${escapeHtml(mentorName(link.mentorId))}</td>
+    <td>${escapeHtml(link.notes || "—")}</td>
+    <td><span class="badge ${link.status === "active" ? "green" : "gray"}">${link.status === "active" ? "Ativo" : "Inativo"}</span></td>
+    <td>${isManager() && link.status === "active" ? `<button class="btn" type="button" onclick='deactivateMentorStartupLink(${JSON.stringify(link.id)})'>Desativar</button>` : ""}</td>
+  </tr>`).join("");
+  return `<div><div class="section-title compact-title"><h2>Vínculos mentor-startup</h2><p>Relações reais que definem portfólio e permissões de mentoria.</p></div>${table(["Startup", "Mentor", "Observações", "Status", "Ações"], rows)}</div>`;
+}
+
+function mentorshipSessionsCard(sessions) {
+  if (!sessions.length) {
+    return `<div class="card pad empty-state"><span class="metric-label">Sessões</span><h2>Nenhuma sessão registrada.</h2><p>Agende a primeira mentoria para começar o histórico operacional.</p></div>`;
+  }
+  const rows = sessions.map((session) => `<tr>
+    <td><strong>${escapeHtml(session.topic)}</strong><br><span class="subtle">${escapeHtml(startupName(session.startupId))}</span></td>
+    <td>${escapeHtml(mentorName(session.mentorId))}</td>
+    <td>${formatDateTime(session.scheduledAt)}</td>
+    <td>${session.durationMinutes} min</td>
+    <td><span class="badge ${mentorshipStatusColor(session.status)}">${mentorshipStatusLabel(session.status)}</span></td>
+    <td>${escapeHtml(session.summary || session.agenda || "—")}</td>
+  </tr>`).join("");
+  return `<div><div class="section-title compact-title"><h2>Sessões de mentoria</h2><p>Agenda e histórico com contexto pré-sessão e resumo pós-sessão.</p></div>${table(["Pauta", "Mentor", "Data", "Duração", "Status", "Registro"], rows)}</div>`;
+}
+
+function mentorshipTasksCard(tasks) {
+  if (!tasks.length) {
+    return `<div class="card pad empty-state"><span class="metric-label">Tarefas pós-sessão</span><h2>Nenhuma tarefa criada.</h2><p>As decisões da mentoria viram ações acompanháveis aqui.</p></div>`;
+  }
+  const rows = tasks.map((task) => `<tr>
+    <td><strong>${escapeHtml(task.title)}</strong><br><span class="subtle">${escapeHtml(task.description || "Sem descrição")}</span></td>
+    <td>${escapeHtml(startupName(task.startupId))}</td>
+    <td>${escapeHtml(mentorName(task.mentorId))}</td>
+    <td><span class="badge ${priorityColor(task.priority)}">${priorityLabel(task.priority)}</span></td>
+    <td>${task.dueDate ? formatDate(task.dueDate) : "Sem prazo"}</td>
+    <td><span class="badge ${task.status === "done" ? "green" : task.status === "in_progress" ? "blue" : "amber"}">${taskStatusLabel(task.status)}</span></td>
+    <td>${isManager() || isEvaluator() ? taskStatusSelect(task) : ""}</td>
+  </tr>`).join("");
+  return `<div><div class="section-title compact-title"><h2>Plano de ação</h2><p>Tarefas geradas a partir das sessões de mentoria.</p></div>${table(["Tarefa", "Startup", "Mentor", "Prioridade", "Prazo", "Status", "Atualizar"], rows)}</div>`;
 }
 
 function renderRegistration() {
@@ -2264,6 +2614,88 @@ function applicationsVisibleToUser() {
   if (isAdmin()) return publicApplications;
   const programId = activeUser().programId;
   return publicApplications.filter((application) => application.programId === programId);
+}
+
+function mentorUsersForManager() {
+  return users
+    .filter((user) => user.active !== false && user.role === "avaliador")
+    .filter((user) => isAdmin() || user.programId === activeUser().programId);
+}
+
+function mentorshipLinksVisibleToUser() {
+  if (isAdmin()) return mentorStartupLinks;
+  const user = activeUser();
+  if (isClient()) {
+    return mentorStartupLinks.filter((link) => link.programId === user.programId);
+  }
+  if (isEvaluator()) {
+    return mentorStartupLinks.filter((link) => link.mentorId === user.id);
+  }
+  return mentorStartupLinks.filter((link) => user.startupIds.includes(link.startupId));
+}
+
+function mentorshipSessionsVisibleToUser() {
+  const visibleLinkIds = new Set(mentorshipLinksVisibleToUser().map((link) => link.id));
+  return mentorshipSessions.filter((session) => visibleLinkIds.has(session.linkId));
+}
+
+function mentorshipTasksVisibleToUser() {
+  const visibleSessionIds = new Set(mentorshipSessionsVisibleToUser().map((session) => session.id));
+  return mentorshipTasks.filter((task) => visibleSessionIds.has(task.sessionId));
+}
+
+function startupName(startupId) {
+  return startups.find((startup) => startup.id === startupId)?.name || "Startup removida";
+}
+
+function mentorName(mentorId) {
+  return users.find((user) => user.id === mentorId)?.name || "Mentor removido";
+}
+
+function mentorshipStatusLabel(status) {
+  if (status === "completed") return "Concluída";
+  if (status === "canceled") return "Cancelada";
+  return "Agendada";
+}
+
+function mentorshipStatusColor(status) {
+  if (status === "completed") return "green";
+  if (status === "canceled") return "gray";
+  return "blue";
+}
+
+function priorityLabel(priority) {
+  if (priority === "high") return "Alta";
+  if (priority === "low") return "Baixa";
+  return "Média";
+}
+
+function priorityColor(priority) {
+  if (priority === "high") return "red";
+  if (priority === "low") return "gray";
+  return "amber";
+}
+
+function taskStatusLabel(status) {
+  if (status === "done") return "Concluída";
+  if (status === "in_progress") return "Em andamento";
+  return "A fazer";
+}
+
+function taskStatusSelect(task) {
+  return `<select aria-label="Atualizar status da tarefa" onchange='changeMentorshipTaskStatus(${JSON.stringify(task.id)}, this.value)'>
+    <option value="todo" ${task.status === "todo" ? "selected" : ""}>A fazer</option>
+    <option value="in_progress" ${task.status === "in_progress" ? "selected" : ""}>Em andamento</option>
+    <option value="done" ${task.status === "done" ? "selected" : ""}>Concluída</option>
+  </select>`;
+}
+
+function formatDateTime(value) {
+  if (!value) return "sem data";
+  return new Date(value).toLocaleString("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
 }
 
 async function refreshApplications() {
@@ -3025,6 +3457,11 @@ function createApplicationId() {
   return `application-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function createMentorshipId(prefix) {
+  if (window.crypto?.randomUUID) return `${prefix}-${window.crypto.randomUUID()}`;
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function uniqueStartupId(name) {
   const baseId = slugify(name);
   let id = baseId;
@@ -3146,6 +3583,197 @@ async function addStartup(event) {
   render();
 }
 
+async function addMentorStartupLink(event) {
+  event.preventDefault();
+  if (!isManager()) {
+    window.alert("Apenas Admin ou Cliente pode vincular mentores a startups.");
+    return;
+  }
+  const data = Object.fromEntries(new FormData(event.target).entries());
+  const startup = startups.find((item) => item.id === data.startupId);
+  const mentor = users.find((item) => item.id === data.mentorId && item.role === "avaliador" && item.active !== false);
+  if (!startup || !mentor) {
+    window.alert("Selecione uma startup e um mentor válidos.");
+    return;
+  }
+  if (isClient() && startup.programId !== activeUser().programId) {
+    window.alert("Você só pode vincular startups do seu programa.");
+    return;
+  }
+  if (mentor.programId !== startup.programId) {
+    window.alert("O mentor precisa estar no mesmo programa da startup.");
+    return;
+  }
+  const alreadyLinked = mentorStartupLinks.some(
+    (link) =>
+      link.startupId === startup.id &&
+      link.mentorId === mentor.id &&
+      link.status === "active"
+  );
+  if (alreadyLinked) {
+    window.alert("Esse mentor já está vinculado a essa startup.");
+    return;
+  }
+
+  const link = {
+    id: createMentorshipId("mentor-link"),
+    programId: startup.programId,
+    startupId: startup.id,
+    mentorId: mentor.id,
+    status: "active",
+    notes: String(data.notes || "").trim(),
+    createdBy: activeUserId,
+    createdAt: new Date().toISOString(),
+  };
+  try {
+    if (backendStatus.includes("conectado")) {
+      await persistMentorStartupLink(link);
+      await loadSupabaseData();
+    } else {
+      mentorStartupLinks.unshift(link);
+    }
+    event.target.reset();
+    window.alert(`${mentor.name} vinculado a ${startup.name}.`);
+  } catch (error) {
+    window.alert(error.message || "Não foi possível criar o vínculo de mentoria.");
+  }
+  render();
+}
+
+async function deactivateMentorStartupLink(linkId) {
+  if (!isManager()) {
+    window.alert("Apenas Admin ou Cliente pode desativar vínculos.");
+    return;
+  }
+  const link = mentorStartupLinks.find((item) => item.id === linkId);
+  if (!link || link.status !== "active") return;
+  if (isClient() && link.programId !== activeUser().programId) {
+    window.alert("Você só pode alterar vínculos do seu programa.");
+    return;
+  }
+  if (!window.confirm(`Desativar o vínculo entre ${mentorName(link.mentorId)} e ${startupName(link.startupId)}?`)) {
+    return;
+  }
+  try {
+    if (backendStatus.includes("conectado")) {
+      await updateMentorStartupLink(link.id, { status: "inactive" });
+      await loadSupabaseData();
+    } else {
+      link.status = "inactive";
+    }
+    window.alert("Vínculo desativado.");
+  } catch (error) {
+    window.alert(error.message || "Não foi possível desativar o vínculo.");
+  }
+  render();
+}
+
+async function addMentorshipSession(event) {
+  event.preventDefault();
+  if (!isManager() && !isEvaluator()) {
+    window.alert("Apenas gestores e mentores podem criar sessões de mentoria.");
+    return;
+  }
+  const data = Object.fromEntries(new FormData(event.target).entries());
+  const link = mentorshipLinksVisibleToUser().find((item) => item.id === data.linkId && item.status === "active");
+  if (!link) {
+    window.alert("Selecione um vínculo ativo.");
+    return;
+  }
+  const scheduledAt = new Date(String(data.scheduledAt || ""));
+  if (Number.isNaN(scheduledAt.getTime())) {
+    window.alert("Informe uma data válida para a sessão.");
+    return;
+  }
+  const session = {
+    id: createMentorshipId("mentorship-session"),
+    linkId: link.id,
+    programId: link.programId,
+    startupId: link.startupId,
+    mentorId: link.mentorId,
+    status: String(data.status || "scheduled"),
+    scheduledAt: scheduledAt.toISOString(),
+    durationMinutes: Math.max(15, Number(data.durationMinutes) || 60),
+    topic: String(data.topic || "").trim(),
+    agenda: String(data.agenda || "").trim(),
+    summary: String(data.summary || "").trim(),
+    decisions: "",
+    nextSteps: String(data.nextSteps || "").trim(),
+    createdBy: activeUserId,
+    createdAt: new Date().toISOString(),
+  };
+  try {
+    if (backendStatus.includes("conectado")) {
+      await persistMentorshipSession(session);
+      await loadSupabaseData();
+    } else {
+      mentorshipSessions.unshift(session);
+    }
+    event.target.reset();
+    window.alert("Sessão de mentoria salva.");
+  } catch (error) {
+    window.alert(error.message || "Não foi possível salvar a sessão.");
+  }
+  render();
+}
+
+async function addMentorshipTask(event) {
+  event.preventDefault();
+  if (!isManager() && !isEvaluator()) {
+    window.alert("Apenas gestores e mentores podem criar tarefas pós-sessão.");
+    return;
+  }
+  const data = Object.fromEntries(new FormData(event.target).entries());
+  const session = mentorshipSessionsVisibleToUser().find((item) => item.id === data.sessionId && item.status !== "canceled");
+  if (!session) {
+    window.alert("Selecione uma sessão válida.");
+    return;
+  }
+  const task = {
+    id: createMentorshipId("mentorship-task"),
+    sessionId: session.id,
+    programId: session.programId,
+    startupId: session.startupId,
+    mentorId: session.mentorId,
+    title: String(data.title || "").trim(),
+    description: String(data.description || "").trim(),
+    priority: String(data.priority || "medium"),
+    status: "todo",
+    dueDate: String(data.dueDate || ""),
+    createdBy: activeUserId,
+    createdAt: new Date().toISOString(),
+  };
+  try {
+    if (backendStatus.includes("conectado")) {
+      await persistMentorshipTask(task);
+      await loadSupabaseData();
+    } else {
+      mentorshipTasks.unshift(task);
+    }
+    event.target.reset();
+    window.alert("Tarefa pós-sessão criada.");
+  } catch (error) {
+    window.alert(error.message || "Não foi possível criar a tarefa.");
+  }
+  render();
+}
+
+async function changeMentorshipTaskStatus(taskId, status) {
+  const task = mentorshipTasksVisibleToUser().find((item) => item.id === taskId);
+  if (!task || (!isManager() && !isEvaluator())) return;
+  try {
+    if (backendStatus.includes("conectado")) {
+      await updateMentorshipTask(task.id, { status });
+      await loadSupabaseData();
+    } else {
+      task.status = status;
+    }
+  } catch (error) {
+    window.alert(error.message || "Não foi possível atualizar a tarefa.");
+  }
+  render();
+}
+
 async function addUser(event) {
   event.preventDefault();
   if (!isManager()) {
@@ -3257,6 +3885,9 @@ function currentDatabaseSnapshot() {
     programs,
     startups,
     users,
+    mentorStartupLinks,
+    mentorshipSessions,
+    mentorshipTasks,
     scoreProfiles,
     assessmentResponses,
     months,
@@ -3287,6 +3918,9 @@ async function importDatabaseFile(file) {
     programs = database.programs;
     startups = database.startups;
     users = database.users;
+    mentorStartupLinks = database.mentorStartupLinks || [];
+    mentorshipSessions = database.mentorshipSessions || [];
+    mentorshipTasks = database.mentorshipTasks || [];
     Object.keys(scoreProfiles).forEach((key) => delete scoreProfiles[key]);
     Object.assign(scoreProfiles, database.scoreProfiles || {});
     assessmentResponses = database.assessmentResponses || {};
