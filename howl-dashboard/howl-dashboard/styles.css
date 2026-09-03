@@ -830,8 +830,23 @@ button {
 .startup-kpi-card {
   min-height: 188px;
   display: grid;
-  align-content: start;
+  grid-template-rows: 46px 1fr;
   gap: 12px;
+}
+
+.startup-kpi-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.startup-kpi-head .badge {
+  max-width: 148px;
+  min-height: 31px;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
 }
 
 .startup-kpi-icon {
@@ -846,11 +861,18 @@ button {
   font-weight: 850;
 }
 
+.startup-kpi-body {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
 .startup-kpi-card strong {
   display: block;
   color: var(--navy);
   font-size: 29px;
   line-height: 1.1;
+  min-height: 64px;
 }
 
 .startup-kpi-card p,

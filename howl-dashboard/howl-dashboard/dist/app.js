@@ -1910,16 +1910,18 @@ function startupIdentityCard(startup, health) {
 
 function startupKpiCard(label, value, pill, detail, progress, icon, color) {
   return `<article class="card pad startup-kpi-card ${color}">
-    <div class="row between wrap">
+    <div class="startup-kpi-head">
       <span aria-hidden="true" class="startup-kpi-icon">${icon}</span>
       <span class="badge ${color}">${escapeHtml(pill)}</span>
     </div>
-    <strong>${escapeHtml(value)}</strong>
-    <p>${escapeHtml(label)}</p>
-    ${progress === null ? `<small>${escapeHtml(detail)}</small>` : `<div>
-      <div class="bar-label"><span>${escapeHtml(detail)}</span><span>${progress}%</span></div>
-      <div class="bar value"><span style="width:${progress}%;background:var(--blue)"><b>${progress}</b></span></div>
-    </div>`}
+    <div class="startup-kpi-body">
+      <strong>${escapeHtml(value)}</strong>
+      <p>${escapeHtml(label)}</p>
+      ${progress === null ? `<small>${escapeHtml(detail)}</small>` : `<div>
+        <div class="bar-label"><span>${escapeHtml(detail)}</span><span>${progress}%</span></div>
+        <div class="bar value"><span style="width:${progress}%;background:var(--blue)"><b>${progress}</b></span></div>
+      </div>`}
+    </div>
   </article>`;
 }
 
