@@ -3462,6 +3462,12 @@ function createMentorshipId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function parseDurationMinutes(value) {
+  const minutes = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(minutes)) return 60;
+  return Math.max(15, Math.min(360, minutes));
+}
+
 function uniqueStartupId(name) {
   const baseId = slugify(name);
   let id = baseId;
@@ -3589,7 +3595,8 @@ async function addMentorStartupLink(event) {
     window.alert("Apenas Admin ou Cliente pode vincular mentores a startups.");
     return;
   }
-  const data = Object.fromEntries(new FormData(event.target).entries());
+  const form = event.currentTarget;
+  const data = Object.fromEntries(new FormData(form).entries());
   const startup = startups.find((item) => item.id === data.startupId);
   const mentor = users.find((item) => item.id === data.mentorId && item.role === "avaliador" && item.active !== false);
   if (!startup || !mentor) {
@@ -3632,7 +3639,7 @@ async function addMentorStartupLink(event) {
     } else {
       mentorStartupLinks.unshift(link);
     }
-    event.target.reset();
+    form.reset();
     window.alert(`${mentor.name} vinculado a ${startup.name}.`);
   } catch (error) {
     window.alert(error.message || "Não foi possível criar o vínculo de mentoria.");
@@ -3674,7 +3681,8 @@ async function addMentorshipSession(event) {
     window.alert("Apenas gestores e mentores podem criar sessões de mentoria.");
     return;
   }
-  const data = Object.fromEntries(new FormData(event.target).entries());
+  const form = event.currentTarget;
+  const data = Object.fromEntries(new FormData(form).entries());
   const link = mentorshipLinksVisibleToUser().find((item) => item.id === data.linkId && item.status === "active");
   if (!link) {
     window.alert("Selecione um vínculo ativo.");
@@ -3693,7 +3701,7 @@ async function addMentorshipSession(event) {
     mentorId: link.mentorId,
     status: String(data.status || "scheduled"),
     scheduledAt: scheduledAt.toISOString(),
-    durationMinutes: Math.max(15, Number(data.durationMinutes) || 60),
+    durationMinutes: parseDurationMinutes(data.durationMinutes),
     topic: String(data.topic || "").trim(),
     agenda: String(data.agenda || "").trim(),
     summary: String(data.summary || "").trim(),
@@ -3709,7 +3717,7 @@ async function addMentorshipSession(event) {
     } else {
       mentorshipSessions.unshift(session);
     }
-    event.target.reset();
+    form.reset();
     window.alert("Sessão de mentoria salva.");
   } catch (error) {
     window.alert(error.message || "Não foi possível salvar a sessão.");

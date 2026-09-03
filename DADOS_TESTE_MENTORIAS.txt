@@ -1,0 +1,59 @@
+Dados de teste para preencher em Mentorias
+
+Vinculo mentor-startup
+
+Startup:
+Biztrip Teste
+
+Mentor:
+O avaliador cadastrado hoje
+
+Observacoes:
+Mentoria inicial para validar proposta de valor, perfil de cliente e proximos passos comerciais.
+
+
+Nova sessao
+
+Vinculo:
+Biztrip Teste - [nome do mentor]
+
+Data e hora:
+Amanha as 10:00
+
+Duracao:
+60
+
+Status:
+Agendada
+
+Pauta:
+Validacao de ICP e proposta de valor
+
+Contexto pre-sessao:
+A startup precisa revisar quem e o cliente ideal, quais dores sao mais urgentes e quais hipoteses comerciais devem ser testadas nas proximas duas semanas.
+
+Resumo pos-sessao:
+Deixar em branco por enquanto
+
+Decisoes e proximos passos:
+Deixar em branco por enquanto
+
+
+Tarefa pos-sessao
+
+Crie somente depois de salvar a sessao.
+
+Sessao relacionada:
+Biztrip Teste - Validacao de ICP e proposta de valor
+
+Tarefa:
+Entrevistar 10 potenciais clientes do ICP
+
+Prioridade:
+Alta
+
+Prazo:
+Daqui a 7 dias
+
+Descricao:
+Registrar principais dores, objecoes, orcamento disponivel e criterios de decisao. Levar os achados para a proxima mentoria.

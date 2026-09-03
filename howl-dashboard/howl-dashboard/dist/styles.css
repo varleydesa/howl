@@ -643,6 +643,12 @@ textarea {
   gap: 14px;
 }
 
+.startup-form > .btn,
+.import-panel > .btn {
+  align-self: start;
+  justify-self: stretch;
+}
+
 .startup-form h2,
 .import-panel h2 {
   margin: 4px 0 0;

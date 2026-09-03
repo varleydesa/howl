@@ -136,6 +136,7 @@ const result = vm.runInContext(
 
 assert(result.adminHtml.includes("Mentores, vínculos e mentorias"));
 assert(result.adminHtml.includes("Vincular mentor a startup"));
+assert(result.adminHtml.includes('name="durationMinutes" type="number" min="15" step="15" value="60"'));
 assert.deepStrictEqual(Array.from(result.adminLinks).sort(), ["link-alpha", "link-beta"]);
 
 assert(result.mentorHtml.includes("Dashboard de mentoria"));
@@ -147,5 +148,22 @@ assert(result.founderHtml.includes("Minha mentoria"));
 assert(result.founderHtml.includes("Avaliador Demo 1"));
 assert.deepStrictEqual(Array.from(result.founderLinks), ["link-alpha"]);
 assert.deepStrictEqual(Array.from(result.founderTasks), ["task-alpha"]);
+
+const durations = vm.runInContext(
+  `
+    ({
+      explicitSixty: parseDurationMinutes("60"),
+      emptyDefault: parseDurationMinutes(""),
+      tooShort: parseDurationMinutes("5"),
+      tooLong: parseDurationMinutes("999")
+    });
+  `,
+  context
+);
+
+assert.strictEqual(durations.explicitSixty, 60);
+assert.strictEqual(durations.emptyDefault, 60);
+assert.strictEqual(durations.tooShort, 15);
+assert.strictEqual(durations.tooLong, 360);
 
 console.log("Mentorias, vínculos e escopos por perfil validados.");
