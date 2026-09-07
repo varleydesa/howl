@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const functionVersion = "generate-mentorship-briefing-2026-09-06-03";
+const functionVersion = "generate-mentorship-briefing-2026-09-06-04";
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify({ version: functionVersion, ...body }), {
@@ -373,7 +373,9 @@ Deno.serve(async (req) => {
     "Use apenas os dados enviados. Não invente métricas, nomes, avaliações ou fatos externos.",
     "O texto será revisado por um mentor humano antes de ser salvo.",
     "Formato obrigatório: Situação atual, Pontos de atenção, Perguntas sugeridas, Foco recomendado, Próximos passos prováveis.",
-    "Não use Markdown, asteriscos, tabelas ou blocos de código. Use texto simples com títulos curtos.",
+    "Dentro de cada seção, use bullets curtos iniciados por hífen simples (-) para melhorar a leitura no campo de texto.",
+    "Finalize sempre com uma última linha isolada no formato: Resultado esperado da próxima sessão: [objetivo concreto em uma frase].",
+    "Não use Markdown decorativo, asteriscos, tabelas ou blocos de código. Use texto simples com títulos curtos.",
     "Evite jargões genéricos e mantenha a resposta entre 180 e 320 palavras.",
   ].join("\n");
 

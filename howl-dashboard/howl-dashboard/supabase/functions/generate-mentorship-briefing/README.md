@@ -16,7 +16,8 @@ Gera um briefing pré-sessão de mentoria usando dados reais do Supabase e um pr
 - Aceita apenas `POST`.
 - Exige sessão autenticada do Supabase.
 - Permite chamada por `admin`, `cliente` do programa da sessão ou `avaliador` vinculado como mentor da sessão.
-- Gera texto simples, sem Markdown, para preencher melhor o campo da sessão.
+- Gera texto simples, sem Markdown decorativo, com bullets por seção para preencher melhor o campo da sessão.
+- Finaliza o briefing com `Resultado esperado da próxima sessão: ...`.
 - Usa limite maior de saída no Gemini e rejeita respostas interrompidas, evitando salvar briefing cortado.
 - Não grava automaticamente no banco.
 - Retorna o texto do briefing para o frontend preencher o campo `Contexto pré-sessão`; o usuário revisa e salva a sessão.
