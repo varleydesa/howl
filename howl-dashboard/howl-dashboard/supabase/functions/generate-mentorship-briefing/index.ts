@@ -360,7 +360,7 @@ Deno.serve(async (req) => {
   const provider = selectedProvider.provider;
   const model =
     provider === "gemini"
-      ? Deno.env.get("GEMINI_MODEL") || "gemini-2.0-flash"
+      ? Deno.env.get("GEMINI_MODEL") || "gemini-3.6-flash"
       : Deno.env.get("OPENAI_MODEL") || "gpt-5.6-luna";
   let generated: { briefing: string; usage: unknown };
   try {
