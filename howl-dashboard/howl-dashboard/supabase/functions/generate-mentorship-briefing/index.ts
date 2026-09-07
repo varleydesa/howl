@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const functionVersion = "generate-mentorship-briefing-2026-09-06-02";
+const functionVersion = "generate-mentorship-briefing-2026-09-06-03";
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify({ version: functionVersion, ...body }), {
@@ -62,6 +62,15 @@ function extractGeminiText(payload: Record<string, unknown>) {
     .filter(Boolean)
     .join("\n\n")
     .trim();
+}
+
+function geminiFinishReason(payload: Record<string, unknown>) {
+  const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
+  const first = candidates[0] as { finishReason?: unknown; finishMessage?: unknown } | undefined;
+  return {
+    reason: typeof first?.finishReason === "string" ? first.finishReason : "",
+    message: typeof first?.finishMessage === "string" ? first.finishMessage : "",
+  };
 }
 
 function providerFromEnv(provider: string, geminiKey: string | undefined, openAiKey: string | undefined) {
@@ -134,8 +143,10 @@ async function generateWithGemini(
           },
         ],
         generationConfig: {
-          maxOutputTokens: 900,
-          temperature: 0.3,
+          maxOutputTokens: 2400,
+          thinkingConfig: {
+            thinkingLevel: "low",
+          },
         },
       }),
     }
@@ -145,6 +156,14 @@ async function generateWithGemini(
   if (!response.ok) {
     const error = payload.error as { message?: string } | undefined;
     throw new Error(error?.message || "O Gemini não conseguiu gerar o briefing.");
+  }
+  const finish = geminiFinishReason(payload);
+  if (finish.reason && finish.reason !== "STOP") {
+    const detail =
+      finish.reason === "MAX_TOKENS"
+        ? "A IA interrompeu o texto por limite de saída. Tente gerar novamente."
+        : finish.message || `A IA interrompeu a resposta: ${finish.reason}.`;
+    throw new Error(detail);
   }
 
   return {
@@ -354,7 +373,8 @@ Deno.serve(async (req) => {
     "Use apenas os dados enviados. Não invente métricas, nomes, avaliações ou fatos externos.",
     "O texto será revisado por um mentor humano antes de ser salvo.",
     "Formato obrigatório: Situação atual, Pontos de atenção, Perguntas sugeridas, Foco recomendado, Próximos passos prováveis.",
-    "Evite jargões genéricos e mantenha a resposta com no máximo 550 palavras.",
+    "Não use Markdown, asteriscos, tabelas ou blocos de código. Use texto simples com títulos curtos.",
+    "Evite jargões genéricos e mantenha a resposta entre 180 e 320 palavras.",
   ].join("\n");
 
   const provider = selectedProvider.provider;
