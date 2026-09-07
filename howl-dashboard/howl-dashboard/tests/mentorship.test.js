@@ -123,6 +123,15 @@ const result = vm.runInContext(
     mentorshipBriefingDrafts["session-alpha"] = "Situação atual: revisar pricing antes da sessão.";
     openMentorshipSessionEditor("session-alpha");
     const adminSessionEditorHtml = document.getElementById("app").innerHTML;
+    closeMentorshipEditors();
+    mentorshipTaskDrafts["session-alpha"] = [{
+      title: "Consolidar entrevistas do ICP",
+      description: "Registrar dores, objeções e critérios de decisão.",
+      priority: "high",
+      dueDate: "2026-09-20"
+    }];
+    render();
+    const adminTaskDraftHtml = document.getElementById("app").innerHTML;
 
     activeMentorshipTab = "portfolio";
     render();
@@ -152,6 +161,7 @@ const result = vm.runInContext(
       adminHtml,
       adminLinks,
       adminSessionEditorHtml,
+      adminTaskDraftHtml,
       adminPortfolioHtml,
       adminTaskEditorHtml,
       mentorHtml,
@@ -176,10 +186,14 @@ assert(result.adminHtml.includes("Atualizar status da sessão"));
 assert(result.adminHtml.includes("Avaliação da startup"));
 assert(result.adminHtml.includes("Editar sessão"));
 assert(result.adminHtml.includes("Gerar briefing com IA"));
+assert(result.adminHtml.includes("Gerar tarefas com IA"));
 assert(result.adminSessionEditorHtml.includes("Salvar edição"));
 assert(result.adminSessionEditorHtml.includes("Resumo pós-sessão"));
 assert(result.adminSessionEditorHtml.includes("Briefing gerado com IA"));
 assert(result.adminSessionEditorHtml.includes("Situação atual: revisar pricing antes da sessão."));
+assert(result.adminTaskDraftHtml.includes("Tarefas sugeridas por IA"));
+assert(result.adminTaskDraftHtml.includes("Consolidar entrevistas do ICP"));
+assert(result.adminTaskDraftHtml.includes("Salvar tarefa"));
 assert(result.adminTaskEditorHtml.includes("Editar tarefa"));
 assert(result.adminTaskEditorHtml.includes("Descrição"));
 assert.deepStrictEqual(Array.from(result.adminLinks).sort(), ["link-alpha", "link-beta"]);

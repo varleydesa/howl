@@ -23,6 +23,7 @@ let mentorshipSessions = [];
 let mentorshipTasks = [];
 let mentorshipSessionFeedback = [];
 let mentorshipBriefingDrafts = {};
+let mentorshipTaskDrafts = {};
 let publicApplicationMessage = "";
 let programTypes = [
   { id: "aceleracao", type: "Aceleração" },
@@ -277,6 +278,7 @@ let editingUserId = null;
 let editingMentorshipSessionId = null;
 let editingMentorshipTaskId = null;
 let generatingMentorshipBriefingId = null;
+let generatingMentorshipTasksId = null;
 
 let assessments = buildAssessments();
 let importStatus = "Aguardando planilha da primeira rodada.";
@@ -1273,6 +1275,33 @@ async function requestMentorshipBriefing(sessionId) {
   }
   if (data?.error) {
     throw new Error(data.message || data.error);
+  }
+  return data;
+}
+
+async function requestMentorshipTasks(sessionId) {
+  const client = requireSupabase();
+  const { data, error } = await client.functions.invoke("generate-mentorship-tasks", {
+    body: { sessionId },
+  });
+
+  if (error) {
+    let message = error.message;
+    try {
+      if (error.context instanceof Response) {
+        const details = await error.context.clone().json();
+        message = details?.message || details?.error || message;
+      }
+    } catch {
+      // Mantém a mensagem original do Supabase.
+    }
+    throw new Error(message || "Não foi possível gerar tarefas com IA.");
+  }
+  if (data?.error) {
+    throw new Error(data.message || data.error);
+  }
+  if (!Array.isArray(data?.tasks)) {
+    throw new Error("A IA não retornou tarefas em um formato utilizável.");
   }
   return data;
 }
@@ -3376,8 +3405,9 @@ function mentorshipSessionsCard(sessions) {
           ${mentorshipNote("Registro", session.summary || session.nextSteps || "Aguardando resumo pós-sessão.")}
         </div>
         ${feedback ? `<div class="mentorship-feedback-summary"><strong>Avaliação da startup</strong><span>${"★".repeat(feedback.rating)}${"☆".repeat(5 - feedback.rating)} • ${escapeHtml(feedback.comment || "Sem comentário")}</span></div>` : ""}
-        ${canEdit ? `<div class="mentorship-card-actions"><label>Atualizar</label>${mentorshipStatusSelect(session)}<button class="btn" type="button" onclick='openMentorshipSessionEditor(${JSON.stringify(session.id)})'>Editar sessão</button><button class="btn" type="button" onclick='generateMentorshipBriefing(${JSON.stringify(session.id)})' ${generatingMentorshipBriefingId ? "disabled" : ""}>${generatingMentorshipBriefingId === session.id ? "Gerando..." : "Gerar briefing com IA"}</button></div>` : ""}
+        ${canEdit ? `<div class="mentorship-card-actions"><label>Atualizar</label>${mentorshipStatusSelect(session)}<button class="btn" type="button" onclick='openMentorshipSessionEditor(${JSON.stringify(session.id)})'>Editar sessão</button><button class="btn" type="button" onclick='generateMentorshipBriefing(${JSON.stringify(session.id)})' ${generatingMentorshipBriefingId ? "disabled" : ""}>${generatingMentorshipBriefingId === session.id ? "Gerando..." : "Gerar briefing com IA"}</button><button class="btn" type="button" onclick='generateMentorshipTasks(${JSON.stringify(session.id)})' ${generatingMentorshipTasksId ? "disabled" : ""}>${generatingMentorshipTasksId === session.id ? "Gerando..." : "Gerar tarefas com IA"}</button></div>` : ""}
         ${editingMentorshipSessionId === session.id ? mentorshipSessionEditForm(session) : ""}
+        ${canEdit ? mentorshipTaskDraftCard(session) : ""}
         ${canEvaluate ? mentorshipSessionFeedbackForm(session, feedback) : ""}
       </article>`;
       }).join("")}
@@ -3387,6 +3417,31 @@ function mentorshipSessionsCard(sessions) {
 
 function mentorshipNote(label, text) {
   return `<p><strong>${escapeHtml(label)}</strong><span class="mentorship-note-text">${escapeHtml(text)}</span></p>`;
+}
+
+function mentorshipTaskDraftCard(session) {
+  const drafts = mentorshipTaskDrafts[session.id] || [];
+  if (!drafts.length) return "";
+  return `<div class="mentorship-ai-task-drafts">
+    <div class="row between wrap">
+      <div><strong>Tarefas sugeridas por IA</strong><span>Revise antes de salvar no Supabase.</span></div>
+      <button class="btn ghost" type="button" onclick="clearMentorshipTaskDrafts(${escapeJsString(session.id)})">Descartar sugestões</button>
+    </div>
+    <div class="mentorship-task-draft-list">
+      ${drafts.map((draft, index) => `<form class="mentorship-task-draft" onsubmit="saveMentorshipTaskDraft(event, ${escapeJsString(session.id)}, ${index})">
+        <div class="form-grid compact">
+          <div class="field wide"><label>Tarefa</label><input name="title" value="${escapeHtml(draft.title)}" required></div>
+          <div class="field"><label>Prioridade</label><select name="priority"><option value="high" ${draft.priority === "high" ? "selected" : ""}>Alta</option><option value="medium" ${draft.priority === "medium" ? "selected" : ""}>Média</option><option value="low" ${draft.priority === "low" ? "selected" : ""}>Baixa</option></select></div>
+          <div class="field"><label>Prazo</label><input name="dueDate" type="date" value="${escapeHtml(draft.dueDate || "")}"></div>
+          <div class="field wide"><label>Descrição</label><textarea name="description">${escapeHtml(draft.description || "")}</textarea></div>
+        </div>
+        <div class="row wrap">
+          <button class="btn primary" type="submit">Salvar tarefa</button>
+          <button class="btn" type="button" onclick="discardMentorshipTaskDraft(${escapeJsString(session.id)}, ${index})">Descartar</button>
+        </div>
+      </form>`).join("")}
+    </div>
+  </div>`;
 }
 
 function mentorshipTasksCard(tasks) {
@@ -5237,6 +5292,120 @@ async function generateMentorshipBriefing(sessionId) {
   }
 }
 
+function normalizeMentorshipTaskDraft(task) {
+  const title = String(task?.title || "").trim();
+  if (!title) return null;
+  const priority = ["high", "medium", "low"].includes(String(task?.priority))
+    ? String(task.priority)
+    : "medium";
+  const dueDate = /^\d{4}-\d{2}-\d{2}$/.test(String(task?.dueDate || ""))
+    ? String(task.dueDate)
+    : "";
+  return {
+    title: title.slice(0, 140),
+    description: String(task?.description || "").trim().slice(0, 700),
+    priority,
+    dueDate,
+  };
+}
+
+async function generateMentorshipTasks(sessionId) {
+  if (!isManager() && !isEvaluator()) {
+    window.alert("Apenas gestores e mentores podem gerar tarefas com IA.");
+    return;
+  }
+  if (!backendStatus.includes("conectado")) {
+    window.alert("Conecte ao Supabase para gerar tarefas com IA.");
+    return;
+  }
+  const session = mentorshipSessionsVisibleToUser().find((item) => item.id === sessionId);
+  if (!session) return;
+  generatingMentorshipTasksId = sessionId;
+  render();
+  try {
+    const data = await requestMentorshipTasks(sessionId);
+    const tasks = data.tasks
+      .map(normalizeMentorshipTaskDraft)
+      .filter(Boolean);
+    if (!tasks.length) {
+      throw new Error("A IA não retornou tarefas utilizáveis.");
+    }
+    mentorshipTaskDrafts[sessionId] = tasks;
+    editingMentorshipSessionId = null;
+    editingMentorshipTaskId = null;
+    window.alert("Tarefas sugeridas. Revise e salve apenas o que fizer sentido.");
+  } catch (error) {
+    window.alert(error.message || "Não foi possível gerar tarefas com IA.");
+  } finally {
+    generatingMentorshipTasksId = null;
+    render();
+  }
+}
+
+async function saveMentorshipTaskDraft(event, sessionId, draftIndex) {
+  event.preventDefault();
+  if (!isManager() && !isEvaluator()) {
+    window.alert("Apenas gestores e mentores podem salvar tarefas pós-sessão.");
+    return;
+  }
+  const session = mentorshipSessionsVisibleToUser().find((item) => item.id === sessionId);
+  const drafts = mentorshipTaskDrafts[sessionId] || [];
+  if (!session || !drafts[draftIndex]) return;
+  const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+  const task = {
+    id: createMentorshipId("mentorship-task"),
+    sessionId: session.id,
+    programId: session.programId,
+    startupId: session.startupId,
+    mentorId: session.mentorId,
+    title: String(data.title || "").trim(),
+    description: String(data.description || "").trim(),
+    priority: ["high", "medium", "low"].includes(String(data.priority)) ? String(data.priority) : "medium",
+    status: "todo",
+    dueDate: String(data.dueDate || ""),
+    createdBy: activeUserId,
+    createdAt: new Date().toISOString(),
+  };
+  if (!task.title) {
+    window.alert("Informe o título da tarefa.");
+    return;
+  }
+  try {
+    if (backendStatus.includes("conectado")) {
+      await persistMentorshipTask(task);
+      await loadSupabaseData();
+    } else {
+      mentorshipTasks.unshift(task);
+    }
+    drafts.splice(draftIndex, 1);
+    if (drafts.length) {
+      mentorshipTaskDrafts[sessionId] = drafts;
+    } else {
+      delete mentorshipTaskDrafts[sessionId];
+    }
+    window.alert("Tarefa salva no plano de ação.");
+  } catch (error) {
+    window.alert(error.message || "Não foi possível salvar a tarefa sugerida.");
+  }
+  render();
+}
+
+function discardMentorshipTaskDraft(sessionId, draftIndex) {
+  const drafts = mentorshipTaskDrafts[sessionId] || [];
+  drafts.splice(draftIndex, 1);
+  if (drafts.length) {
+    mentorshipTaskDrafts[sessionId] = drafts;
+  } else {
+    delete mentorshipTaskDrafts[sessionId];
+  }
+  render();
+}
+
+function clearMentorshipTaskDrafts(sessionId) {
+  delete mentorshipTaskDrafts[sessionId];
+  render();
+}
+
 async function addMentorshipTask(event) {
   event.preventDefault();
   if (!isManager() && !isEvaluator()) {
@@ -5783,11 +5952,13 @@ Object.assign(window, {
   approveApplication,
   changeMentorshipSessionStatus,
   changeMentorshipTaskStatus,
+  clearMentorshipTaskDrafts,
   closeMentorshipEditors,
   closeUserEditor,
   completeAssessment,
   deactivateMentorStartupLink,
   deactivateUser,
+  discardMentorshipTaskDraft,
   downloadDatabase,
   downloadQuestionTemplate,
   editMentorshipSession,
@@ -5796,6 +5967,7 @@ Object.assign(window, {
   exportCsv,
   fillGeneratedPassword,
   generateMentorshipBriefing,
+  generateMentorshipTasks,
   go,
   handleProgramSessionSearch,
   handleTopbarSearch,
@@ -5810,6 +5982,7 @@ Object.assign(window, {
   refreshApplications,
   rejectApplication,
   saveDraft,
+  saveMentorshipTaskDraft,
   selectDashboardProgram,
   selectStartup,
   setDraftScore,

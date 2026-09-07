@@ -2086,6 +2086,40 @@ textarea {
   line-height: 1.45;
 }
 
+.mentorship-ai-task-drafts {
+  display: grid;
+  gap: 14px;
+  border: 1px solid #ead7a9;
+  border-radius: 8px;
+  background: #fffaf0;
+  padding: 14px;
+}
+
+.mentorship-ai-task-drafts strong {
+  display: block;
+  color: var(--navy);
+}
+
+.mentorship-ai-task-drafts span {
+  display: block;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.mentorship-task-draft-list {
+  display: grid;
+  gap: 12px;
+}
+
+.mentorship-task-draft {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  padding: 12px;
+}
+
 .mentorship-kanban {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
