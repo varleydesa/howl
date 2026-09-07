@@ -2024,6 +2024,11 @@ textarea {
   color: var(--navy);
 }
 
+.mentorship-note-text {
+  display: block;
+  white-space: pre-line;
+}
+
 .mentorship-card-actions {
   display: grid;
   gap: 6px;

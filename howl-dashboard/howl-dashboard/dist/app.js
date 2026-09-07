@@ -3372,8 +3372,8 @@ function mentorshipSessionsCard(sessions) {
           <span><strong>Mentor</strong>${escapeHtml(mentorName(session.mentorId))}</span>
         </div>
         <div class="mentorship-notes">
-          <p><strong>Contexto</strong>${escapeHtml(session.agenda || "Sem contexto registrado.")}</p>
-          <p><strong>Registro</strong>${escapeHtml(session.summary || session.nextSteps || "Aguardando resumo pós-sessão.")}</p>
+          ${mentorshipNote("Contexto", session.agenda || "Sem contexto registrado.")}
+          ${mentorshipNote("Registro", session.summary || session.nextSteps || "Aguardando resumo pós-sessão.")}
         </div>
         ${feedback ? `<div class="mentorship-feedback-summary"><strong>Avaliação da startup</strong><span>${"★".repeat(feedback.rating)}${"☆".repeat(5 - feedback.rating)} • ${escapeHtml(feedback.comment || "Sem comentário")}</span></div>` : ""}
         ${canEdit ? `<div class="mentorship-card-actions"><label>Atualizar</label>${mentorshipStatusSelect(session)}<button class="btn" type="button" onclick='openMentorshipSessionEditor(${JSON.stringify(session.id)})'>Editar sessão</button><button class="btn" type="button" onclick='generateMentorshipBriefing(${JSON.stringify(session.id)})' ${generatingMentorshipBriefingId ? "disabled" : ""}>${generatingMentorshipBriefingId === session.id ? "Gerando..." : "Gerar briefing com IA"}</button></div>` : ""}
@@ -3383,6 +3383,10 @@ function mentorshipSessionsCard(sessions) {
       }).join("")}
     </div>
   </div>`;
+}
+
+function mentorshipNote(label, text) {
+  return `<p><strong>${escapeHtml(label)}</strong><span class="mentorship-note-text">${escapeHtml(text)}</span></p>`;
 }
 
 function mentorshipTasksCard(tasks) {
