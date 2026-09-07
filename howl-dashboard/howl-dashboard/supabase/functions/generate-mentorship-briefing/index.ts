@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const functionVersion = "generate-mentorship-briefing-2026-09-03-01";
+const functionVersion = "generate-mentorship-briefing-2026-09-06-02";
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify({ version: functionVersion, ...body }), {
@@ -48,6 +48,111 @@ function extractOpenAiText(payload: Record<string, unknown>) {
     .trim();
 }
 
+function extractGeminiText(payload: Record<string, unknown>) {
+  const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
+  return candidates
+    .flatMap((candidate) => {
+      const content = (candidate as { content?: { parts?: unknown } }).content;
+      return Array.isArray(content?.parts) ? content.parts : [];
+    })
+    .map((part) => {
+      const item = part as { text?: unknown };
+      return typeof item.text === "string" ? item.text : "";
+    })
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
+}
+
+function providerFromEnv(provider: string, geminiKey: string | undefined, openAiKey: string | undefined) {
+  const normalized = normalizeText(provider).toLowerCase();
+  if (normalized && !["gemini", "openai"].includes(normalized)) {
+    return { error: `Provedor de IA inválido: ${provider}. Use gemini ou openai.` };
+  }
+  if (normalized === "gemini") return { provider: "gemini" };
+  if (normalized === "openai") return { provider: "openai" };
+  return { provider: geminiKey ? "gemini" : openAiKey ? "openai" : "" };
+}
+
+async function generateWithOpenAi(
+  openAiKey: string,
+  model: string,
+  instructions: string,
+  context: Record<string, unknown>
+) {
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${openAiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      instructions,
+      input: `Contexto real da mentoria HORDA:\n${JSON.stringify(context, null, 2)}`,
+      max_output_tokens: 900,
+      store: false,
+    }),
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!response.ok) {
+    const error = payload.error as { message?: string } | undefined;
+    throw new Error(error?.message || "A OpenAI não conseguiu gerar o briefing.");
+  }
+
+  return {
+    briefing: extractOpenAiText(payload),
+    usage: payload.usage || null,
+  };
+}
+
+async function generateWithGemini(
+  geminiKey: string,
+  model: string,
+  instructions: string,
+  context: Record<string, unknown>
+) {
+  const normalizedModel = model.startsWith("models/") ? model : `models/${model}`;
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/${normalizedModel}:generateContent?key=${encodeURIComponent(geminiKey)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: instructions }],
+        },
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                text: `Contexto real da mentoria HORDA:\n${JSON.stringify(context, null, 2)}`,
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          maxOutputTokens: 900,
+          temperature: 0.3,
+        },
+      }),
+    }
+  );
+
+  const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!response.ok) {
+    const error = payload.error as { message?: string } | undefined;
+    throw new Error(error?.message || "O Gemini não conseguiu gerar o briefing.");
+  }
+
+  return {
+    briefing: extractGeminiText(payload),
+    usage: payload.usageMetadata || null,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") {
@@ -57,7 +162,8 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("HOWL_SERVICE_ROLE_KEY");
   const openAiKey = Deno.env.get("OPENAI_API_KEY");
-  const model = Deno.env.get("OPENAI_MODEL") || "gpt-5.6-luna";
+  const geminiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY");
+  const selectedProvider = providerFromEnv(Deno.env.get("AI_PROVIDER") || "", geminiKey, openAiKey);
 
   if (!supabaseUrl || !serviceRoleKey) {
     return jsonResponse(
@@ -65,7 +171,25 @@ Deno.serve(async (req) => {
       500
     );
   }
-  if (!openAiKey) {
+  if (selectedProvider.error) {
+    return jsonResponse(
+      { error: "invalid_ai_provider", message: selectedProvider.error },
+      500
+    );
+  }
+  if (!selectedProvider.provider) {
+    return jsonResponse(
+      { error: "missing_ai_key", message: "Configure GEMINI_API_KEY ou OPENAI_API_KEY nos Secrets da Edge Function." },
+      500
+    );
+  }
+  if (selectedProvider.provider === "gemini" && !geminiKey) {
+    return jsonResponse(
+      { error: "missing_gemini_key", message: "Configure GEMINI_API_KEY nos Secrets da Edge Function." },
+      500
+    );
+  }
+  if (selectedProvider.provider === "openai" && !openAiKey) {
     return jsonResponse(
       { error: "missing_openai_key", message: "Configure OPENAI_API_KEY nos Secrets da Edge Function." },
       500
@@ -233,41 +357,35 @@ Deno.serve(async (req) => {
     "Evite jargões genéricos e mantenha a resposta com no máximo 550 palavras.",
   ].join("\n");
 
-  const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${openAiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      instructions,
-      input: `Contexto real da mentoria HORDA:\n${JSON.stringify(context, null, 2)}`,
-      max_output_tokens: 900,
-      store: false,
-    }),
-  });
-
-  const openAiPayload = (await openAiResponse.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!openAiResponse.ok) {
-    const error = openAiPayload.error as { message?: string } | undefined;
+  const provider = selectedProvider.provider;
+  const model =
+    provider === "gemini"
+      ? Deno.env.get("GEMINI_MODEL") || "gemini-2.0-flash"
+      : Deno.env.get("OPENAI_MODEL") || "gpt-5.6-luna";
+  let generated: { briefing: string; usage: unknown };
+  try {
+    generated =
+      provider === "gemini"
+        ? await generateWithGemini(geminiKey || "", model, instructions, context)
+        : await generateWithOpenAi(openAiKey || "", model, instructions, context);
+  } catch (error) {
     return jsonResponse(
       {
-        error: "openai_request_failed",
-        message: error?.message || "A OpenAI não conseguiu gerar o briefing.",
+        error: "ai_request_failed",
+        message: error instanceof Error ? error.message : "A IA não conseguiu gerar o briefing.",
       },
       502
     );
   }
 
-  const briefing = extractOpenAiText(openAiPayload);
-  if (!briefing) {
+  if (!generated.briefing) {
     return jsonResponse({ error: "empty_briefing", message: "A IA não retornou conteúdo para o briefing." }, 502);
   }
 
   return jsonResponse({
-    briefing,
+    briefing: generated.briefing,
+    provider,
     model,
-    usage: openAiPayload.usage || null,
+    usage: generated.usage,
   });
 });
