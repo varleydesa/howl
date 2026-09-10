@@ -2265,6 +2265,46 @@ textarea {
   gap: 12px;
 }
 
+.mentorship-session-summary {
+  align-items: center;
+}
+
+.session-expand-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--gold);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.session-expand-button:hover {
+  border-color: var(--gold);
+}
+
+.session-summary-main {
+  flex: 1 1 360px;
+  min-width: 220px;
+}
+
+.session-summary-meta {
+  flex: 0 1 320px;
+}
+
+.mentorship-session-details {
+  display: grid;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
 .mentor-card-head h3,
 .task-card h3 {
   margin: 4px 0 0;

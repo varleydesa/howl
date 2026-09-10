@@ -121,6 +121,9 @@ const result = vm.runInContext(
     activeMentorshipTab = "agenda";
     render();
     const adminHtml = document.getElementById("app").innerHTML;
+    toggleMentorshipSession("session-alpha");
+    const adminExpandedSessionHtml = document.getElementById("app").innerHTML;
+    expandedMentorshipSessionIds = new Set();
     openMentorshipSessionCreator();
     const adminCreateSessionHtml = document.getElementById("app").innerHTML;
     closeMentorshipEditors();
@@ -161,8 +164,13 @@ const result = vm.runInContext(
     activeUserId = "avaliador-demo-1";
     activeRoute = "mentorship";
     activeMentorshipTab = "agenda";
+    mentorshipTaskDrafts = {};
+    expandedMentorshipSessionIds = new Set();
     render();
     const mentorHtml = document.getElementById("app").innerHTML;
+    toggleMentorshipSession("session-alpha");
+    const mentorExpandedSessionHtml = document.getElementById("app").innerHTML;
+    expandedMentorshipSessionIds = new Set();
     openMentorshipSessionCreator();
     const mentorCreateSessionHtml = document.getElementById("app").innerHTML;
     closeMentorshipEditors();
@@ -172,13 +180,17 @@ const result = vm.runInContext(
     activeUserId = "empreendedor-demo";
     activeRoute = "mentorship";
     activeMentorshipTab = "agenda";
+    expandedMentorshipSessionIds = new Set();
     render();
     const founderHtml = document.getElementById("app").innerHTML;
+    toggleMentorshipSession("session-alpha");
+    const founderExpandedSessionHtml = document.getElementById("app").innerHTML;
     const founderLinks = mentorshipLinksVisibleToUser().map((link) => link.id);
     const founderTasks = mentorshipTasksVisibleToUser().map((task) => task.id);
 
     ({
       adminHtml,
+      adminExpandedSessionHtml,
       adminCreateSessionHtml,
       adminLinks,
       adminSessionEditorHtml,
@@ -191,10 +203,12 @@ const result = vm.runInContext(
       highDemandMessage,
       creditsMessage,
       mentorHtml,
+      mentorExpandedSessionHtml,
       mentorCreateSessionHtml,
       mentorLinks,
       mentorSessions,
       founderHtml,
+      founderExpandedSessionHtml,
       founderLinks,
       founderTasks
     });
@@ -212,13 +226,16 @@ assert(!result.adminHtml.includes("Nova sessão"));
 assert(result.adminCreateSessionHtml.includes('name="durationMinutes" type="number" min="15" step="15" value="60"'));
 assert(result.adminCreateSessionHtml.includes("Criar evento com Google Meet"));
 assert(!result.adminHtml.includes('<label>Status</label><select name="status"'));
-assert(result.adminHtml.includes("Atualizar status da sessão"));
-assert(result.adminHtml.includes("Avaliação da startup"));
-assert(result.adminHtml.includes("Editar sessão"));
-assert(result.adminHtml.includes("Gerar briefing com IA"));
-assert(result.adminHtml.includes("Gerar tarefas com IA"));
-assert(result.adminHtml.includes("Entrar no Meet"));
-assert(result.adminHtml.includes("https://meet.google.com/abc-defg-hij"));
+assert(result.adminHtml.includes('aria-expanded="false"'));
+assert(!result.adminHtml.includes("Entrar no Meet"));
+assert(result.adminExpandedSessionHtml.includes('aria-expanded="true"'));
+assert(result.adminExpandedSessionHtml.includes("Atualizar status da sessão"));
+assert(result.adminExpandedSessionHtml.includes("Avaliação da startup"));
+assert(result.adminExpandedSessionHtml.includes("Editar sessão"));
+assert(result.adminExpandedSessionHtml.includes("Gerar briefing com IA"));
+assert(result.adminExpandedSessionHtml.includes("Gerar tarefas com IA"));
+assert(result.adminExpandedSessionHtml.includes("Entrar no Meet"));
+assert(result.adminExpandedSessionHtml.includes("https://meet.google.com/abc-defg-hij"));
 assert(result.adminSessionEditorHtml.includes("Salvar edição"));
 assert(result.adminSessionEditorHtml.includes("Resumo pós-sessão"));
 assert(result.adminSessionEditorHtml.includes("Briefing gerado com IA"));
@@ -249,6 +266,8 @@ assert(result.mentorHtml.includes("Dashboard de mentoria"));
 assert(!result.mentorHtml.includes("Vincular mentor a startup"));
 assert(result.mentorHtml.includes("+ Agendar"));
 assert(!result.mentorHtml.includes("Nova sessão"));
+assert(!result.mentorHtml.includes("Entrar no Meet"));
+assert(result.mentorExpandedSessionHtml.includes("Entrar no Meet"));
 assert(result.mentorCreateSessionHtml.includes("Nova sessão"));
 assert(result.mentorCreateSessionHtml.includes("Criar evento com Google Meet"));
 assert(result.mentorCreateSessionHtml.includes("modal-card"));
@@ -257,8 +276,9 @@ assert.deepStrictEqual(Array.from(result.mentorSessions), ["session-alpha"]);
 
 assert(result.founderHtml.includes("Minha mentoria"));
 assert(result.founderHtml.includes("Avaliador Demo 1"));
-assert(result.founderHtml.includes("Avaliação da sessão"));
-assert(result.founderHtml.includes("Atualizar avaliação"));
+assert(!result.founderHtml.includes("Avaliação da sessão"));
+assert(result.founderExpandedSessionHtml.includes("Avaliação da sessão"));
+assert(result.founderExpandedSessionHtml.includes("Atualizar avaliação"));
 assert.deepStrictEqual(Array.from(result.founderLinks), ["link-alpha"]);
 assert.deepStrictEqual(Array.from(result.founderTasks), ["task-alpha"]);
 assert.strictEqual(
