@@ -1759,6 +1759,7 @@ function appShell(content) {
         ${content}
       </main>
     </div>
+    ${activeAiAgent === "mentor" ? mentorAiChatPanel() : ""}
   `;
 }
 
@@ -3045,7 +3046,6 @@ function programAiAgentsPanel() {
         <b>${id === "mentor" ? "Conversar" : "Em breve"}</b>
       </button>`).join("")}
     </div>
-    ${activeAiAgent === "mentor" ? mentorAiChatPanel() : ""}
   </aside>`;
 }
 
