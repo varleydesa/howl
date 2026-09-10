@@ -236,6 +236,8 @@ assert.deepStrictEqual(Array.from(result.adminLinks).sort(), ["link-alpha", "lin
 
 assert(result.mentorHtml.includes("Dashboard de mentoria"));
 assert(!result.mentorHtml.includes("Vincular mentor a startup"));
+assert(result.mentorHtml.includes("Nova sessão"));
+assert(result.mentorHtml.includes("Criar evento com Google Meet"));
 assert.deepStrictEqual(Array.from(result.mentorLinks), ["link-alpha"]);
 assert.deepStrictEqual(Array.from(result.mentorSessions), ["session-alpha"]);
 

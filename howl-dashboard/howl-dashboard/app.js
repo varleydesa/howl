@@ -3533,7 +3533,7 @@ function mentorshipTabPanel(tab, data) {
     </div>`;
   }
   return `<div class="grid two mentorship-workspace">
-    ${isManager() ? mentorshipSessionForm(data.activeLinks) : mentorPortfolioCard(data.activeLinks)}
+    ${isManager() || isEvaluator() ? mentorshipSessionForm(data.activeLinks) : mentorPortfolioCard(data.activeLinks)}
     ${mentorshipSessionsCard(data.visibleSessions)}
   </div>`;
 }
