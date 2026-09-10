@@ -121,6 +121,9 @@ const result = vm.runInContext(
     activeMentorshipTab = "agenda";
     render();
     const adminHtml = document.getElementById("app").innerHTML;
+    openMentorshipSessionCreator();
+    const adminCreateSessionHtml = document.getElementById("app").innerHTML;
+    closeMentorshipEditors();
     const adminLinks = mentorshipLinksVisibleToUser().map((link) => link.id);
     mentorshipBriefingDrafts["session-alpha"] = "Situação atual: revisar pricing antes da sessão.";
     openMentorshipSessionEditor("session-alpha");
@@ -160,6 +163,9 @@ const result = vm.runInContext(
     activeMentorshipTab = "agenda";
     render();
     const mentorHtml = document.getElementById("app").innerHTML;
+    openMentorshipSessionCreator();
+    const mentorCreateSessionHtml = document.getElementById("app").innerHTML;
+    closeMentorshipEditors();
     const mentorLinks = mentorshipLinksVisibleToUser().map((link) => link.id);
     const mentorSessions = mentorshipSessionsVisibleToUser().map((session) => session.id);
 
@@ -173,6 +179,7 @@ const result = vm.runInContext(
 
     ({
       adminHtml,
+      adminCreateSessionHtml,
       adminLinks,
       adminSessionEditorHtml,
       adminTaskDraftHtml,
@@ -184,6 +191,7 @@ const result = vm.runInContext(
       highDemandMessage,
       creditsMessage,
       mentorHtml,
+      mentorCreateSessionHtml,
       mentorLinks,
       mentorSessions,
       founderHtml,
@@ -199,7 +207,10 @@ assert(result.adminHtml.includes("Agenda"));
 assert(result.adminHtml.includes("Portfólio"));
 assert(result.adminHtml.includes("Plano de Ação"));
 assert(result.adminPortfolioHtml.includes("Vincular mentor a startup"));
-assert(result.adminHtml.includes('name="durationMinutes" type="number" min="15" step="15" value="60"'));
+assert(result.adminHtml.includes("+ Agendar"));
+assert(!result.adminHtml.includes("Nova sessão"));
+assert(result.adminCreateSessionHtml.includes('name="durationMinutes" type="number" min="15" step="15" value="60"'));
+assert(result.adminCreateSessionHtml.includes("Criar evento com Google Meet"));
 assert(!result.adminHtml.includes('<label>Status</label><select name="status"'));
 assert(result.adminHtml.includes("Atualizar status da sessão"));
 assert(result.adminHtml.includes("Avaliação da startup"));
@@ -236,8 +247,11 @@ assert.deepStrictEqual(Array.from(result.adminLinks).sort(), ["link-alpha", "lin
 
 assert(result.mentorHtml.includes("Dashboard de mentoria"));
 assert(!result.mentorHtml.includes("Vincular mentor a startup"));
-assert(result.mentorHtml.includes("Nova sessão"));
-assert(result.mentorHtml.includes("Criar evento com Google Meet"));
+assert(result.mentorHtml.includes("+ Agendar"));
+assert(!result.mentorHtml.includes("Nova sessão"));
+assert(result.mentorCreateSessionHtml.includes("Nova sessão"));
+assert(result.mentorCreateSessionHtml.includes("Criar evento com Google Meet"));
+assert(result.mentorCreateSessionHtml.includes("modal-card"));
 assert.deepStrictEqual(Array.from(result.mentorLinks), ["link-alpha"]);
 assert.deepStrictEqual(Array.from(result.mentorSessions), ["session-alpha"]);
 

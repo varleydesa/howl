@@ -319,6 +319,7 @@ let activeUserId = "admin-demo";
 let backendStatus = "Conectando ao Supabase...";
 let assessmentResponses = {};
 let editingUserId = null;
+let creatingMentorshipSession = false;
 let editingMentorshipSessionId = null;
 let editingMentorshipTaskId = null;
 let generatingMentorshipBriefingId = null;
@@ -3661,14 +3662,22 @@ function mentorshipTabPanel(tab, data) {
       ${mentorshipAiCard()}
     </div>`;
   }
+  const sessionList = mentorshipSessionsCard(data.visibleSessions, data.activeLinks);
+  const createSessionModal = creatingMentorshipSession ? mentorshipSessionModal(data.activeLinks) : "";
+  if (isManager() || isEvaluator()) {
+    return `<div class="mentorship-stacked">${sessionList}${createSessionModal}</div>`;
+  }
   return `<div class="grid two mentorship-workspace">
-    ${isManager() || isEvaluator() ? mentorshipSessionForm(data.activeLinks) : mentorPortfolioCard(data.activeLinks)}
-    ${mentorshipSessionsCard(data.visibleSessions)}
+    ${mentorPortfolioCard(data.activeLinks)}
+    ${sessionList}
   </div>`;
 }
 
 function setMentorshipTab(tab) {
   activeMentorshipTab = tab;
+  creatingMentorshipSession = false;
+  editingMentorshipSessionId = null;
+  editingMentorshipTaskId = null;
   render();
 }
 
@@ -3692,15 +3701,28 @@ function mentorLinkForm() {
   </form>`;
 }
 
+function mentorshipSessionModal(activeLinks) {
+  return `<div class="modal-backdrop" role="presentation">
+    <form class="modal-card startup-form mentorship-form" role="dialog" aria-modal="true" aria-labelledby="mentorship-session-modal-title" onsubmit="addMentorshipSession(event)">
+      ${mentorshipSessionFormFields(activeLinks, true)}
+    </form>
+  </div>`;
+}
+
 function mentorshipSessionForm(activeLinks) {
-  const canCreateGoogleMeet = googleCalendarConnected();
   return `<form class="card pad startup-form mentorship-form" onsubmit="addMentorshipSession(event)">
-    <div class="row between wrap">
+    ${mentorshipSessionFormFields(activeLinks)}
+  </form>`;
+}
+
+function mentorshipSessionFormFields(activeLinks, isModal = false) {
+  const canCreateGoogleMeet = googleCalendarConnected();
+  return `<div class="row between wrap">
       <div>
         <span class="metric-label">Agenda de mentoria</span>
-        <h2>Nova sessão</h2>
+        <h2${isModal ? ` id="mentorship-session-modal-title"` : ""}>Nova sessão</h2>
       </div>
-      <span class="badge green">Sessão</span>
+      ${isModal ? `<button class="btn ghost" type="button" onclick="closeMentorshipEditors()">Fechar</button>` : `<span class="badge green">Sessão</span>`}
     </div>
     <div class="form-grid compact">
       <div class="field wide"><label>Vínculo</label><select name="linkId" required>${activeLinks.map((link) => `<option value="${link.id}">${escapeHtml(startupName(link.startupId))} • ${escapeHtml(mentorName(link.mentorId))}</option>`).join("")}</select></div>
@@ -3712,8 +3734,10 @@ function mentorshipSessionForm(activeLinks) {
       <div class="field wide"><label>Decisões e próximos passos</label><textarea name="nextSteps" placeholder="Decisões tomadas, responsáveis e próximos passos."></textarea></div>
       <label class="checkbox-field wide"><input name="createGoogleMeet" type="checkbox" ${canCreateGoogleMeet ? "checked" : "disabled"}> Criar evento com Google Meet${canCreateGoogleMeet ? "" : " após conectar o Google Calendar"}</label>
     </div>
-    <button class="btn primary" type="submit" ${activeLinks.length ? "" : "disabled"}>Salvar sessão</button>
-  </form>`;
+    <div class="modal-actions">
+      <button class="btn primary" type="submit" ${activeLinks.length ? "" : "disabled"}>Salvar sessão</button>
+      ${isModal ? `<button class="btn" type="button" onclick="closeMentorshipEditors()">Cancelar</button>` : ""}
+    </div>`;
 }
 
 function mentorshipTaskForm(visibleSessions) {
@@ -3812,13 +3836,25 @@ function mentorLinksCard(links) {
   </div>`;
 }
 
-function mentorshipSessionsCard(sessions) {
+function mentorshipSessionsHeader(activeLinks = []) {
+  const canSchedule = isManager() || isEvaluator();
+  return `<div class="section-title compact-title mentorship-list-head">
+    <div><h2>Sessões de mentoria</h2><p>Agenda e histórico com contexto pré-sessão e resumo pós-sessão.</p></div>
+    ${canSchedule ? `<button class="btn primary" type="button" onclick="openMentorshipSessionCreator()" ${activeLinks.length ? "" : "disabled"}>+ Agendar</button>` : ""}
+  </div>`;
+}
+
+function mentorshipSessionsCard(sessions, activeLinks = []) {
   if (!sessions.length) {
-    return `<div class="card pad empty-state"><span class="metric-label">Sessões</span><h2>Nenhuma sessão registrada.</h2><p>Agende a primeira mentoria para começar o histórico operacional.</p></div>`;
+    return `<div class="card pad empty-state mentorship-panel-card">
+      ${mentorshipSessionsHeader(activeLinks)}
+      <h2>Nenhuma sessão registrada.</h2>
+      <p>Agende a primeira mentoria para começar o histórico operacional.</p>
+    </div>`;
   }
   const orderedSessions = [...sessions].sort((a, b) => new Date(a.scheduledAt || 0) - new Date(b.scheduledAt || 0));
   return `<div class="card pad mentorship-panel-card">
-    <div class="section-title compact-title"><h2>Sessões de mentoria</h2><p>Agenda e histórico com contexto pré-sessão e resumo pós-sessão.</p></div>
+    ${mentorshipSessionsHeader(activeLinks)}
     <div class="mentorship-card-list">
       ${orderedSessions.map((session) => {
         const canEdit = isManager() || isEvaluator();
@@ -5688,6 +5724,7 @@ async function addMentorshipSession(event) {
     } else {
       mentorshipSessions.unshift(session);
     }
+    creatingMentorshipSession = false;
     form.reset();
     window.alert(`Sessão de mentoria salva.${meetMessage}`);
   } catch (error) {
@@ -5714,19 +5751,30 @@ async function changeMentorshipSessionStatus(sessionId, status) {
 
 function openMentorshipSessionEditor(sessionId) {
   if (!isManager() && !isEvaluator()) return;
+  creatingMentorshipSession = false;
   editingMentorshipSessionId = sessionId;
+  editingMentorshipTaskId = null;
+  render();
+}
+
+function openMentorshipSessionCreator() {
+  if (!isManager() && !isEvaluator()) return;
+  creatingMentorshipSession = true;
+  editingMentorshipSessionId = null;
   editingMentorshipTaskId = null;
   render();
 }
 
 function openMentorshipTaskEditor(taskId) {
   if (!isManager() && !isEvaluator()) return;
+  creatingMentorshipSession = false;
   editingMentorshipTaskId = taskId;
   editingMentorshipSessionId = null;
   render();
 }
 
 function closeMentorshipEditors() {
+  creatingMentorshipSession = false;
   editingMentorshipSessionId = null;
   editingMentorshipTaskId = null;
   render();
@@ -6498,6 +6546,7 @@ Object.assign(window, {
   logout,
   openAiAgent,
   openMentorStartup,
+  openMentorshipSessionCreator,
   openMentorshipSessionEditor,
   openMentorshipTaskEditor,
   openUserEditor,
