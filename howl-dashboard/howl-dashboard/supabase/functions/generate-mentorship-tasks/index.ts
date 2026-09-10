@@ -7,6 +7,12 @@ const corsHeaders = {
 };
 
 const functionVersion = "generate-mentorship-tasks-2026-09-07-01";
+const defaultGeminiModels = [
+  "gemini-3.6-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
+];
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify({ version: functionVersion, ...body }), {
@@ -79,6 +85,55 @@ function providerFromEnv(provider: string, geminiKey: string | undefined, openAi
   if (normalized === "gemini") return { provider: "gemini" };
   if (normalized === "openai") return { provider: "openai" };
   return { provider: geminiKey ? "gemini" : openAiKey ? "openai" : "" };
+}
+
+function uniqueValues(values: string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function geminiModelCandidates() {
+  return uniqueValues([
+    Deno.env.get("GEMINI_MODEL") || "",
+    ...(Deno.env.get("GEMINI_FALLBACK_MODELS") || "").split(","),
+    ...defaultGeminiModels,
+  ]);
+}
+
+function shouldTryNextAiModel(error: unknown) {
+  const message = String(error instanceof Error ? error.message : error || "").toLowerCase();
+  return [
+    "high demand",
+    "spikes in demand",
+    "overloaded",
+    "temporarily unavailable",
+    "try again later",
+    "unavailable",
+    "resource_exhausted",
+    "quota exceeded",
+    "rate limit",
+    "too many requests",
+    "no longer available",
+    "not available",
+    "not found",
+    "deprecated",
+  ].some((term) => message.includes(term));
+}
+
+async function generateWithGeminiFallback<T>(
+  models: string[],
+  generate: (model: string) => Promise<T>
+) {
+  let lastError: unknown;
+  for (const [index, model] of models.entries()) {
+    try {
+      return { result: await generate(model), model };
+    } catch (error) {
+      lastError = error;
+      if (index === models.length - 1 || !shouldTryNextAiModel(error)) throw error;
+      console.warn(`Gemini model ${model} failed; trying fallback model.`, error);
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("O Gemini não conseguiu gerar as tarefas.");
 }
 
 async function generateWithOpenAi(
@@ -400,17 +455,19 @@ Deno.serve(async (req) => {
   ].join("\n");
 
   const provider = selectedProvider.provider;
-  const model =
-    provider === "gemini"
-      ? Deno.env.get("GEMINI_MODEL") || "gemini-3.6-flash"
-      : Deno.env.get("OPENAI_MODEL") || "gpt-5.6-luna";
+  let model = provider === "openai" ? Deno.env.get("OPENAI_MODEL") || "gpt-5.6-luna" : "";
 
   let generated: { text: string; usage: unknown };
   try {
-    generated =
-      provider === "gemini"
-        ? await generateWithGemini(geminiKey || "", model, instructions, context)
-        : await generateWithOpenAi(openAiKey || "", model, instructions, context);
+    if (provider === "gemini") {
+      const fallback = await generateWithGeminiFallback(geminiModelCandidates(), (candidateModel) =>
+        generateWithGemini(geminiKey || "", candidateModel, instructions, context)
+      );
+      generated = fallback.result;
+      model = fallback.model;
+    } else {
+      generated = await generateWithOpenAi(openAiKey || "", model, instructions, context);
+    }
   } catch (error) {
     return jsonResponse(
       {
