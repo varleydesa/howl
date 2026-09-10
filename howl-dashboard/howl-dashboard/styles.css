@@ -24,6 +24,138 @@
   --shadow: 0 18px 50px rgba(0, 0, 0, 0.38);
 }
 
+:root[data-theme="light"] {
+  --navy: #090909;
+  --navy-2: #1b1710;
+  --ink: #211f1a;
+  --muted: #70695d;
+  --line: #e2dccf;
+  --panel: #ffffff;
+  --paper: #faf8f3;
+  --soft: #f3eee2;
+  --blue: #b8892d;
+  --cyan: #e1bd63;
+  --green: #129c66;
+  --amber: #c58c26;
+  --red: #cf3f46;
+  --violet: #8a6b35;
+  --gold: #b8892d;
+  --gold-dark: #795716;
+  --chart-blue: #2458ff;
+  --chart-cyan: #09a9c8;
+  --chart-green: #129c66;
+  --chart-amber: #d88912;
+  --chart-violet: #7558f3;
+  --chart-red: #cf3f46;
+  --shadow: 0 18px 50px rgba(17, 14, 8, 0.12);
+}
+
+:root[data-theme="light"] body {
+  background: #fcfbf8;
+}
+
+:root[data-theme="light"] .topbar {
+  background: rgba(250, 248, 243, 0.9);
+}
+
+:root[data-theme="light"] .topbar-action:hover,
+:root[data-theme="light"] .topbar-logout:hover,
+:root[data-theme="light"] .topbar-icon:hover,
+:root[data-theme="light"] .download-btn {
+  background: #fffaf0;
+}
+
+:root[data-theme="light"] .program-tabs {
+  background: #f1f2f4;
+}
+
+:root[data-theme="light"] .program-kpi {
+  background: linear-gradient(135deg, #fff, #f8f1df);
+}
+
+:root[data-theme="light"] .program-kpi.green {
+  background: linear-gradient(135deg, #fff, #eaf7ef);
+}
+
+:root[data-theme="light"] .program-kpi.amber {
+  background: linear-gradient(135deg, #fff, #fff4dc);
+}
+
+:root[data-theme="light"] .program-kpi.gray {
+  background: linear-gradient(135deg, #fff, #f2f4f7);
+}
+
+:root[data-theme="light"] .program-kpi.red {
+  background: linear-gradient(135deg, #fff, #fff1f2);
+}
+
+:root[data-theme="light"] .program-agent-card:hover {
+  background: #fffdf8;
+}
+
+:root[data-theme="light"] .program-agent-card.active,
+:root[data-theme="light"] .mentor-ai-message.user,
+:root[data-theme="light"] .choice.active {
+  background: #fff6df;
+}
+
+:root[data-theme="light"] .program-agent-card > span {
+  background: #f4f6fa;
+}
+
+:root[data-theme="light"] .mentor-ai-message {
+  background: #f7f3eb;
+}
+
+:root[data-theme="light"] .badge.green,
+:root[data-theme="light"] .startup-event-chip.green {
+  color: #08784c;
+  background: #e7f7ef;
+  border-color: #bfe9d3;
+}
+
+:root[data-theme="light"] .badge.red {
+  color: #a02d32;
+  background: #ffe8ea;
+  border-color: #f3bdc1;
+}
+
+:root[data-theme="light"] .badge.gray {
+  color: #475467;
+  background: #f2f4f7;
+  border-color: #dbe3ed;
+}
+
+:root[data-theme="light"] .table tr:hover td {
+  background: #fcfaf5;
+}
+
+:root[data-theme="light"] .score-ring {
+  background: conic-gradient(var(--green) var(--p), #eee9df 0);
+}
+
+:root[data-theme="light"] .bar {
+  background: #eee9df;
+}
+
+:root[data-theme="light"] .choice:hover {
+  background: #fbf5e7;
+}
+
+:root[data-theme="light"] .startup-identity-card,
+:root[data-theme="light"] .mentor-profile-card {
+  background: linear-gradient(135deg, #fffaf0, #f7fbff);
+}
+
+:root[data-theme="light"] .startup-task-group {
+  background: #fffdfa;
+}
+
+:root[data-theme="light"] .public-topbar {
+  border-bottom-color: rgba(226, 220, 207, 0.86);
+  background: rgba(252, 251, 248, 0.94);
+}
+
 * {
   box-sizing: border-box;
   -webkit-print-color-adjust: exact;

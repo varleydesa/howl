@@ -28,6 +28,7 @@ let activeAiAgent = null;
 let mentorAiMessages = [];
 let mentorAiLoading = false;
 let mentorAiExpanded = false;
+let activeTheme = loadThemePreference();
 let publicApplicationMessage = "";
 let programTypes = [
   { id: "aceleracao", type: "Aceleração" },
@@ -715,6 +716,30 @@ function friendlyAiErrorMessage(error) {
 
 function escapeJsString(value) {
   return JSON.stringify(String(value ?? "")).replaceAll('"', "&quot;");
+}
+
+function loadThemePreference() {
+  try {
+    const stored = window.localStorage?.getItem("howl-theme");
+    return stored === "light" || stored === "dark" ? stored : "dark";
+  } catch {
+    return "dark";
+  }
+}
+
+function applyThemePreference() {
+  document.documentElement?.setAttribute("data-theme", activeTheme);
+}
+
+function toggleTheme() {
+  activeTheme = activeTheme === "dark" ? "light" : "dark";
+  try {
+    window.localStorage?.setItem("howl-theme", activeTheme);
+  } catch {
+    // Preferência visual continua ativa na sessão atual.
+  }
+  applyThemePreference();
+  render();
 }
 
 function normalizeText(value) {
@@ -1837,8 +1862,8 @@ function appTopbar(user) {
       <button class="btn topbar-action" type="button" onclick="setProgramDashboardTab('memory');go('dashboard')" title="Abrir memória estratégica">
         <span aria-hidden="true">◉</span>Gravar
       </button>
-      <button class="btn topbar-action" type="button" onclick="setProgramDashboardTab('overview');go('dashboard')" title="Abrir visão geral do tour">
-        <span aria-hidden="true">✦</span>Tour
+      <button class="btn topbar-action" type="button" onclick="toggleTheme()" title="Alternar tema">
+        <span aria-hidden="true">${activeTheme === "dark" ? "☀" : "◐"}</span>${activeTheme === "dark" ? "Claro" : "Escuro"}
       </button>
       <button class="btn icon topbar-icon" type="button" onclick="go('${isManager() ? "applications" : "mentorship"}')" title="${isManager() ? "Inscrições" : "Mentorias"}" aria-label="${isManager() ? "Inscrições" : "Mentorias"}">⌁</button>
       <button class="btn icon topbar-icon" type="button" onclick="go('${isManager() ? "users" : "dashboard"}')" title="${escapeHtml(user.roleLabel)}: ${escapeHtml(user.name)}" aria-label="Perfil ativo">♙</button>
@@ -6141,6 +6166,7 @@ async function logout() {
 }
 
 async function initializeApp() {
+  applyThemePreference();
   if (!supabaseClient) {
     backendStatus = supabaseConfigured
       ? "Biblioteca do Supabase indisponível"
@@ -6219,6 +6245,7 @@ Object.assign(window, {
   submitMentorAiQuestion,
   submitPublicApplication,
   toggleMentorAiExpanded,
+  toggleTheme,
   toggleMobileMenu,
   updateDraftComment,
   updateEditUserLinkFields,

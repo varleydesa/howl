@@ -59,6 +59,10 @@ const result = vm.runInContext(
     activeRoute = "dashboard";
     render();
     const adminDashboardHtml = document.getElementById("app").innerHTML;
+    toggleTheme();
+    const adminLightThemeHtml = document.getElementById("app").innerHTML;
+    const activeThemeAfterToggle = activeTheme;
+    toggleTheme();
     activeProgramDashboardTab = "sessions";
     render();
     const adminSessionsHtml = document.getElementById("app").innerHTML;
@@ -134,6 +138,8 @@ const result = vm.runInContext(
 
     ({
       adminDashboardHtml,
+      adminLightThemeHtml,
+      activeThemeAfterToggle,
       adminSessionsHtml,
       adminHasFilter,
       filteredAdminIds,
@@ -159,6 +165,10 @@ assert(result.adminHasFilter);
 assert(result.adminDashboardHtml.includes("Dashboard do Programa"));
 assert(result.adminDashboardHtml.includes("AI Analytics (em Breve)"));
 assert(result.adminDashboardHtml.includes("Agentes de IA"));
+assert(result.adminDashboardHtml.includes("Claro"));
+assert(!result.adminDashboardHtml.includes(">Tour<"));
+assert.strictEqual(result.activeThemeAfterToggle, "light");
+assert(result.adminLightThemeHtml.includes("Escuro"));
 assert(result.adminDashboardHtml.includes("Executivo"));
 assert(result.adminDashboardHtml.includes("Memória"));
 assert(result.adminSessionsHtml.includes("Total de Sessões"));
