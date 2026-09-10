@@ -6,6 +6,7 @@ const vm = require("vm");
 
 const appElement = { innerHTML: "" };
 let createClientOptions = null;
+let linkedIdentityRequest = null;
 const authSession = { user: { id: "auth-admin-demo" } };
 
 function queryResult(table) {
@@ -114,7 +115,7 @@ const context = {
         context.window.location.hash = hashIndex >= 0 ? String(url).slice(hashIndex) : "";
       },
     },
-    location: { hash: "", pathname: "/", search: "" },
+    location: { hash: "", href: "", origin: "https://horda1.vercel.app", pathname: "/", search: "?forceReload=1" },
     supabase: {
       createClient(_url, _key, options) {
         createClientOptions = options;
@@ -125,6 +126,13 @@ const context = {
             },
             signOut() {
               return Promise.resolve({ error: null });
+            },
+            linkIdentity(credentials) {
+              linkedIdentityRequest = credentials;
+              return Promise.resolve({
+                data: { url: "https://accounts.google.com/o/oauth2/v2/auth?mock=1" },
+                error: null,
+              });
             },
           },
           from(table) {
@@ -142,11 +150,17 @@ vm.runInContext(
   context
 );
 
-setTimeout(() => {
+setTimeout(async () => {
   assert.strictEqual(vm.runInContext("activeRoute", context), "dashboard");
   assert.strictEqual(context.window.location.hash, "#dashboard");
   assert.strictEqual(createClientOptions.auth.persistSession, true);
   assert.strictEqual(createClientOptions.auth.autoRefreshToken, true);
   assert(appElement.innerHTML.includes("Dashboard"));
+
+  await vm.runInContext("connectGoogleCalendar()", context);
+  assert.strictEqual(linkedIdentityRequest.provider, "google");
+  assert(linkedIdentityRequest.options.scopes.includes("https://www.googleapis.com/auth/calendar.events"));
+  assert.strictEqual(linkedIdentityRequest.options.redirectTo, "https://horda1.vercel.app/?forceReload=1#dashboard");
+  assert.strictEqual(context.window.location.href, "https://accounts.google.com/o/oauth2/v2/auth?mock=1");
   console.log("Sessão autenticada restaurada após F5.");
 }, 0);

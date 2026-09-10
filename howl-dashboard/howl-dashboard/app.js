@@ -13,6 +13,12 @@ const supabaseClient = supabaseConfigured && supabaseLibraryAvailable
       },
     })
   : null;
+const googleCalendarScope = [
+  "openid",
+  "email",
+  "profile",
+  "https://www.googleapis.com/auth/calendar.events",
+].join(" ");
 let currentSession = null;
 let loginError = "";
 let assessmentCycleIds = {};
@@ -802,6 +808,56 @@ function requireSupabase() {
 
 function throwIfSupabaseError(error) {
   if (error) throw new Error(error.message || "Erro de comunicação com o Supabase.");
+}
+
+function googleCalendarConnected() {
+  const identities = currentSession?.user?.identities || [];
+  return identities.some((identity) => identity.provider === "google")
+    || Boolean(currentSession?.provider_token);
+}
+
+function googleCalendarRedirectTo() {
+  const location = window.location || {};
+  const origin = location.origin || "";
+  const pathname = location.pathname || "/";
+  const search = location.search || "";
+  return `${origin}${pathname}${search}#dashboard`;
+}
+
+async function connectGoogleCalendar() {
+  if (!currentSession) {
+    window.alert("Entre na plataforma antes de conectar o Google Calendar.");
+    return;
+  }
+
+  try {
+    const client = requireSupabase();
+    if (typeof client.auth.linkIdentity !== "function") {
+      throw new Error("Atualize a biblioteca do Supabase para vincular contas Google ao usuário logado.");
+    }
+
+    const { data, error } = await client.auth.linkIdentity({
+      provider: "google",
+      options: {
+        redirectTo: googleCalendarRedirectTo(),
+        scopes: googleCalendarScope,
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
+    });
+    throwIfSupabaseError(error);
+
+    if (data?.url) {
+      window.location.href = data.url;
+      return;
+    }
+
+    window.alert("Abrindo autorização do Google Calendar.");
+  } catch (error) {
+    window.alert(error.message || "Não foi possível conectar o Google Calendar.");
+  }
 }
 
 function isMissingSupabaseRelation(error) {
@@ -2391,11 +2447,12 @@ function mentorAgendaCalendarCard(sessions) {
   const monthlySessions = sessions.filter((session) => sameMonth(session.scheduledAt, focusDate));
   const scheduledSessions = monthlySessions.filter((session) => session.status === "scheduled");
   const completedSessions = monthlySessions.filter((session) => session.status === "completed");
+  const calendarConnected = googleCalendarConnected();
   return `<div class="card pad mentor-dashboard-card">
     <div class="row between wrap">
       <div class="row wrap mentor-card-title"><span aria-hidden="true">▣</span><h2>Agenda de Mentorias</h2></div>
       <div class="row wrap mentor-calendar-actions">
-        <button class="btn" type="button" title="Integração prevista para uma próxima etapa">▣ Conectar Google Calendar</button>
+        <button class="btn" type="button" onclick="connectGoogleCalendar()" title="${calendarConnected ? "Google Calendar vinculado ao usuário logado" : "Autorizar criação de eventos no Google Calendar"}">▣ ${calendarConnected ? "Google Calendar conectado" : "Conectar Google Calendar"}</button>
         <button class="btn" type="button" onclick="go('mentorship')">+ Agendar</button>
       </div>
     </div>
@@ -6201,6 +6258,7 @@ Object.assign(window, {
   closeAiAgent,
   closeMentorshipEditors,
   closeUserEditor,
+  connectGoogleCalendar,
   completeAssessment,
   deactivateMentorStartupLink,
   deactivateUser,
