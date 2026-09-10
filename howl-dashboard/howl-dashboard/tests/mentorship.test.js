@@ -187,6 +187,7 @@ const result = vm.runInContext(
     const founderExpandedSessionHtml = document.getElementById("app").innerHTML;
     const founderLinks = mentorshipLinksVisibleToUser().map((link) => link.id);
     const founderTasks = mentorshipTasksVisibleToUser().map((task) => task.id);
+    const missingMentorLabel = mentorName("mentor-ausente");
 
     ({
       adminHtml,
@@ -210,7 +211,8 @@ const result = vm.runInContext(
       founderHtml,
       founderExpandedSessionHtml,
       founderLinks,
-      founderTasks
+      founderTasks,
+      missingMentorLabel
     });
   `,
   context
@@ -276,11 +278,14 @@ assert.deepStrictEqual(Array.from(result.mentorSessions), ["session-alpha"]);
 
 assert(result.founderHtml.includes("Minha mentoria"));
 assert(result.founderHtml.includes("Avaliador Demo 1"));
+assert(result.founderHtml.includes("startup-mentorship-view"));
+assert(result.founderHtml.includes("founder-mentor-strip"));
 assert(!result.founderHtml.includes("Avaliação da sessão"));
 assert(result.founderExpandedSessionHtml.includes("Avaliação da sessão"));
 assert(result.founderExpandedSessionHtml.includes("Atualizar avaliação"));
 assert.deepStrictEqual(Array.from(result.founderLinks), ["link-alpha"]);
 assert.deepStrictEqual(Array.from(result.founderTasks), ["task-alpha"]);
+assert.strictEqual(result.missingMentorLabel, "Mentor não identificado");
 assert.strictEqual(
   vm.runInContext(`averageSessionEvaluation(mentorshipSessionsVisibleToUser())`, context),
   4

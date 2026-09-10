@@ -3668,7 +3668,7 @@ function mentorshipTabPanel(tab, data) {
   if (isManager() || isEvaluator()) {
     return `<div class="mentorship-stacked">${sessionList}${createSessionModal}</div>`;
   }
-  return `<div class="grid two mentorship-workspace">
+  return `<div class="mentorship-stacked startup-mentorship-view">
     ${mentorPortfolioCard(data.activeLinks)}
     ${sessionList}
   </div>`;
@@ -3804,6 +3804,15 @@ function mentorPortfolioCard(activeLinks) {
       <span class="metric-label">${isEvaluator() ? "Portfólio do mentor" : "Mentoria"}</span>
       <h2>Nenhum vínculo ativo ainda.</h2>
       <p>${isEvaluator() ? "O gestor do programa ainda não vinculou startups ao seu perfil." : "O gestor do programa ainda não vinculou um mentor à sua startup."}</p>
+    </div>`;
+  }
+  if (!isEvaluator()) {
+    return `<div class="card pad founder-mentor-strip">
+      <div>
+        <span class="metric-label">Mentor vinculado</span>
+        <h2>${escapeHtml(mentorName(ownLinks[0].mentorId))}</h2>
+      </div>
+      <div class="mini-list founder-mentor-links">${ownLinks.map((link) => `<div class="mini-item"><strong>${escapeHtml(startupName(link.startupId))}</strong><span>${escapeHtml(programById(link.programId)?.name || "")} • ${escapeHtml(link.notes || "Mentoria ativa")}</span></div>`).join("")}</div>
     </div>`;
   }
   return `<div class="card pad">
@@ -4626,7 +4635,7 @@ function startupName(startupId) {
 }
 
 function mentorName(mentorId) {
-  return users.find((user) => user.id === mentorId)?.name || "Mentor removido";
+  return users.find((user) => user.id === mentorId)?.name || "Mentor não identificado";
 }
 
 function mentorshipTaskSessionLabel(task) {

@@ -2186,6 +2186,26 @@ textarea {
   gap: 16px;
 }
 
+.startup-mentorship-view {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.founder-mentor-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.founder-mentor-strip h2 {
+  margin: 4px 0 0;
+}
+
+.founder-mentor-links {
+  flex: 1 1 420px;
+  max-width: 760px;
+}
+
 .mentorship-form {
   align-content: start;
 }
@@ -2514,7 +2534,9 @@ textarea {
 }
 
 .mentorship-kanban.grouped {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(240px, 1fr));
+  overflow-x: auto;
+  padding-bottom: 4px;
 }
 
 .task-column {
@@ -3213,6 +3235,14 @@ textarea {
 
   .startup-task-counts {
     justify-content: flex-start;
+  }
+
+  .founder-mentor-strip {
+    display: grid;
+  }
+
+  .founder-mentor-links {
+    max-width: none;
   }
 
   .startup-dashboard-page {
