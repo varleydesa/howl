@@ -663,6 +663,12 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function formatAiMessageContent(value) {
+  return escapeHtml(value)
+    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|\n)\s*\*\s+/g, "$1• ");
+}
+
 function escapeJsString(value) {
   return JSON.stringify(String(value ?? "")).replaceAll('"', "&quot;");
 }
@@ -3035,7 +3041,7 @@ function programAiAgentsPanel() {
         <span class="metric-label">Agentes de IA</span>
         <h2>Agentes de IA</h2>
       </div>
-      <span class="badge gray">${agents.length} disponíveis</span>
+      <span class="badge green">1 disponível</span>
     </div>
     <p>Use o Mentor IA para conversar com os dados reais já registrados na plataforma.</p>
     <div class="program-agent-list">
@@ -3064,7 +3070,7 @@ function mentorAiChatPanel() {
     <div class="mentor-ai-messages">
       ${messages.map((message) => `<article class="mentor-ai-message ${message.role === "user" ? "user" : "assistant"}">
         <span>${message.role === "user" ? "Você" : "Mentor IA"}</span>
-        <p>${escapeHtml(message.content)}</p>
+        <p>${formatAiMessageContent(message.content)}</p>
       </article>`).join("")}
       ${mentorAiLoading ? `<article class="mentor-ai-message assistant"><span>Mentor IA</span><p>Consultando os dados e preparando resposta...</p></article>` : ""}
     </div>

@@ -775,15 +775,15 @@ button {
   display: grid;
   gap: 14px;
   position: fixed;
-  left: 296px;
+  right: 24px;
   bottom: 24px;
   z-index: 40;
-  width: min(540px, calc(100vw - 320px));
-  max-height: min(720px, calc(100vh - 120px));
+  width: min(480px, calc(100vw - 48px));
+  max-height: min(620px, calc(100vh - 96px));
   border: 1px solid #d8bb72;
   border-radius: 8px;
   background: white;
-  padding: 16px;
+  padding: 14px;
   box-shadow: 0 22px 60px rgba(17, 14, 8, 0.2);
 }
 
@@ -803,8 +803,8 @@ button {
 .mentor-ai-messages {
   display: grid;
   gap: 10px;
-  min-height: 190px;
-  max-height: min(420px, calc(100vh - 310px));
+  min-height: 126px;
+  max-height: min(310px, calc(100vh - 300px));
   overflow: auto;
   padding-right: 4px;
 }
@@ -834,6 +834,11 @@ button {
   color: var(--ink);
   line-height: 1.45;
   white-space: pre-line;
+}
+
+.mentor-ai-message p strong {
+  color: var(--navy);
+  font-weight: 850;
 }
 
 .mentor-ai-form {
