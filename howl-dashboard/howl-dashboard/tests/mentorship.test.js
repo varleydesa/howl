@@ -68,7 +68,9 @@ const result = vm.runInContext(
         topic: "Validação de pricing",
         agenda: "Revisar entrevistas",
         summary: "Sessão realizada",
-        nextSteps: "Revisar hipótese de preço"
+        nextSteps: "Revisar hipótese de preço",
+        googleMeetUrl: "https://meet.google.com/abc-defg-hij",
+        googleCalendarEventUrl: "https://calendar.google.com/event?eid=teste"
       },
       {
         id: "session-beta",
@@ -204,6 +206,8 @@ assert(result.adminHtml.includes("Avaliação da startup"));
 assert(result.adminHtml.includes("Editar sessão"));
 assert(result.adminHtml.includes("Gerar briefing com IA"));
 assert(result.adminHtml.includes("Gerar tarefas com IA"));
+assert(result.adminHtml.includes("Entrar no Meet"));
+assert(result.adminHtml.includes("https://meet.google.com/abc-defg-hij"));
 assert(result.adminSessionEditorHtml.includes("Salvar edição"));
 assert(result.adminSessionEditorHtml.includes("Resumo pós-sessão"));
 assert(result.adminSessionEditorHtml.includes("Briefing gerado com IA"));

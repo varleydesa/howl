@@ -818,6 +818,10 @@ function googleCalendarConnected() {
     || Boolean(currentSession?.provider_token);
 }
 
+function googleCalendarAccessToken() {
+  return String(currentSession?.provider_token || currentSession?.providerToken || "").trim();
+}
+
 function googleCalendarRedirectTo() {
   return `${publicAppUrl}/#dashboard`;
 }
@@ -1101,6 +1105,10 @@ async function loadSupabaseData() {
     summary: session.summary || "",
     decisions: session.decisions || "",
     nextSteps: session.next_steps || "",
+    googleCalendarEventId: session.google_calendar_event_id || "",
+    googleCalendarEventUrl: session.google_calendar_event_url || "",
+    googleMeetUrl: session.google_meet_url || "",
+    googleCalendarSyncedAt: session.google_calendar_synced_at || "",
     createdBy: session.created_by || null,
     createdAt: session.created_at,
     updatedAt: session.updated_at,
@@ -1495,6 +1503,35 @@ async function requestMentorAiResponse(message) {
     throw new Error("O Mentor IA não retornou uma resposta utilizável.");
   }
   return answer;
+}
+
+async function requestMentorshipCalendarEvent(sessionId) {
+  const accessToken = googleCalendarAccessToken();
+  if (!accessToken) {
+    throw new Error("Reconecte o Google Calendar antes de criar o Meet. O token temporário do Google não está disponível nesta sessão.");
+  }
+
+  const client = requireSupabase();
+  const { data, error } = await client.functions.invoke("create-mentorship-calendar-event", {
+    body: { sessionId, accessToken },
+  });
+
+  if (error) {
+    let message = error.message;
+    try {
+      if (error.context instanceof Response) {
+        const details = await error.context.clone().json();
+        message = details?.message || details?.error || message;
+      }
+    } catch {
+      // Mantém a mensagem original do Supabase.
+    }
+    throw new Error(message || "Não foi possível criar o evento no Google Calendar.");
+  }
+  if (data?.error) {
+    throw new Error(data.message || data.error);
+  }
+  return data;
 }
 
 async function persistUser(user, password) {
@@ -3527,6 +3564,7 @@ function mentorLinkForm() {
 }
 
 function mentorshipSessionForm(activeLinks) {
+  const canCreateGoogleMeet = googleCalendarConnected();
   return `<form class="card pad startup-form mentorship-form" onsubmit="addMentorshipSession(event)">
     <div class="row between wrap">
       <div>
@@ -3543,6 +3581,7 @@ function mentorshipSessionForm(activeLinks) {
       <div class="field wide"><label>Contexto pré-sessão</label><textarea name="agenda" placeholder="Contexto, métricas e perguntas para preparar a mentoria."></textarea></div>
       <div class="field wide"><label>Resumo pós-sessão</label><textarea name="summary" placeholder="Preencha depois da sessão, quando houver."></textarea></div>
       <div class="field wide"><label>Decisões e próximos passos</label><textarea name="nextSteps" placeholder="Decisões tomadas, responsáveis e próximos passos."></textarea></div>
+      <label class="checkbox-field wide"><input name="createGoogleMeet" type="checkbox" ${canCreateGoogleMeet ? "checked" : "disabled"}> Criar evento com Google Meet${canCreateGoogleMeet ? "" : " após conectar o Google Calendar"}</label>
     </div>
     <button class="btn primary" type="submit" ${activeLinks.length ? "" : "disabled"}>Salvar sessão</button>
   </form>`;
@@ -3668,6 +3707,7 @@ function mentorshipSessionsCard(sessions) {
           <span><strong>Startup</strong>${escapeHtml(startupName(session.startupId))}</span>
           <span><strong>Mentor</strong>${escapeHtml(mentorName(session.mentorId))}</span>
         </div>
+        ${session.googleMeetUrl ? `<a class="btn primary meet-link" href="${escapeHtml(session.googleMeetUrl)}" target="_blank" rel="noopener">Entrar no Meet</a>` : ""}
         <div class="mentorship-notes">
           ${mentorshipNote("Contexto", session.agenda || "Sem contexto registrado.")}
           ${mentorshipNote("Registro", session.summary || session.nextSteps || "Aguardando resumo pós-sessão.")}
@@ -5486,18 +5526,36 @@ async function addMentorshipSession(event) {
     summary: String(data.summary || "").trim(),
     decisions: "",
     nextSteps: String(data.nextSteps || "").trim(),
+    googleCalendarEventId: "",
+    googleCalendarEventUrl: "",
+    googleMeetUrl: "",
+    googleCalendarSyncedAt: "",
     createdBy: activeUserId,
     createdAt: new Date().toISOString(),
   };
+  const shouldCreateGoogleMeet = data.createGoogleMeet === "on";
+  let meetMessage = "";
   try {
     if (backendStatus.includes("conectado")) {
       await persistMentorshipSession(session);
+      if (shouldCreateGoogleMeet) {
+        try {
+          const calendarEvent = await requestMentorshipCalendarEvent(session.id);
+          session.googleCalendarEventId = String(calendarEvent.googleCalendarEventId || "");
+          session.googleCalendarEventUrl = String(calendarEvent.googleCalendarEventUrl || "");
+          session.googleMeetUrl = String(calendarEvent.googleMeetUrl || "");
+          session.googleCalendarSyncedAt = String(calendarEvent.googleCalendarSyncedAt || "");
+          meetMessage = session.googleMeetUrl ? " Link do Meet criado e salvo." : " Evento criado no Google Calendar.";
+        } catch (calendarError) {
+          meetMessage = ` Sessão salva, mas o Meet não foi criado: ${calendarError.message || "verifique a conexão com o Google Calendar."}`;
+        }
+      }
       await loadSupabaseData();
     } else {
       mentorshipSessions.unshift(session);
     }
     form.reset();
-    window.alert("Sessão de mentoria salva.");
+    window.alert(`Sessão de mentoria salva.${meetMessage}`);
   } catch (error) {
     window.alert(error.message || "Não foi possível salvar a sessão.");
   }

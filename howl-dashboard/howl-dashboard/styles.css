@@ -2060,6 +2060,18 @@ textarea {
   grid-column: 1 / -1;
 }
 
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.checkbox-field input {
+  width: auto;
+}
+
 .import-panel p {
   margin: 0;
   color: var(--muted);
@@ -2268,6 +2280,10 @@ textarea {
 .mentorship-note-text {
   display: block;
   white-space: pre-line;
+}
+
+.meet-link {
+  justify-self: start;
 }
 
 .mentorship-card-actions {
