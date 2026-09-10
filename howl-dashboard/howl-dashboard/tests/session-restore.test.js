@@ -115,7 +115,16 @@ const context = {
         context.window.location.hash = hashIndex >= 0 ? String(url).slice(hashIndex) : "";
       },
     },
-    location: { hash: "", href: "", origin: "https://horda1.vercel.app", pathname: "/", search: "?forceReload=1" },
+    location: {
+      hash: "",
+      href: "",
+      origin: "https://horda1.vercel.app",
+      pathname: "/",
+      search: "?forceReload=1",
+      assign(url) {
+        this.href = url;
+      },
+    },
     supabase: {
       createClient(_url, _key, options) {
         createClientOptions = options;
@@ -160,7 +169,8 @@ setTimeout(async () => {
   await vm.runInContext("connectGoogleCalendar()", context);
   assert.strictEqual(linkedIdentityRequest.provider, "google");
   assert(linkedIdentityRequest.options.scopes.includes("https://www.googleapis.com/auth/calendar.events"));
-  assert.strictEqual(linkedIdentityRequest.options.redirectTo, "https://horda1.vercel.app/?forceReload=1#dashboard");
+  assert.strictEqual(linkedIdentityRequest.options.redirectTo, "https://horda1.vercel.app/#dashboard");
+  assert.strictEqual(linkedIdentityRequest.options.skipBrowserRedirect, true);
   assert.strictEqual(context.window.location.href, "https://accounts.google.com/o/oauth2/v2/auth?mock=1");
   console.log("Sessão autenticada restaurada após F5.");
 }, 0);

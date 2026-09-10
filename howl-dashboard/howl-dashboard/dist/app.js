@@ -34,6 +34,7 @@ let activeAiAgent = null;
 let mentorAiMessages = [];
 let mentorAiLoading = false;
 let mentorAiExpanded = false;
+let googleCalendarConnecting = false;
 let activeTheme = loadThemePreference();
 let publicApplicationMessage = "";
 let programTypes = [
@@ -820,15 +821,32 @@ function googleCalendarRedirectTo() {
   const location = window.location || {};
   const origin = location.origin || "";
   const pathname = location.pathname || "/";
-  const search = location.search || "";
-  return `${origin}${pathname}${search}#dashboard`;
+  return `${origin}${pathname}#dashboard`;
+}
+
+function googleCalendarErrorMessage(error) {
+  const message = String(error?.message || error || "");
+  if (message.includes("Manual linking is disabled") || message.includes("identity linking")) {
+    return "O Supabase ainda não permite vincular Google ao usuário logado. Ative Manual Linking em Authentication > Providers.";
+  }
+  if (message.includes("provider is not enabled") || message.includes("Unsupported provider")) {
+    return "O provedor Google ainda não está ativo no Supabase Auth. Ative o Google em Authentication > Providers.";
+  }
+  if (message.includes("redirect") || message.includes("not allowed")) {
+    return "O retorno do app não está autorizado no Supabase. Adicione https://horda1.vercel.app/** em Authentication > URL Configuration.";
+  }
+  return message || "Não foi possível conectar o Google Calendar.";
 }
 
 async function connectGoogleCalendar() {
+  if (googleCalendarConnecting) return;
   if (!currentSession) {
     window.alert("Entre na plataforma antes de conectar o Google Calendar.");
     return;
   }
+
+  googleCalendarConnecting = true;
+  render();
 
   try {
     const client = requireSupabase();
@@ -845,18 +863,25 @@ async function connectGoogleCalendar() {
           access_type: "offline",
           prompt: "consent",
         },
+        skipBrowserRedirect: true,
       },
     });
     throwIfSupabaseError(error);
 
     if (data?.url) {
-      window.location.href = data.url;
+      if (typeof window.location?.assign === "function") {
+        window.location.assign(data.url);
+      } else {
+        window.location.href = data.url;
+      }
       return;
     }
 
-    window.alert("Abrindo autorização do Google Calendar.");
+    throw new Error("O Supabase não devolveu a URL de autorização do Google.");
   } catch (error) {
-    window.alert(error.message || "Não foi possível conectar o Google Calendar.");
+    googleCalendarConnecting = false;
+    window.alert(googleCalendarErrorMessage(error));
+    render();
   }
 }
 
@@ -2452,7 +2477,7 @@ function mentorAgendaCalendarCard(sessions) {
     <div class="row between wrap">
       <div class="row wrap mentor-card-title"><span aria-hidden="true">▣</span><h2>Agenda de Mentorias</h2></div>
       <div class="row wrap mentor-calendar-actions">
-        <button class="btn" type="button" onclick="connectGoogleCalendar()" title="${calendarConnected ? "Google Calendar vinculado ao usuário logado" : "Autorizar criação de eventos no Google Calendar"}">▣ ${calendarConnected ? "Google Calendar conectado" : "Conectar Google Calendar"}</button>
+        <button class="btn" type="button" onclick="connectGoogleCalendar()" ${googleCalendarConnecting ? "disabled" : ""} title="${calendarConnected ? "Google Calendar vinculado ao usuário logado" : "Autorizar criação de eventos no Google Calendar"}">▣ ${googleCalendarConnecting ? "Abrindo Google..." : calendarConnected ? "Google Calendar conectado" : "Conectar Google Calendar"}</button>
         <button class="btn" type="button" onclick="go('mentorship')">+ Agendar</button>
       </div>
     </div>
