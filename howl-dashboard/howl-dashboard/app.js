@@ -20,6 +20,7 @@ const googleCalendarScope = [
   "https://www.googleapis.com/auth/calendar.events",
 ].join(" ");
 const publicAppUrl = "https://horda1.vercel.app";
+const pendingGoogleMeetSessionKey = "howl-pending-google-meet-session";
 let currentSession = null;
 let loginError = "";
 let assessmentCycleIds = {};
@@ -822,8 +823,41 @@ function googleCalendarAccessToken() {
   return String(currentSession?.provider_token || currentSession?.providerToken || "").trim();
 }
 
-function googleCalendarRedirectTo() {
-  return `${publicAppUrl}/#dashboard`;
+function googleCalendarRedirectTo(route = "dashboard") {
+  return `${publicAppUrl}/#${route}`;
+}
+
+function navigateToExternalUrl(url) {
+  if (typeof window.location?.assign === "function") {
+    window.location.assign(url);
+  } else {
+    window.location.href = url;
+  }
+}
+
+function setPendingGoogleMeetSession(sessionId) {
+  if (!sessionId) return;
+  try {
+    window.localStorage?.setItem(pendingGoogleMeetSessionKey, sessionId);
+  } catch {
+    // Sem localStorage, o usuario ainda pode clicar em Gerar Meet depois.
+  }
+}
+
+function clearPendingGoogleMeetSession() {
+  try {
+    window.localStorage?.removeItem(pendingGoogleMeetSessionKey);
+  } catch {
+    // Ignora ambientes sem localStorage.
+  }
+}
+
+function pendingGoogleMeetSession() {
+  try {
+    return String(window.localStorage?.getItem(pendingGoogleMeetSessionKey) || "").trim();
+  } catch {
+    return "";
+  }
 }
 
 function googleCalendarErrorMessage(error) {
@@ -851,40 +885,44 @@ async function connectGoogleCalendar() {
   render();
 
   try {
-    const client = requireSupabase();
-    if (typeof client.auth.linkIdentity !== "function") {
-      throw new Error("Atualize a biblioteca do Supabase para vincular contas Google ao usuário logado.");
-    }
-
-    const { data, error } = await client.auth.linkIdentity({
-      provider: "google",
-      options: {
-        redirectTo: googleCalendarRedirectTo(),
-        scopes: googleCalendarScope,
-        queryParams: {
-          access_type: "offline",
-          prompt: "consent",
-        },
-        skipBrowserRedirect: true,
-      },
-    });
-    throwIfSupabaseError(error);
-
-    if (data?.url) {
-      if (typeof window.location?.assign === "function") {
-        window.location.assign(data.url);
-      } else {
-        window.location.href = data.url;
-      }
-      return;
-    }
-
-    throw new Error("O Supabase não devolveu a URL de autorização do Google.");
+    await startGoogleCalendarAuthorization();
   } catch (error) {
     googleCalendarConnecting = false;
     window.alert(googleCalendarErrorMessage(error));
     render();
   }
+}
+
+async function startGoogleCalendarAuthorization({ sessionId = "" } = {}) {
+  const client = requireSupabase();
+  if (sessionId) setPendingGoogleMeetSession(sessionId);
+
+  const authOptions = {
+    redirectTo: googleCalendarRedirectTo(sessionId ? "mentorship" : "dashboard"),
+    scopes: googleCalendarScope,
+    queryParams: {
+      access_type: "offline",
+      prompt: "consent",
+    },
+    skipBrowserRedirect: true,
+  };
+
+  const authMethod = googleCalendarConnected() && typeof client.auth.signInWithOAuth === "function"
+    ? "signInWithOAuth"
+    : "linkIdentity";
+  if (typeof client.auth[authMethod] !== "function") {
+    throw new Error("Atualize a biblioteca do Supabase para autorizar o Google Calendar.");
+  }
+
+  const { data, error } = await client.auth[authMethod]({
+    provider: "google",
+    options: authOptions,
+  });
+  throwIfSupabaseError(error);
+  if (!data?.url) {
+    throw new Error("O Supabase não devolveu a URL de autorização do Google.");
+  }
+  navigateToExternalUrl(data.url);
 }
 
 function isMissingSupabaseRelation(error) {
@@ -1508,7 +1546,7 @@ async function requestMentorAiResponse(message) {
 async function requestMentorshipCalendarEvent(sessionId) {
   const accessToken = googleCalendarAccessToken();
   if (!accessToken) {
-    throw new Error("Reconecte o Google Calendar antes de criar o Meet. O token temporário do Google não está disponível nesta sessão.");
+    throw new Error("token_google_ausente");
   }
 
   const client = requireSupabase();
@@ -1532,6 +1570,52 @@ async function requestMentorshipCalendarEvent(sessionId) {
     throw new Error(data.message || data.error);
   }
   return data;
+}
+
+async function createGoogleMeetForSession(sessionId) {
+  const session = mentorshipSessionsVisibleToUser().find((item) => item.id === sessionId);
+  if (!session || (!isManager() && !isEvaluator())) return;
+  if (session.googleMeetUrl) {
+    window.alert("Essa sessão já tem link do Google Meet.");
+    return;
+  }
+  if (!backendStatus.includes("conectado")) {
+    window.alert("Conecte o Supabase antes de criar o Meet.");
+    return;
+  }
+
+  try {
+    if (!googleCalendarAccessToken()) {
+      window.alert("Vou abrir o Google para renovar a autorização do Calendar. Depois do retorno, o Meet será criado para esta sessão.");
+      await startGoogleCalendarAuthorization({ sessionId });
+      return;
+    }
+    const calendarEvent = await requestMentorshipCalendarEvent(session.id);
+    await loadSupabaseData();
+    render();
+    window.alert(calendarEvent.googleMeetUrl ? "Link do Meet criado e salvo na sessão." : "Evento criado no Google Calendar.");
+  } catch (error) {
+    window.alert(
+      error.message === "token_google_ausente"
+        ? "Reconecte o Google Calendar antes de criar o Meet."
+        : error.message || "Não foi possível criar o Meet."
+    );
+  }
+}
+
+async function resumePendingGoogleMeetCreation() {
+  const sessionId = pendingGoogleMeetSession();
+  if (!sessionId || !currentSession || !googleCalendarAccessToken()) return;
+
+  try {
+    await requestMentorshipCalendarEvent(sessionId);
+    clearPendingGoogleMeetSession();
+    await loadSupabaseData();
+    window.alert("Link do Meet criado e salvo na sessão.");
+  } catch (error) {
+    clearPendingGoogleMeetSession();
+    window.alert(error.message || "Não foi possível concluir a criação do Meet após reconectar o Google.");
+  }
 }
 
 async function persistUser(user, password) {
@@ -3713,7 +3797,7 @@ function mentorshipSessionsCard(sessions) {
           ${mentorshipNote("Registro", session.summary || session.nextSteps || "Aguardando resumo pós-sessão.")}
         </div>
         ${feedback ? `<div class="mentorship-feedback-summary"><strong>Avaliação da startup</strong><span>${"★".repeat(feedback.rating)}${"☆".repeat(5 - feedback.rating)} • ${escapeHtml(feedback.comment || "Sem comentário")}</span></div>` : ""}
-        ${canEdit ? `<div class="mentorship-card-actions"><label>Atualizar</label>${mentorshipStatusSelect(session)}<button class="btn" type="button" onclick='openMentorshipSessionEditor(${JSON.stringify(session.id)})'>Editar sessão</button><button class="btn" type="button" onclick='generateMentorshipBriefing(${JSON.stringify(session.id)})' ${generatingMentorshipBriefingId ? "disabled" : ""}>${generatingMentorshipBriefingId === session.id ? "Gerando..." : "Gerar briefing com IA"}</button><button class="btn" type="button" onclick='generateMentorshipTasks(${JSON.stringify(session.id)})' ${generatingMentorshipTasksId ? "disabled" : ""}>${generatingMentorshipTasksId === session.id ? "Gerando..." : "Gerar tarefas com IA"}</button></div>` : ""}
+        ${canEdit ? `<div class="mentorship-card-actions"><label>Atualizar</label>${mentorshipStatusSelect(session)}${session.googleMeetUrl ? "" : `<button class="btn" type="button" onclick='createGoogleMeetForSession(${JSON.stringify(session.id)})'>Gerar Meet</button>`}<button class="btn" type="button" onclick='openMentorshipSessionEditor(${JSON.stringify(session.id)})'>Editar sessão</button><button class="btn" type="button" onclick='generateMentorshipBriefing(${JSON.stringify(session.id)})' ${generatingMentorshipBriefingId ? "disabled" : ""}>${generatingMentorshipBriefingId === session.id ? "Gerando..." : "Gerar briefing com IA"}</button><button class="btn" type="button" onclick='generateMentorshipTasks(${JSON.stringify(session.id)})' ${generatingMentorshipTasksId ? "disabled" : ""}>${generatingMentorshipTasksId === session.id ? "Gerando..." : "Gerar tarefas com IA"}</button></div>` : ""}
         ${editingMentorshipSessionId === session.id ? mentorshipSessionEditForm(session) : ""}
         ${canEdit ? mentorshipTaskDraftCard(session) : ""}
         ${canEvaluate ? mentorshipSessionFeedbackForm(session, feedback) : ""}
@@ -5540,6 +5624,11 @@ async function addMentorshipSession(event) {
       await persistMentorshipSession(session);
       if (shouldCreateGoogleMeet) {
         try {
+          if (!googleCalendarAccessToken()) {
+            window.alert("Sessão salva. Vou abrir o Google para renovar a autorização do Calendar e criar o Meet em seguida.");
+            await startGoogleCalendarAuthorization({ sessionId: session.id });
+            return;
+          }
           const calendarEvent = await requestMentorshipCalendarEvent(session.id);
           session.googleCalendarEventId = String(calendarEvent.googleCalendarEventId || "");
           session.googleCalendarEventUrl = String(calendarEvent.googleCalendarEventUrl || "");
@@ -6316,6 +6405,7 @@ async function initializeApp() {
 
   try {
     await loadSupabaseData();
+    await resumePendingGoogleMeetCreation();
   } catch (error) {
     if (!PUBLIC_ROUTES.has(activeRoute)) activeRoute = "login";
     loginError = error.message || "Não foi possível conectar ao Supabase.";
@@ -6341,6 +6431,7 @@ Object.assign(window, {
   closeUserEditor,
   connectGoogleCalendar,
   completeAssessment,
+  createGoogleMeetForSession,
   deactivateMentorStartupLink,
   deactivateUser,
   discardMentorshipTaskDraft,
