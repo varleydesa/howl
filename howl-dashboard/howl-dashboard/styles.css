@@ -787,6 +787,11 @@ button {
   box-shadow: 0 22px 60px rgba(17, 14, 8, 0.2);
 }
 
+.mentor-ai-chat.expanded {
+  width: min(760px, calc(100vw - 48px));
+  max-height: min(780px, calc(100vh - 72px));
+}
+
 .mentor-ai-chat-head {
   display: flex;
   align-items: flex-start;
@@ -800,6 +805,13 @@ button {
   font-size: 18px;
 }
 
+.mentor-ai-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
 .mentor-ai-messages {
   display: grid;
   gap: 10px;
@@ -807,6 +819,11 @@ button {
   max-height: min(310px, calc(100vh - 300px));
   overflow: auto;
   padding-right: 4px;
+}
+
+.mentor-ai-chat.expanded .mentor-ai-messages {
+  min-height: 300px;
+  max-height: min(520px, calc(100vh - 300px));
 }
 
 .mentor-ai-message {
@@ -3014,6 +3031,19 @@ textarea {
 
   .mentor-ai-form {
     grid-template-columns: 1fr;
+  }
+
+  .mentor-ai-chat-head {
+    display: grid;
+  }
+
+  .mentor-ai-actions {
+    width: 100%;
+  }
+
+  .mentor-ai-actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
   }
 
   .startup-identity-card {

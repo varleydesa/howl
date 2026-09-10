@@ -27,6 +27,7 @@ let mentorshipTaskDrafts = {};
 let activeAiAgent = null;
 let mentorAiMessages = [];
 let mentorAiLoading = false;
+let mentorAiExpanded = false;
 let publicApplicationMessage = "";
 let programTypes = [
   { id: "aceleracao", type: "Aceleração" },
@@ -3102,13 +3103,16 @@ function mentorAiChatPanel() {
   const messages = mentorAiMessages.length
     ? mentorAiMessages
     : [{ role: "assistant", content: "Olá. Posso ajudar a interpretar mentorias, tarefas, avaliações e próximos passos com base nos dados reais disponíveis para o seu perfil." }];
-  return `<section class="mentor-ai-chat" aria-label="Conversa com Mentor IA">
+  return `<section class="mentor-ai-chat ${mentorAiExpanded ? "expanded" : ""}" aria-label="Conversa com Mentor IA">
     <div class="mentor-ai-chat-head">
       <div>
         <span class="metric-label">Mentor IA</span>
         <h3>Conversa contextual</h3>
       </div>
-      <button class="btn ghost" type="button" onclick="closeAiAgent()">Fechar</button>
+      <div class="mentor-ai-actions">
+        <button class="btn ghost" type="button" onclick="toggleMentorAiExpanded()">${mentorAiExpanded ? "Reduzir" : "Expandir"}</button>
+        <button class="btn ghost" type="button" onclick="closeAiAgent()">Fechar</button>
+      </div>
     </div>
     <div class="mentor-ai-messages">
       ${messages.map((message) => `<article class="mentor-ai-message ${message.role === "user" ? "user" : "assistant"}">
@@ -3140,6 +3144,12 @@ function openAiAgent(agentId) {
 
 function closeAiAgent() {
   activeAiAgent = null;
+  mentorAiExpanded = false;
+  render();
+}
+
+function toggleMentorAiExpanded() {
+  mentorAiExpanded = !mentorAiExpanded;
   render();
 }
 
@@ -6208,6 +6218,7 @@ Object.assign(window, {
   submitMentorshipSessionFeedback,
   submitMentorAiQuestion,
   submitPublicApplication,
+  toggleMentorAiExpanded,
   toggleMobileMenu,
   updateDraftComment,
   updateEditUserLinkFields,

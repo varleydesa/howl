@@ -143,6 +143,11 @@ const result = vm.runInContext(
     activeRoute = "dashboard";
     openAiAgent("mentor");
     const mentorAiHtml = document.getElementById("app").innerHTML;
+    toggleMentorAiExpanded();
+    const mentorAiExpandedHtml = document.getElementById("app").innerHTML;
+    closeAiAgent();
+    openAiAgent("mentor");
+    const mentorAiReopenedHtml = document.getElementById("app").innerHTML;
     closeAiAgent();
     activeRoute = "mentorship";
     const highDemandMessage = friendlyAiErrorMessage(new Error("This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."));
@@ -172,6 +177,8 @@ const result = vm.runInContext(
       adminPortfolioHtml,
       adminTaskEditorHtml,
       mentorAiHtml,
+      mentorAiExpandedHtml,
+      mentorAiReopenedHtml,
       highDemandMessage,
       creditsMessage,
       mentorHtml,
@@ -213,6 +220,12 @@ assert(result.adminTaskEditorHtml.includes("Validação de pricing"));
 assert(result.mentorAiHtml.includes("Conversa contextual"));
 assert(result.mentorAiHtml.includes("Pergunte sobre foco da próxima mentoria"));
 assert(result.mentorAiHtml.includes("Use o Mentor IA"));
+assert(result.mentorAiHtml.includes("Expandir"));
+assert(!result.mentorAiHtml.includes("mentor-ai-chat expanded"));
+assert(result.mentorAiExpandedHtml.includes("mentor-ai-chat expanded"));
+assert(result.mentorAiExpandedHtml.includes("Reduzir"));
+assert(result.mentorAiReopenedHtml.includes("Expandir"));
+assert(!result.mentorAiReopenedHtml.includes("mentor-ai-chat expanded"));
 assert.strictEqual(result.highDemandMessage, "O Mentor IA está temporariamente indisponível por alta demanda. Tente novamente em alguns instantes.");
 assert.strictEqual(result.creditsMessage, "O Mentor IA não conseguiu responder porque a conta de IA está sem créditos ou limite disponível. Verifique a cobrança/chave da API.");
 assert.deepStrictEqual(Array.from(result.adminLinks).sort(), ["link-alpha", "link-beta"]);
