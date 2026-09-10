@@ -22,6 +22,7 @@ const googleCalendarScope = [
 const publicAppUrl = "https://horda1.vercel.app";
 const pendingGoogleMeetSessionKey = "howl-pending-google-meet-session";
 let currentSession = null;
+let googleCalendarProviderToken = "";
 let loginError = "";
 let assessmentCycleIds = {};
 let questionIds = {};
@@ -845,14 +846,66 @@ function throwIfSupabaseError(error) {
   if (error) throw new Error(error.message || "Erro de comunicação com o Supabase.");
 }
 
-function googleCalendarConnected() {
+function oauthReturnHasAuthParams() {
+  const hash = String(window.location?.hash || "");
+  return /(?:^#|[&#])(access_token|refresh_token|provider_token|error|error_code|error_description)=/.test(hash);
+}
+
+function captureGoogleProviderTokenFromUrl() {
+  const hash = String(window.location?.hash || "");
+  const match = hash.match(/(?:^#|[&#])provider_token=([^&]+)/);
+  if (match?.[1]) {
+    googleCalendarProviderToken = decodeURIComponent(match[1].replace(/\+/g, " "));
+  }
+}
+
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function refreshOAuthReturnSession() {
+  if (!oauthReturnHasAuthParams()) return;
+  captureGoogleProviderTokenFromUrl();
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await refreshCurrentSession();
+    if (currentSession && (googleCalendarAccessToken() || googleCalendarLinked())) return;
+    await wait(120);
+  }
+}
+
+function googleCalendarLinked() {
   const identities = currentSession?.user?.identities || [];
+  const providers = currentSession?.user?.app_metadata?.providers || [];
   return identities.some((identity) => identity.provider === "google")
-    || Boolean(currentSession?.provider_token);
+    || providers.includes("google")
+    || Boolean(googleCalendarAccessToken());
+}
+
+function googleCalendarConnected() {
+  return googleCalendarLinked();
 }
 
 function googleCalendarAccessToken() {
-  return String(currentSession?.provider_token || currentSession?.providerToken || "").trim();
+  return String(
+    googleCalendarProviderToken
+    || currentSession?.provider_token
+    || currentSession?.providerToken
+    || ""
+  ).trim();
+}
+
+function googleCalendarStatus() {
+  if (googleCalendarAccessToken()) return "ready";
+  if (googleCalendarLinked()) return "linked";
+  return "disconnected";
+}
+
+async function refreshCurrentSession() {
+  const client = requireSupabase();
+  const sessionResult = await client.auth.getSession();
+  throwIfSupabaseError(sessionResult.error);
+  currentSession = sessionResult.data.session;
+  return currentSession;
 }
 
 function googleCalendarRedirectTo(route = "mentorship") {
@@ -969,10 +1022,11 @@ function cleanOAuthReturnUrl() {
   if (!window.location || !window.history?.replaceState) return;
   const hash = String(window.location.hash || "");
   const search = String(window.location.search || "");
-  const hasAuthHash = /(?:^#|[&#])(access_token|refresh_token|provider_token|error|error_code|error_description)=/.test(hash);
+  const hasAuthHash = oauthReturnHasAuthParams();
   const hasRouteSearch = /(?:^\?|&)route=/.test(search);
   if (!hasAuthHash && !hasRouteSearch) return;
 
+  if (hasAuthHash) captureGoogleProviderTokenFromUrl();
   const route = normalizeRouteValue(routeQueryValue()) || normalizeRouteValue(hash) || activeRoute;
   if (routeAllowed(route)) activeRoute = route;
   const cleanHash = activeRoute === "home" ? "" : `#${activeRoute}`;
@@ -981,9 +1035,7 @@ function cleanOAuthReturnUrl() {
 
 async function loadSupabaseData() {
   const client = requireSupabase();
-  const sessionResult = await client.auth.getSession();
-  throwIfSupabaseError(sessionResult.error);
-  currentSession = sessionResult.data.session;
+  await refreshCurrentSession();
 
   if (!currentSession) {
     if (!PUBLIC_ROUTES.has(activeRoute)) activeRoute = "login";
@@ -2638,12 +2690,22 @@ function mentorAgendaCalendarCard(sessions) {
   const monthlySessions = sessions.filter((session) => sameMonth(session.scheduledAt, focusDate));
   const scheduledSessions = monthlySessions.filter((session) => session.status === "scheduled");
   const completedSessions = monthlySessions.filter((session) => session.status === "completed");
-  const calendarConnected = googleCalendarConnected();
+  const calendarStatus = googleCalendarStatus();
+  const calendarLabel = calendarStatus === "ready"
+    ? "Google Calendar pronto"
+    : calendarStatus === "linked"
+      ? "Autorizar Calendar"
+      : "Conectar Google Calendar";
+  const calendarTitle = calendarStatus === "ready"
+    ? "Token do Google Calendar disponível para criar eventos e Meet"
+    : calendarStatus === "linked"
+      ? "Google vinculado. Autorize novamente para liberar um token temporário do Calendar"
+      : "Autorizar criação de eventos no Google Calendar";
   return `<div class="card pad mentor-dashboard-card">
     <div class="row between wrap">
       <div class="row wrap mentor-card-title"><span aria-hidden="true">▣</span><h2>Agenda de Mentorias</h2></div>
       <div class="row wrap mentor-calendar-actions">
-        <button class="btn" type="button" onclick="connectGoogleCalendar()" ${googleCalendarConnecting ? "disabled" : ""} title="${calendarConnected ? "Google Calendar vinculado ao usuário logado" : "Autorizar criação de eventos no Google Calendar"}">▣ ${googleCalendarConnecting ? "Abrindo Google..." : calendarConnected ? "Google Calendar conectado" : "Conectar Google Calendar"}</button>
+        <button class="btn" type="button" onclick="connectGoogleCalendar()" ${googleCalendarConnecting ? "disabled" : ""} title="${calendarTitle}">▣ ${googleCalendarConnecting ? "Abrindo Google..." : calendarLabel}</button>
         <button class="btn" type="button" onclick="go('mentorship')">+ Agendar</button>
       </div>
     </div>
@@ -6514,6 +6576,7 @@ async function login(event) {
 async function logout() {
   if (supabaseClient) await supabaseClient.auth.signOut();
   currentSession = null;
+  googleCalendarProviderToken = "";
   loginError = "";
   activeRoute = "login";
   backendStatus = "Aguardando autenticação";
@@ -6533,6 +6596,7 @@ async function initializeApp() {
   }
 
   try {
+    await refreshOAuthReturnSession();
     await loadSupabaseData();
     await resumePendingGoogleMeetCreation();
   } catch (error) {

@@ -179,11 +179,13 @@ setTimeout(async () => {
       window.location.hash = "#access_token=token&provider_token=google";
       activeRoute = initialRoute();
       cleanOAuthReturnUrl();
-      ({ activeRoute, hash: window.location.hash });
+      ({ activeRoute, hash: window.location.hash, googleToken: googleCalendarAccessToken(), calendarStatus: googleCalendarStatus() });
     `,
     context
   );
   assert.strictEqual(oauthReturn.activeRoute, "mentorship");
   assert.strictEqual(oauthReturn.hash, "#mentorship");
+  assert.strictEqual(oauthReturn.googleToken, "google");
+  assert.strictEqual(oauthReturn.calendarStatus, "ready");
   console.log("Sessão autenticada restaurada após F5.");
 }, 20);
