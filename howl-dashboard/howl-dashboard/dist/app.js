@@ -21,8 +21,10 @@ const googleCalendarScope = [
 ].join(" ");
 const publicAppUrl = "https://horda1.vercel.app";
 const pendingGoogleMeetSessionKey = "howl-pending-google-meet-session";
+const pendingGoogleCalendarAuthorizationKey = "howl-pending-google-calendar-authorization";
 let currentSession = null;
 let googleCalendarProviderToken = "";
+let googleCalendarIdentityLinked = false;
 let loginError = "";
 let assessmentCycleIds = {};
 let questionIds = {};
@@ -859,6 +861,27 @@ function captureGoogleProviderTokenFromUrl() {
   }
 }
 
+function sessionHasGoogleIdentity() {
+  const identities = currentSession?.user?.identities || [];
+  const providers = currentSession?.user?.app_metadata?.providers || [];
+  return identities.some((identity) => identity.provider === "google")
+    || providers.includes("google");
+}
+
+async function refreshGoogleCalendarIdentityState() {
+  googleCalendarIdentityLinked = sessionHasGoogleIdentity();
+  const client = requireSupabase();
+  if (!currentSession || typeof client.auth.getUserIdentities !== "function") return;
+  try {
+    const { data, error } = await client.auth.getUserIdentities();
+    if (!error) {
+      googleCalendarIdentityLinked = (data?.identities || []).some((identity) => identity.provider === "google");
+    }
+  } catch {
+    // Se a chamada falhar, mantemos o estado inferido da sessão.
+  }
+}
+
 function wait(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
@@ -874,10 +897,8 @@ async function refreshOAuthReturnSession() {
 }
 
 function googleCalendarLinked() {
-  const identities = currentSession?.user?.identities || [];
-  const providers = currentSession?.user?.app_metadata?.providers || [];
-  return identities.some((identity) => identity.provider === "google")
-    || providers.includes("google")
+  return googleCalendarIdentityLinked
+    || sessionHasGoogleIdentity()
     || Boolean(googleCalendarAccessToken());
 }
 
@@ -905,6 +926,7 @@ async function refreshCurrentSession() {
   const sessionResult = await client.auth.getSession();
   throwIfSupabaseError(sessionResult.error);
   currentSession = sessionResult.data.session;
+  await refreshGoogleCalendarIdentityState();
   return currentSession;
 }
 
@@ -926,6 +948,30 @@ function setPendingGoogleMeetSession(sessionId) {
     window.localStorage?.setItem(pendingGoogleMeetSessionKey, sessionId);
   } catch {
     // Sem localStorage, o usuario ainda pode clicar em Gerar Meet depois.
+  }
+}
+
+function setPendingGoogleCalendarAuthorization() {
+  try {
+    window.localStorage?.setItem(pendingGoogleCalendarAuthorizationKey, "1");
+  } catch {
+    // Sem localStorage, o usuario pode clicar em Autorizar Calendar depois.
+  }
+}
+
+function clearPendingGoogleCalendarAuthorization() {
+  try {
+    window.localStorage?.removeItem(pendingGoogleCalendarAuthorizationKey);
+  } catch {
+    // Ignora ambientes sem localStorage.
+  }
+}
+
+function pendingGoogleCalendarAuthorization() {
+  try {
+    return window.localStorage?.getItem(pendingGoogleCalendarAuthorizationKey) === "1";
+  } catch {
+    return false;
   }
 }
 
@@ -978,7 +1024,7 @@ async function connectGoogleCalendar() {
   }
 }
 
-async function startGoogleCalendarAuthorization({ sessionId = "" } = {}) {
+async function startGoogleCalendarAuthorization({ sessionId = "", forceOAuth = false } = {}) {
   const client = requireSupabase();
   if (sessionId) setPendingGoogleMeetSession(sessionId);
 
@@ -992,11 +1038,16 @@ async function startGoogleCalendarAuthorization({ sessionId = "" } = {}) {
     skipBrowserRedirect: true,
   };
 
-  const authMethod = googleCalendarConnected() && typeof client.auth.signInWithOAuth === "function"
+  const authMethod = (forceOAuth || googleCalendarConnected()) && typeof client.auth.signInWithOAuth === "function"
     ? "signInWithOAuth"
     : "linkIdentity";
   if (typeof client.auth[authMethod] !== "function") {
     throw new Error("Atualize a biblioteca do Supabase para autorizar o Google Calendar.");
+  }
+  if (authMethod === "linkIdentity") {
+    setPendingGoogleCalendarAuthorization();
+  } else {
+    clearPendingGoogleCalendarAuthorization();
   }
 
   const { data, error } = await client.auth[authMethod]({
@@ -1715,6 +1766,20 @@ async function resumePendingGoogleMeetCreation() {
     clearPendingGoogleMeetSession();
     window.alert(error.message || "Não foi possível concluir a criação do Meet após reconectar o Google.");
   }
+}
+
+async function resumePendingGoogleCalendarAuthorization() {
+  if (
+    !pendingGoogleCalendarAuthorization()
+    || !currentSession
+    || googleCalendarAccessToken()
+    || !googleCalendarLinked()
+  ) {
+    return false;
+  }
+  clearPendingGoogleCalendarAuthorization();
+  await startGoogleCalendarAuthorization({ forceOAuth: true });
+  return true;
 }
 
 async function persistUser(user, password) {
@@ -6577,6 +6642,9 @@ async function logout() {
   if (supabaseClient) await supabaseClient.auth.signOut();
   currentSession = null;
   googleCalendarProviderToken = "";
+  googleCalendarIdentityLinked = false;
+  clearPendingGoogleCalendarAuthorization();
+  clearPendingGoogleMeetSession();
   loginError = "";
   activeRoute = "login";
   backendStatus = "Aguardando autenticação";
@@ -6598,6 +6666,7 @@ async function initializeApp() {
   try {
     await refreshOAuthReturnSession();
     await loadSupabaseData();
+    if (await resumePendingGoogleCalendarAuthorization()) return;
     await resumePendingGoogleMeetCreation();
   } catch (error) {
     if (!PUBLIC_ROUTES.has(activeRoute)) activeRoute = "login";
