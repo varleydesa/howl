@@ -19,6 +19,7 @@ const googleCalendarScope = [
   "profile",
   "https://www.googleapis.com/auth/calendar.events",
 ].join(" ");
+const publicAppUrl = "https://horda1.vercel.app";
 let currentSession = null;
 let loginError = "";
 let assessmentCycleIds = {};
@@ -818,10 +819,7 @@ function googleCalendarConnected() {
 }
 
 function googleCalendarRedirectTo() {
-  const location = window.location || {};
-  const origin = location.origin || "";
-  const pathname = location.pathname || "/";
-  return `${origin}${pathname}#dashboard`;
+  return `${publicAppUrl}/#dashboard`;
 }
 
 function googleCalendarErrorMessage(error) {
