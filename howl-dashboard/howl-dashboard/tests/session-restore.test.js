@@ -6,7 +6,6 @@ const vm = require("vm");
 
 const appElement = { innerHTML: "" };
 let createClientOptions = null;
-let linkedIdentityRequest = null;
 const authSession = { user: { id: "auth-admin-demo" } };
 
 function queryResult(table) {
@@ -136,13 +135,6 @@ const context = {
             signOut() {
               return Promise.resolve({ error: null });
             },
-            linkIdentity(credentials) {
-              linkedIdentityRequest = credentials;
-              return Promise.resolve({
-                data: { url: "https://accounts.google.com/o/oauth2/v2/auth?mock=1" },
-                error: null,
-              });
-            },
           },
           from(table) {
             return createQuery(table);
@@ -167,19 +159,22 @@ setTimeout(async () => {
   assert(appElement.innerHTML.includes("Dashboard"));
 
   await vm.runInContext("connectGoogleCalendar()", context);
-  assert.strictEqual(linkedIdentityRequest.provider, "google");
-  assert(linkedIdentityRequest.options.scopes.includes("https://www.googleapis.com/auth/calendar.events"));
-  assert.strictEqual(linkedIdentityRequest.options.redirectTo, "https://horda1.vercel.app/?route=mentorship");
-  assert.strictEqual(linkedIdentityRequest.options.skipBrowserRedirect, true);
-  assert.strictEqual(context.window.location.href, "https://accounts.google.com/o/oauth2/v2/auth?mock=1");
+  const googleAuthUrl = new URL(context.window.location.href);
+  assert.strictEqual(googleAuthUrl.origin, "https://accounts.google.com");
+  assert.strictEqual(googleAuthUrl.pathname, "/o/oauth2/v2/auth");
+  assert.strictEqual(googleAuthUrl.searchParams.get("client_id"), "936192918208-h37uoavuuun3sd83cm0tgnnlskv9bds0.apps.googleusercontent.com");
+  assert.strictEqual(googleAuthUrl.searchParams.get("redirect_uri"), "https://horda1.vercel.app/");
+  assert.strictEqual(googleAuthUrl.searchParams.get("response_type"), "token");
+  assert(googleAuthUrl.searchParams.get("scope").includes("https://www.googleapis.com/auth/calendar.events"));
+  assert.strictEqual(googleAuthUrl.searchParams.get("state"), "horda_calendar:");
 
   const oauthReturn = vm.runInContext(
     `
-      window.location.search = "?route=mentorship";
-      window.location.hash = "#access_token=token&provider_token=google";
+      window.location.search = "";
+      window.location.hash = "#access_token=google&state=horda_calendar%3Asession-alpha";
       activeRoute = initialRoute();
       cleanOAuthReturnUrl();
-      ({ activeRoute, hash: window.location.hash, googleToken: googleCalendarAccessToken(), calendarStatus: googleCalendarStatus() });
+      ({ activeRoute, hash: window.location.hash, googleToken: googleCalendarAccessToken(), calendarStatus: googleCalendarStatus(), pendingSession: pendingGoogleMeetSession() });
     `,
     context
   );
