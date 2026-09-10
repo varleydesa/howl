@@ -254,6 +254,22 @@ const SCORE_OPTIONS = [
 ];
 
 const PUBLIC_ROUTES = new Set(["home", "pitch", "startupApply", "mentorApply"]);
+const KNOWN_ROUTES = new Set([
+  ...PUBLIC_ROUTES,
+  "login",
+  "dashboard",
+  "startups",
+  "mentorship",
+  "portfolio",
+  "registration",
+  "assessment",
+  "history",
+  "compare",
+  "reports",
+  "applications",
+  "users",
+  "settings",
+]);
 const ROUTE_ALIASES = {
   "/": "home",
   "/pitch": "pitch",
@@ -264,12 +280,26 @@ const ROUTE_ALIASES = {
   "/app/mentorship": "mentorship",
 };
 
-function initialRoute() {
-  const hashRoute = window.location?.hash?.replace("#", "") || "home";
-  return ROUTE_ALIASES[hashRoute] || hashRoute || "home";
+function normalizeRouteValue(value) {
+  const raw = String(value || "").replace(/^#/, "").split(/[?#&]/)[0];
+  if (!raw) return "";
+  const route = ROUTE_ALIASES[raw] || ROUTE_ALIASES[`/${raw}`] || raw;
+  return KNOWN_ROUTES.has(route) ? route : "";
 }
 
-const initialRouteWasExplicit = Boolean(window.location?.hash?.replace("#", ""));
+function routeQueryValue() {
+  const search = String(window.location?.search || "");
+  const match = search.match(/[?&]route=([^&]+)/);
+  return match ? decodeURIComponent(match[1] || "") : "";
+}
+
+function initialRoute() {
+  return normalizeRouteValue(routeQueryValue())
+    || normalizeRouteValue(window.location?.hash)
+    || "home";
+}
+
+const initialRouteWasExplicit = Boolean(routeQueryValue() || normalizeRouteValue(window.location?.hash));
 let activeRoute = initialRoute();
 let mobileMenuOpen = false;
 let selectedStartupId = "agrosense";
@@ -824,7 +854,7 @@ function googleCalendarAccessToken() {
 }
 
 function googleCalendarRedirectTo(route = "mentorship") {
-  return `${publicAppUrl}/#${route}`;
+  return `${publicAppUrl}/?route=${encodeURIComponent(route)}`;
 }
 
 function navigateToExternalUrl(url) {
@@ -931,6 +961,20 @@ function isMissingSupabaseRelation(error) {
     || error?.code === "PGRST205"
     || message.includes("Could not find the table")
     || message.includes("relation") && message.includes("does not exist");
+}
+
+function cleanOAuthReturnUrl() {
+  if (!window.location || !window.history?.replaceState) return;
+  const hash = String(window.location.hash || "");
+  const search = String(window.location.search || "");
+  const hasAuthHash = /(?:^#|[&#])(access_token|refresh_token|provider_token|error|error_code|error_description)=/.test(hash);
+  const hasRouteSearch = /(?:^\?|&)route=/.test(search);
+  if (!hasAuthHash && !hasRouteSearch) return;
+
+  const route = normalizeRouteValue(routeQueryValue()) || normalizeRouteValue(hash) || activeRoute;
+  if (routeAllowed(route)) activeRoute = route;
+  const cleanHash = activeRoute === "home" ? "" : `#${activeRoute}`;
+  window.history.replaceState(null, "", `${window.location.pathname || "/"}${cleanHash}`);
 }
 
 async function loadSupabaseData() {
@@ -1183,6 +1227,7 @@ async function loadSupabaseData() {
 
   const signedInProfile = profileResult.data;
   activeUserId = signedInProfile.id;
+  cleanOAuthReturnUrl();
   if (!users.some((user) => user.id === activeUserId)) {
     users.push({
       id: signedInProfile.id,

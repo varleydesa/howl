@@ -169,8 +169,21 @@ setTimeout(async () => {
   await vm.runInContext("connectGoogleCalendar()", context);
   assert.strictEqual(linkedIdentityRequest.provider, "google");
   assert(linkedIdentityRequest.options.scopes.includes("https://www.googleapis.com/auth/calendar.events"));
-  assert.strictEqual(linkedIdentityRequest.options.redirectTo, "https://horda1.vercel.app/#mentorship");
+  assert.strictEqual(linkedIdentityRequest.options.redirectTo, "https://horda1.vercel.app/?route=mentorship");
   assert.strictEqual(linkedIdentityRequest.options.skipBrowserRedirect, true);
   assert.strictEqual(context.window.location.href, "https://accounts.google.com/o/oauth2/v2/auth?mock=1");
+
+  const oauthReturn = vm.runInContext(
+    `
+      window.location.search = "?route=mentorship";
+      window.location.hash = "#access_token=token&provider_token=google";
+      activeRoute = initialRoute();
+      cleanOAuthReturnUrl();
+      ({ activeRoute, hash: window.location.hash });
+    `,
+    context
+  );
+  assert.strictEqual(oauthReturn.activeRoute, "mentorship");
+  assert.strictEqual(oauthReturn.hash, "#mentorship");
   console.log("Sessão autenticada restaurada após F5.");
-}, 0);
+}, 20);
