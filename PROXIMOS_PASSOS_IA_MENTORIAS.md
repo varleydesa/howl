@@ -25,7 +25,7 @@ Melhorar a área de tarefas pós-mentoria, deixando o acompanhamento mais claro 
    - depois avalia a sessão quando concluída.
 
 4. **Depois disso, evoluir IA**
-   - assistente de mentor;
+   - em andamento: MVP do `Mentor IA` com conversa contextual;
    - resumo automático pós-sessão;
    - análise de risco da startup;
    - recomendações por estágio/score.

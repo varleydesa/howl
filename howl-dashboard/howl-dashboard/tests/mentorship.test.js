@@ -140,6 +140,11 @@ const result = vm.runInContext(
     render();
     openMentorshipTaskEditor("task-alpha");
     const adminTaskEditorHtml = document.getElementById("app").innerHTML;
+    activeRoute = "dashboard";
+    openAiAgent("mentor");
+    const mentorAiHtml = document.getElementById("app").innerHTML;
+    closeAiAgent();
+    activeRoute = "mentorship";
 
     activeUserId = "avaliador-demo-1";
     activeRoute = "mentorship";
@@ -164,6 +169,7 @@ const result = vm.runInContext(
       adminTaskDraftHtml,
       adminPortfolioHtml,
       adminTaskEditorHtml,
+      mentorAiHtml,
       mentorHtml,
       mentorLinks,
       mentorSessions,
@@ -200,6 +206,9 @@ assert(result.adminTaskEditorHtml.includes("Tarefas por startup"));
 assert(result.adminTaskEditorHtml.includes("Responsável"));
 assert(result.adminTaskEditorHtml.includes("Sessão de origem"));
 assert(result.adminTaskEditorHtml.includes("Validação de pricing"));
+assert(result.mentorAiHtml.includes("Conversa contextual"));
+assert(result.mentorAiHtml.includes("Pergunte sobre foco da próxima mentoria"));
+assert(result.mentorAiHtml.includes("Use o Mentor IA"));
 assert.deepStrictEqual(Array.from(result.adminLinks).sort(), ["link-alpha", "link-beta"]);
 
 assert(result.mentorHtml.includes("Dashboard de mentoria"));

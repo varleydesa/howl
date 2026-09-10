@@ -166,7 +166,7 @@ assert(result.adminSessionsHtml.includes("Avaliação Média"));
 assert(result.adminSessionsHtml.includes("Buscar por título, startup ou mentor"));
 assert(result.adminSessionsHtml.includes("Nenhuma sessão encontrada"));
 assert(result.mentorDashboardHtml.includes("Dashboard do Mentor"));
-assert(result.mentorDashboardHtml.includes("Mentor IA (em Breve)"));
+assert(result.mentorDashboardHtml.includes("Mentor IA MVP"));
 assert(result.mentorDashboardHtml.includes("Avaliador Demo 1"));
 assert(result.mentorDashboardHtml.includes("Agenda de Mentorias"));
 assert(result.mentorDashboardHtml.includes("Conectar Google Calendar"));

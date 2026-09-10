@@ -24,6 +24,9 @@ let mentorshipTasks = [];
 let mentorshipSessionFeedback = [];
 let mentorshipBriefingDrafts = {};
 let mentorshipTaskDrafts = {};
+let activeAiAgent = null;
+let mentorAiMessages = [];
+let mentorAiLoading = false;
 let publicApplicationMessage = "";
 let programTypes = [
   { id: "aceleracao", type: "Aceleração" },
@@ -1306,6 +1309,40 @@ async function requestMentorshipTasks(sessionId) {
   return data;
 }
 
+async function requestMentorAiResponse(message) {
+  const client = requireSupabase();
+  const startupId = selectedStartupId || (activeUser()?.startupIds || [])[0] || null;
+  const { data, error } = await client.functions.invoke("mentor-ai-chat", {
+    body: {
+      message,
+      route: activeRoute,
+      startupId,
+      programId: selectedDashboardProgramId !== "all" ? selectedDashboardProgramId : activeUser()?.programId || null,
+    },
+  });
+
+  if (error) {
+    let responseMessage = error.message;
+    try {
+      if (error.context instanceof Response) {
+        const details = await error.context.clone().json();
+        responseMessage = details?.message || details?.error || responseMessage;
+      }
+    } catch {
+      // Mantém a mensagem original do Supabase.
+    }
+    throw new Error(responseMessage || "Não foi possível conversar com o Mentor IA.");
+  }
+  if (data?.error) {
+    throw new Error(data.message || data.error);
+  }
+  const answer = String(data?.answer || "").trim();
+  if (!answer) {
+    throw new Error("O Mentor IA não retornou uma resposta utilizável.");
+  }
+  return answer;
+}
+
 async function persistUser(user, password) {
   const client = requireSupabase();
   const { data, error } = await client.functions.invoke("create-user", {
@@ -2194,7 +2231,7 @@ function renderMentorDashboard() {
           <div class="mentor-dashboard-header">
             <div class="row wrap">
               <h1>Dashboard do Mentor</h1>
-              <span class="badge blue">Mentor IA (em Breve)</span>
+              <span class="badge blue">Mentor IA MVP</span>
             </div>
             <p>Acompanhe suas startups vinculadas, agenda de sessões, tarefas pós-mentoria e impacto do portfólio.</p>
           </div>
@@ -2985,11 +3022,11 @@ function programHighlightsCard(context) {
 
 function programAiAgentsPanel() {
   const agents = [
-    ["◎", "Analisador de Estratégia", "Planejamento e análise estratégica", "blue"],
-    ["▥", "Processador de Dados", "Métricas e insights", "green"],
-    ["▤", "Gerador de Conteúdo", "Documentos e relatórios", "blue"],
-    ["✦", "Mentor IA", "Orientação e frameworks", "amber"],
-    ["⌕", "Assistente de Pesquisa", "Pesquisa de mercado", "gray"],
+    ["strategy", "◎", "Analisador de Estratégia", "Planejamento e análise estratégica", "blue"],
+    ["data", "▥", "Processador de Dados", "Métricas e insights", "green"],
+    ["content", "▤", "Gerador de Conteúdo", "Documentos e relatórios", "blue"],
+    ["mentor", "✦", "Mentor IA", "Orientação e frameworks", "amber"],
+    ["research", "⌕", "Assistente de Pesquisa", "Pesquisa de mercado", "gray"],
   ];
   return `<aside class="program-ai-panel">
     <div class="program-ai-head">
@@ -2999,21 +3036,88 @@ function programAiAgentsPanel() {
       </div>
       <span class="badge gray">${agents.length} disponíveis</span>
     </div>
-    <p>Clique em qualquer agente para iniciar uma conversa quando a camada de IA estiver ativada.</p>
+    <p>Use o Mentor IA para conversar com os dados reais já registrados na plataforma.</p>
     <div class="program-agent-list">
-      ${agents.map(([icon, title, subtitle, color]) => `<button type="button" class="program-agent-card" onclick="setProgramDashboardTab('memory')">
+      ${agents.map(([id, icon, title, subtitle, color]) => `<button type="button" class="program-agent-card ${activeAiAgent === id ? "active" : ""}" onclick="openAiAgent(${escapeJsString(id)})">
         <span class="${color}" aria-hidden="true">${icon}</span>
         <strong>${title}</strong>
         <small>${subtitle}</small>
-        <b>Conversar</b>
+        <b>${id === "mentor" ? "Conversar" : "Em breve"}</b>
       </button>`).join("")}
     </div>
+    ${activeAiAgent === "mentor" ? mentorAiChatPanel() : ""}
   </aside>`;
+}
+
+function mentorAiChatPanel() {
+  const messages = mentorAiMessages.length
+    ? mentorAiMessages
+    : [{ role: "assistant", content: "Olá. Posso ajudar a interpretar mentorias, tarefas, avaliações e próximos passos com base nos dados reais disponíveis para o seu perfil." }];
+  return `<section class="mentor-ai-chat" aria-label="Conversa com Mentor IA">
+    <div class="mentor-ai-chat-head">
+      <div>
+        <span class="metric-label">Mentor IA</span>
+        <h3>Conversa contextual</h3>
+      </div>
+      <button class="btn ghost" type="button" onclick="closeAiAgent()">Fechar</button>
+    </div>
+    <div class="mentor-ai-messages">
+      ${messages.map((message) => `<article class="mentor-ai-message ${message.role === "user" ? "user" : "assistant"}">
+        <span>${message.role === "user" ? "Você" : "Mentor IA"}</span>
+        <p>${escapeHtml(message.content)}</p>
+      </article>`).join("")}
+      ${mentorAiLoading ? `<article class="mentor-ai-message assistant"><span>Mentor IA</span><p>Consultando os dados e preparando resposta...</p></article>` : ""}
+    </div>
+    <form class="mentor-ai-form" onsubmit="submitMentorAiQuestion(event)">
+      <textarea name="message" placeholder="Pergunte sobre foco da próxima mentoria, riscos, tarefas ou evolução da startup..." ${mentorAiLoading ? "disabled" : ""} required></textarea>
+      <button class="btn primary" type="submit" ${mentorAiLoading ? "disabled" : ""}>Enviar</button>
+    </form>
+  </section>`;
 }
 
 function setProgramDashboardTab(tab) {
   activeProgramDashboardTab = tab;
   render();
+}
+
+function openAiAgent(agentId) {
+  if (agentId !== "mentor") {
+    window.alert("Este agente entra em uma próxima etapa. Começamos pelo Mentor IA.");
+    return;
+  }
+  activeAiAgent = "mentor";
+  render();
+}
+
+function closeAiAgent() {
+  activeAiAgent = null;
+  render();
+}
+
+async function submitMentorAiQuestion(event) {
+  event.preventDefault();
+  if (!backendStatus.includes("conectado")) {
+    window.alert("Conecte ao Supabase para usar o Mentor IA.");
+    return;
+  }
+  const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+  const message = String(data.message || "").trim();
+  if (!message) return;
+  mentorAiMessages.push({ role: "user", content: message });
+  mentorAiLoading = true;
+  render();
+  try {
+    const answer = await requestMentorAiResponse(message);
+    mentorAiMessages.push({ role: "assistant", content: answer });
+  } catch (error) {
+    mentorAiMessages.push({
+      role: "assistant",
+      content: error.message || "Não consegui responder agora. Tente novamente em instantes.",
+    });
+  } finally {
+    mentorAiLoading = false;
+    render();
+  }
 }
 
 function setProgramSessionSearch(value) {
@@ -6009,6 +6113,7 @@ Object.assign(window, {
   changeMentorshipSessionStatus,
   changeMentorshipTaskStatus,
   clearMentorshipTaskDrafts,
+  closeAiAgent,
   closeMentorshipEditors,
   closeUserEditor,
   completeAssessment,
@@ -6031,6 +6136,7 @@ Object.assign(window, {
   importQuestionsFromFile,
   login,
   logout,
+  openAiAgent,
   openMentorStartup,
   openMentorshipSessionEditor,
   openMentorshipTaskEditor,
@@ -6051,6 +6157,7 @@ Object.assign(window, {
   setProgramSessionStatusFilter,
   shiftMentorCalendarWeek,
   submitMentorshipSessionFeedback,
+  submitMentorAiQuestion,
   submitPublicApplication,
   toggleMobileMenu,
   updateDraftComment,
