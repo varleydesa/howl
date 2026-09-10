@@ -669,6 +669,49 @@ function formatAiMessageContent(value) {
     .replace(/(^|\n)\s*\*\s+/g, "$1• ");
 }
 
+function friendlyAiErrorMessage(error) {
+  const rawMessage = String(error?.message || error || "").trim();
+  const normalized = normalizeText(rawMessage);
+  if (!rawMessage) return "Não consegui responder agora. Tente novamente em instantes.";
+  if (
+    normalized.includes("high demand") ||
+    normalized.includes("spikes in demand") ||
+    normalized.includes("overloaded") ||
+    normalized.includes("temporarily unavailable") ||
+    normalized.includes("try again later")
+  ) {
+    return "O Mentor IA está temporariamente indisponível por alta demanda. Tente novamente em alguns instantes.";
+  }
+  if (
+    normalized.includes("no credits") ||
+    normalized.includes("credits remaining") ||
+    normalized.includes("billing") ||
+    normalized.includes("insufficient quota") ||
+    normalized.includes("quota exceeded")
+  ) {
+    return "O Mentor IA não conseguiu responder porque a conta de IA está sem créditos ou limite disponível. Verifique a cobrança/chave da API.";
+  }
+  if (
+    normalized.includes("model") &&
+    (normalized.includes("not found") ||
+      normalized.includes("no longer available") ||
+      normalized.includes("deprecated") ||
+      normalized.includes("not available"))
+  ) {
+    return "O modelo de IA configurado não está disponível no momento. Atualize o modelo nas configurações da função.";
+  }
+  if (normalized.includes("api key") || normalized.includes("invalid key") || normalized.includes("unauthorized")) {
+    return "O Mentor IA não conseguiu autenticar na API. Verifique a chave configurada no Supabase.";
+  }
+  if (normalized.includes("rate limit") || normalized.includes("too many requests")) {
+    return "O Mentor IA recebeu muitas solicitações em pouco tempo. Aguarde um instante e tente novamente.";
+  }
+  if (rawMessage.length > 220 || /https?:\/\//i.test(rawMessage)) {
+    return "O Mentor IA não conseguiu responder agora por uma falha do provedor de IA. Tente novamente em instantes.";
+  }
+  return rawMessage;
+}
+
 function escapeJsString(value) {
   return JSON.stringify(String(value ?? "")).replaceAll('"', "&quot;");
 }
@@ -3118,7 +3161,7 @@ async function submitMentorAiQuestion(event) {
   } catch (error) {
     mentorAiMessages.push({
       role: "assistant",
-      content: error.message || "Não consegui responder agora. Tente novamente em instantes.",
+      content: friendlyAiErrorMessage(error),
     });
   } finally {
     mentorAiLoading = false;
