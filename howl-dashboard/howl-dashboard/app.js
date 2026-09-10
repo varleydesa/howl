@@ -823,7 +823,7 @@ function googleCalendarAccessToken() {
   return String(currentSession?.provider_token || currentSession?.providerToken || "").trim();
 }
 
-function googleCalendarRedirectTo(route = "dashboard") {
+function googleCalendarRedirectTo(route = "mentorship") {
   return `${publicAppUrl}/#${route}`;
 }
 
@@ -898,7 +898,7 @@ async function startGoogleCalendarAuthorization({ sessionId = "" } = {}) {
   if (sessionId) setPendingGoogleMeetSession(sessionId);
 
   const authOptions = {
-    redirectTo: googleCalendarRedirectTo(sessionId ? "mentorship" : "dashboard"),
+    redirectTo: googleCalendarRedirectTo("mentorship"),
     scopes: googleCalendarScope,
     queryParams: {
       access_type: "offline",
