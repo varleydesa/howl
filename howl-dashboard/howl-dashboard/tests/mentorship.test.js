@@ -196,6 +196,10 @@ assert(result.adminTaskDraftHtml.includes("Consolidar entrevistas do ICP"));
 assert(result.adminTaskDraftHtml.includes("Salvar tarefa"));
 assert(result.adminTaskEditorHtml.includes("Editar tarefa"));
 assert(result.adminTaskEditorHtml.includes("Descrição"));
+assert(result.adminTaskEditorHtml.includes("Tarefas por startup"));
+assert(result.adminTaskEditorHtml.includes("Responsável"));
+assert(result.adminTaskEditorHtml.includes("Sessão de origem"));
+assert(result.adminTaskEditorHtml.includes("Validação de pricing"));
 assert.deepStrictEqual(Array.from(result.adminLinks).sort(), ["link-alpha", "link-beta"]);
 
 assert(result.mentorHtml.includes("Dashboard de mentoria"));

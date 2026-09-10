@@ -3453,31 +3453,48 @@ function mentorshipTasksCard(tasks) {
     ["in_progress", "Em andamento"],
     ["done", "Concluídas"],
   ];
+  const groups = tasksGroupedByStartup(tasks);
   return `<div class="card pad mentorship-panel-card">
-    <div class="section-title compact-title"><h2>Plano de ação</h2><p>Tarefas geradas a partir das sessões de mentoria.</p></div>
-    <div class="mentorship-kanban">
-      ${columns.map(([status, label]) => {
-        const statusTasks = tasks.filter((task) => task.status === status);
-        return `<section class="task-column">
-          <div class="task-column-head"><strong>${label}</strong><span>${statusTasks.length}</span></div>
-          <div class="task-list">
-            ${statusTasks.length ? statusTasks.map((task) => `<article class="task-card">
-              <div class="row between wrap">
-                <span class="badge ${priorityColor(task.priority)}">${priorityLabel(task.priority)}</span>
-                <span class="subtle">${task.dueDate ? formatDate(task.dueDate) : "Sem prazo"}</span>
-              </div>
-              <h3>${escapeHtml(task.title)}</h3>
-              <p>${escapeHtml(task.description || "Sem descrição")}</p>
-              <div class="mentorship-meta compact">
-                <span><strong>Startup</strong>${escapeHtml(startupName(task.startupId))}</span>
-                <span><strong>Mentor</strong>${escapeHtml(mentorName(task.mentorId))}</span>
-              </div>
-              ${isManager() || isEvaluator() ? `<div class="mentorship-card-actions"><label>Status</label>${taskStatusSelect(task)}<button class="btn" type="button" onclick='openMentorshipTaskEditor(${JSON.stringify(task.id)})'>Editar tarefa</button></div>` : ""}
-              ${editingMentorshipTaskId === task.id ? mentorshipTaskEditForm(task) : ""}
-            </article>`).join("") : `<div class="empty-pill">Sem itens</div>`}
+    <div class="section-title compact-title"><h2>Plano de ação</h2><p>Tarefas por startup, com responsável, prazo, prioridade, status e sessão de origem.</p></div>
+    <div class="startup-task-groups">
+      ${groups.map((group) => `<section class="startup-task-group">
+        <div class="startup-task-head">
+          <div>
+            <span class="metric-label">Startup</span>
+            <h3>${escapeHtml(group.startupName)}</h3>
           </div>
-        </section>`;
-      }).join("")}
+          <div class="startup-task-counts">
+            ${columns.map(([status, label]) => `<span>${label}: ${group.tasks.filter((task) => task.status === status).length}</span>`).join("")}
+          </div>
+        </div>
+        <div class="mentorship-kanban grouped">
+          ${columns.map(([status, label]) => {
+            const statusTasks = group.tasks.filter((task) => task.status === status);
+            return `<section class="task-column">
+              <div class="task-column-head"><strong>${label}</strong><span>${statusTasks.length}</span></div>
+              <div class="task-list">
+                ${statusTasks.length ? statusTasks.map((task) => `<article class="task-card">
+                  <div class="row between wrap">
+                    <span class="badge ${priorityColor(task.priority)}">${priorityLabel(task.priority)}</span>
+                    <span class="badge ${taskStatusColor(task.status)}">${taskStatusLabel(task.status)}</span>
+                  </div>
+                  <h3>${escapeHtml(task.title)}</h3>
+                  <p>${escapeHtml(task.description || "Sem descrição")}</p>
+                  <div class="task-detail-grid">
+                    <span><strong>Responsável</strong>${escapeHtml(mentorName(task.mentorId))}</span>
+                    <span><strong>Prazo</strong>${task.dueDate ? formatDate(task.dueDate) : "Sem prazo"}</span>
+                    <span><strong>Prioridade</strong>${escapeHtml(priorityLabel(task.priority))}</span>
+                    <span><strong>Status</strong>${escapeHtml(taskStatusLabel(task.status))}</span>
+                    <span class="wide"><strong>Sessão de origem</strong>${escapeHtml(mentorshipTaskSessionLabel(task))}</span>
+                  </div>
+                  ${isManager() || isEvaluator() ? `<div class="mentorship-card-actions"><label>Atualizar</label>${taskStatusSelect(task)}<button class="btn" type="button" onclick='openMentorshipTaskEditor(${JSON.stringify(task.id)})'>Editar tarefa</button></div>` : ""}
+                  ${editingMentorshipTaskId === task.id ? mentorshipTaskEditForm(task) : ""}
+                </article>`).join("") : `<div class="empty-pill">Sem itens</div>`}
+              </div>
+            </section>`;
+          }).join("")}
+        </div>
+      </section>`).join("")}
     </div>
   </div>`;
 }
@@ -4083,12 +4100,45 @@ function mentorshipTasksVisibleToUser() {
   return mentorshipTasks.filter((task) => visibleSessionIds.has(task.sessionId));
 }
 
+function tasksGroupedByStartup(tasks) {
+  const groups = tasks.reduce((map, task) => {
+    const startupId = task.startupId || "startup-removida";
+    if (!map.has(startupId)) {
+      map.set(startupId, {
+        startupId,
+        startupName: startupName(startupId),
+        tasks: [],
+      });
+    }
+    map.get(startupId).tasks.push(task);
+    return map;
+  }, new Map());
+  return Array.from(groups.values())
+    .map((group) => ({
+      ...group,
+      tasks: group.tasks.sort((a, b) => {
+        const statusOrder = { todo: 0, in_progress: 1, done: 2 };
+        const statusDiff = (statusOrder[a.status] ?? 0) - (statusOrder[b.status] ?? 0);
+        if (statusDiff) return statusDiff;
+        return new Date(a.dueDate || "9999-12-31") - new Date(b.dueDate || "9999-12-31");
+      }),
+    }))
+    .sort((a, b) => a.startupName.localeCompare(b.startupName, "pt-BR"));
+}
+
 function startupName(startupId) {
   return startups.find((startup) => startup.id === startupId)?.name || "Startup removida";
 }
 
 function mentorName(mentorId) {
   return users.find((user) => user.id === mentorId)?.name || "Mentor removido";
+}
+
+function mentorshipTaskSessionLabel(task) {
+  const session = mentorshipSessions.find((item) => item.id === task.sessionId);
+  if (!session) return "Sessão removida";
+  const topic = session.topic || "Mentoria";
+  return `${topic} • ${formatDate(session.scheduledAt)}`;
 }
 
 function mentorshipStatusLabel(status) {
@@ -4127,6 +4177,12 @@ function taskStatusLabel(status) {
   if (status === "done") return "Concluída";
   if (status === "in_progress") return "Em andamento";
   return "A fazer";
+}
+
+function taskStatusColor(status) {
+  if (status === "done") return "green";
+  if (status === "in_progress") return "blue";
+  return "amber";
 }
 
 function taskStatusSelect(task) {

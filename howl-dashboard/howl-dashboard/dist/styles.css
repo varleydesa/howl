@@ -2127,6 +2127,57 @@ textarea {
   align-items: start;
 }
 
+.startup-task-groups {
+  display: grid;
+  gap: 16px;
+}
+
+.startup-task-group {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdfa;
+  padding: 14px;
+}
+
+.startup-task-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+}
+
+.startup-task-head h3 {
+  margin: 2px 0 0;
+  color: var(--navy);
+  font-size: 22px;
+}
+
+.startup-task-counts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.startup-task-counts span {
+  border: 1px solid #ead7a9;
+  border-radius: 999px;
+  background: #fff6df;
+  color: var(--gold-dark);
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.mentorship-kanban.grouped {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .task-column {
   display: grid;
   gap: 10px;
@@ -2165,6 +2216,33 @@ textarea {
 
 .task-card {
   background: white;
+}
+
+.task-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.task-detail-grid span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.task-detail-grid strong {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.task-detail-grid .wide {
+  grid-column: 1 / -1;
 }
 
 .empty-pill {
@@ -2711,7 +2789,8 @@ textarea {
   .choice-grid,
   .scale-items,
   .score-inputs,
-  .mentorship-kanban {
+  .mentorship-kanban,
+  .mentorship-kanban.grouped {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2776,8 +2855,17 @@ textarea {
   .scale-items,
   .score-inputs,
   .mentorship-meta,
-  .mentorship-kanban {
+  .mentorship-kanban,
+  .mentorship-kanban.grouped {
     grid-template-columns: 1fr;
+  }
+
+  .startup-task-head {
+    display: grid;
+  }
+
+  .startup-task-counts {
+    justify-content: flex-start;
   }
 
   .startup-dashboard-page {
