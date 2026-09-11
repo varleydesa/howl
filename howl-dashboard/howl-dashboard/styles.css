@@ -161,6 +161,12 @@
   border-color: #efcf8b;
 }
 
+:root[data-theme="light"] .badge.amber {
+  color: #9a4f05;
+  background: #fff0d6;
+  border-color: #f0ad4e;
+}
+
 :root[data-theme="light"] .badge.red {
   color: #a02d32;
   background: #ffe8ea;
@@ -1936,9 +1942,9 @@ label {
 }
 
 .badge.amber {
-  color: #f4d394;
-  background: rgba(216, 166, 58, 0.12);
-  border-color: rgba(216, 166, 58, 0.5);
+  color: #ffd7a0;
+  background: rgba(245, 130, 32, 0.18);
+  border-color: rgba(245, 130, 32, 0.65);
 }
 
 .badge.red {

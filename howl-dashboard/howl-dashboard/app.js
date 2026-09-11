@@ -377,7 +377,7 @@ function statusColor(textOrScore) {
   const text = String(textOrScore);
   if (text.includes("Alta") || text.includes("Forte") || text.includes("Excelente") || text.includes("+")) return "green";
   if (text.includes("Crítico") || text.includes("frágil") || text.includes("-")) return "red";
-  if (text.includes("Inicial") || text.includes("Hipótese") || text.includes("Alerta")) return "amber";
+  if (text.includes("Inicial") || text.includes("Hipótese") || text.includes("Alerta") || text.includes("atenção")) return "amber";
   return "blue";
 }
 
