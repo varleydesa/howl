@@ -1965,6 +1965,100 @@ label {
   border-color: #343942;
 }
 
+.app-notice {
+  position: fixed;
+  top: 88px;
+  right: 28px;
+  z-index: 30;
+  width: min(520px, calc(100vw - 56px));
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
+  gap: 12px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  padding: 12px;
+}
+
+.app-notice-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--soft);
+  color: var(--navy);
+  font-weight: 900;
+}
+
+.app-notice strong {
+  display: block;
+  color: var(--navy);
+  font-size: 13px;
+}
+
+.app-notice p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.app-notice-close {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.app-notice-close:hover {
+  background: var(--soft);
+  color: var(--navy);
+}
+
+.app-notice-success {
+  border-color: rgba(49, 201, 137, 0.52);
+}
+
+.app-notice-success .app-notice-icon {
+  background: rgba(49, 201, 137, 0.16);
+  color: var(--green);
+}
+
+.app-notice-warning {
+  border-color: rgba(245, 130, 32, 0.65);
+}
+
+.app-notice-warning .app-notice-icon {
+  background: rgba(245, 130, 32, 0.18);
+  color: #f58220;
+}
+
+.app-notice-error {
+  border-color: rgba(255, 104, 112, 0.52);
+}
+
+.app-notice-error .app-notice-icon {
+  background: rgba(255, 104, 112, 0.14);
+  color: var(--red);
+}
+
+.app-notice-info {
+  border-color: rgba(95, 141, 247, 0.42);
+}
+
+.app-notice-info .app-notice-icon {
+  background: rgba(95, 141, 247, 0.13);
+  color: var(--blue);
+}
+
 .chart-card h2,
 .card h2 {
   margin: 0 0 14px;
@@ -3341,6 +3435,14 @@ textarea {
 
   .topbar-icon {
     flex: 0 0 40px;
+  }
+
+  .app-notice {
+    top: 84px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    grid-template-columns: 30px minmax(0, 1fr) 30px;
   }
 
   .nav {

@@ -45,6 +45,8 @@ let mentorAiLoading = false;
 let mentorAiExpanded = false;
 let googleCalendarConnecting = false;
 let activeTheme = loadThemePreference();
+let appNotice = null;
+let appNoticeTimeout = null;
 let publicApplicationMessage = "";
 let programTypes = [
   { id: "aceleracao", type: "Aceleração" },
@@ -719,6 +721,65 @@ function formatAiMessageContent(value) {
     .replace(/(^|\n)\s*\*\s+/g, "$1• ");
 }
 
+function notifyUser(message, type = "info", options = {}) {
+  const normalizedType = ["success", "warning", "error", "info"].includes(type) ? type : "info";
+  const text = String(message || "").trim();
+  if (!text) return;
+  const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  appNotice = {
+    id,
+    type: normalizedType,
+    title: options.title || {
+      success: "Tudo certo",
+      warning: "Atenção",
+      error: "Não foi possível concluir",
+      info: "Informação",
+    }[normalizedType],
+    message: text,
+  };
+  if (appNoticeTimeout) {
+    clearTimeout(appNoticeTimeout);
+    appNoticeTimeout = null;
+  }
+  const timeout = Number.isFinite(options.timeout) ? options.timeout : 6200;
+  if (timeout > 0) {
+    appNoticeTimeout = setTimeout(() => {
+      if (appNotice?.id === id) {
+        appNotice = null;
+        render();
+      }
+    }, timeout);
+  }
+  render();
+}
+
+function dismissAppNotice() {
+  appNotice = null;
+  if (appNoticeTimeout) {
+    clearTimeout(appNoticeTimeout);
+    appNoticeTimeout = null;
+  }
+  render();
+}
+
+function renderAppNotice() {
+  if (!appNotice) return "";
+  const icon = {
+    success: "✓",
+    warning: "!",
+    error: "!",
+    info: "i",
+  }[appNotice.type] || "i";
+  return `<div class="app-notice app-notice-${appNotice.type} no-print" role="${appNotice.type === "error" ? "alert" : "status"}">
+    <span class="app-notice-icon" aria-hidden="true">${icon}</span>
+    <div>
+      <strong>${escapeHtml(appNotice.title)}</strong>
+      <p>${escapeHtml(appNotice.message)}</p>
+    </div>
+    <button class="app-notice-close" type="button" onclick="dismissAppNotice()" aria-label="Fechar aviso">×</button>
+  </div>`;
+}
+
 function friendlyAiErrorMessage(error) {
   const rawMessage = String(error?.message || error || "").trim();
   const normalized = normalizeText(rawMessage);
@@ -1006,7 +1067,7 @@ function googleCalendarErrorMessage(error) {
 async function connectGoogleCalendar() {
   if (googleCalendarConnecting) return;
   if (!currentSession) {
-    window.alert("Entre na plataforma antes de conectar o Google Calendar.");
+    notifyUser("Entre na plataforma antes de conectar o Google Calendar.", "warning");
     return;
   }
 
@@ -1017,8 +1078,7 @@ async function connectGoogleCalendar() {
     await startGoogleCalendarAuthorization();
   } catch (error) {
     googleCalendarConnecting = false;
-    window.alert(googleCalendarErrorMessage(error));
-    render();
+    notifyUser(googleCalendarErrorMessage(error), "error");
   }
 }
 
@@ -1708,29 +1768,30 @@ async function createGoogleMeetForSession(sessionId) {
   const session = mentorshipSessionsVisibleToUser().find((item) => item.id === sessionId);
   if (!session || (!isManager() && !isEvaluator())) return;
   if (session.googleMeetUrl) {
-    window.alert("Essa sessão já tem link do Google Meet.");
+    notifyUser("Essa sessão já tem link do Google Meet.", "info");
     return;
   }
   if (!backendStatus.includes("conectado")) {
-    window.alert("Conecte o Supabase antes de criar o Meet.");
+    notifyUser("Conecte o Supabase antes de criar o Meet.", "warning");
     return;
   }
 
   try {
     if (!googleCalendarAccessToken()) {
-      window.alert("Vou abrir o Google para renovar a autorização do Calendar. Depois do retorno, o Meet será criado para esta sessão.");
+      notifyUser("Vou abrir o Google para renovar a autorização do Calendar. Depois do retorno, o Meet será criado para esta sessão.", "info", { timeout: 0 });
+      await wait(450);
       await startGoogleCalendarAuthorization({ sessionId });
       return;
     }
     const calendarEvent = await requestMentorshipCalendarEvent(session.id);
     await loadSupabaseData();
-    render();
-    window.alert(calendarEvent.googleMeetUrl ? "Link do Meet criado e salvo na sessão." : "Evento criado no Google Calendar.");
+    notifyUser(calendarEvent.googleMeetUrl ? "Link do Meet criado e salvo na sessão." : "Evento criado no Google Calendar.", "success");
   } catch (error) {
-    window.alert(
+    notifyUser(
       error.message === "token_google_ausente"
         ? "Reconecte o Google Calendar antes de criar o Meet."
-        : error.message || "Não foi possível criar o Meet."
+        : error.message || "Não foi possível criar o Meet.",
+      "error"
     );
   }
 }
@@ -1743,10 +1804,10 @@ async function resumePendingGoogleMeetCreation() {
     await requestMentorshipCalendarEvent(sessionId);
     clearPendingGoogleMeetSession();
     await loadSupabaseData();
-    window.alert("Link do Meet criado e salvo na sessão.");
+    notifyUser("Link do Meet criado e salvo na sessão.", "success");
   } catch (error) {
     clearPendingGoogleMeetSession();
-    window.alert(error.message || "Não foi possível concluir a criação do Meet após reconectar o Google.");
+    notifyUser(error.message || "Não foi possível concluir a criação do Meet após reconectar o Google.", "error");
   }
 }
 
@@ -2163,6 +2224,7 @@ function appShell(content) {
       </aside>
       <main class="main">
         ${appTopbar(user)}
+        ${renderAppNotice()}
         ${content}
       </main>
     </div>
@@ -3503,7 +3565,7 @@ function setProgramDashboardTab(tab) {
 
 function openAiAgent(agentId) {
   if (agentId !== "mentor") {
-    window.alert("Este agente entra em uma próxima etapa. Começamos pelo Mentor IA.");
+    notifyUser("Este agente entra em uma próxima etapa. Começamos pelo Mentor IA.", "info");
     return;
   }
   activeAiAgent = "mentor";
@@ -3524,7 +3586,7 @@ function toggleMentorAiExpanded() {
 async function submitMentorAiQuestion(event) {
   event.preventDefault();
   if (!backendStatus.includes("conectado")) {
-    window.alert("Conecte ao Supabase para usar o Mentor IA.");
+    notifyUser("Conecte ao Supabase para usar o Mentor IA.", "warning");
     return;
   }
   const data = Object.fromEntries(new FormData(event.currentTarget).entries());
@@ -5788,19 +5850,19 @@ async function deactivateMentorStartupLink(linkId) {
 async function addMentorshipSession(event) {
   event.preventDefault();
   if (!isManager() && !isEvaluator()) {
-    window.alert("Apenas gestores e mentores podem criar sessões de mentoria.");
+    notifyUser("Apenas gestores e mentores podem criar sessões de mentoria.", "warning");
     return;
   }
   const form = event.currentTarget;
   const data = Object.fromEntries(new FormData(form).entries());
   const link = mentorshipLinksVisibleToUser().find((item) => item.id === data.linkId && item.status === "active");
   if (!link) {
-    window.alert("Selecione um vínculo ativo.");
+    notifyUser("Selecione um vínculo ativo.", "warning");
     return;
   }
   const scheduledAt = new Date(String(data.scheduledAt || ""));
   if (Number.isNaN(scheduledAt.getTime())) {
-    window.alert("Informe uma data válida para a sessão.");
+    notifyUser("Informe uma data válida para a sessão.", "warning");
     return;
   }
   const session = {
@@ -5832,7 +5894,8 @@ async function addMentorshipSession(event) {
       if (shouldCreateGoogleMeet) {
         try {
           if (!googleCalendarAccessToken()) {
-            window.alert("Sessão salva. Vou abrir o Google para renovar a autorização do Calendar e criar o Meet em seguida.");
+            notifyUser("Sessão salva. Vou abrir o Google para renovar a autorização do Calendar e criar o Meet em seguida.", "info", { timeout: 0 });
+            await wait(450);
             await startGoogleCalendarAuthorization({ sessionId: session.id });
             return;
           }
@@ -5852,9 +5915,9 @@ async function addMentorshipSession(event) {
     }
     creatingMentorshipSession = false;
     form.reset();
-    window.alert(`Sessão de mentoria salva.${meetMessage}`);
+    notifyUser(`Sessão de mentoria salva.${meetMessage}`, meetMessage.includes("não foi criado") ? "warning" : "success");
   } catch (error) {
-    window.alert(error.message || "Não foi possível salvar a sessão.");
+    notifyUser(error.message || "Não foi possível salvar a sessão.", "error");
   }
   render();
 }
@@ -5870,7 +5933,7 @@ async function changeMentorshipSessionStatus(sessionId, status) {
       session.status = status;
     }
   } catch (error) {
-    window.alert(error.message || "Não foi possível atualizar a sessão.");
+    notifyUser(error.message || "Não foi possível atualizar a sessão.", "error");
   }
   render();
 }
@@ -5910,7 +5973,7 @@ function closeMentorshipEditors() {
 async function editMentorshipSession(event, sessionId) {
   event.preventDefault();
   if (!isManager() && !isEvaluator()) {
-    window.alert("Apenas gestores e mentores podem editar sessões de mentoria.");
+    notifyUser("Apenas gestores e mentores podem editar sessões de mentoria.", "warning");
     return;
   }
   const session = mentorshipSessionsVisibleToUser().find((item) => item.id === sessionId);
@@ -5918,7 +5981,7 @@ async function editMentorshipSession(event, sessionId) {
   const data = Object.fromEntries(new FormData(event.currentTarget).entries());
   const scheduledAt = new Date(String(data.scheduledAt || ""));
   if (Number.isNaN(scheduledAt.getTime())) {
-    window.alert("Informe uma data válida para a sessão.");
+    notifyUser("Informe uma data válida para a sessão.", "warning");
     return;
   }
   const updates = {
@@ -5945,20 +6008,20 @@ async function editMentorshipSession(event, sessionId) {
     }
     editingMentorshipSessionId = null;
     delete mentorshipBriefingDrafts[session.id];
-    window.alert("Sessão atualizada.");
+    notifyUser("Sessão atualizada.", "success");
   } catch (error) {
-    window.alert(error.message || "Não foi possível atualizar a sessão.");
+    notifyUser(error.message || "Não foi possível atualizar a sessão.", "error");
   }
   render();
 }
 
 async function generateMentorshipBriefing(sessionId) {
   if (!isManager() && !isEvaluator()) {
-    window.alert("Apenas gestores e mentores podem gerar briefing com IA.");
+    notifyUser("Apenas gestores e mentores podem gerar briefing com IA.", "warning");
     return;
   }
   if (!backendStatus.includes("conectado")) {
-    window.alert("Conecte ao Supabase para gerar briefing com IA.");
+    notifyUser("Conecte ao Supabase para gerar briefing com IA.", "warning");
     return;
   }
   const session = mentorshipSessionsVisibleToUser().find((item) => item.id === sessionId);
@@ -5976,9 +6039,9 @@ async function generateMentorshipBriefing(sessionId) {
     expandedMentorshipSessionIds.add(sessionId);
     editingMentorshipSessionId = sessionId;
     editingMentorshipTaskId = null;
-    window.alert("Briefing gerado. Revise e salve a edição da sessão.");
+    notifyUser("Briefing gerado. Revise e salve a edição da sessão.", "success");
   } catch (error) {
-    window.alert(error.message || "Não foi possível gerar o briefing com IA.");
+    notifyUser(friendlyAiErrorMessage(error) || "Não foi possível gerar o briefing com IA.", "error");
   } finally {
     generatingMentorshipBriefingId = null;
     render();
@@ -6004,11 +6067,11 @@ function normalizeMentorshipTaskDraft(task) {
 
 async function generateMentorshipTasks(sessionId) {
   if (!isManager() && !isEvaluator()) {
-    window.alert("Apenas gestores e mentores podem gerar tarefas com IA.");
+    notifyUser("Apenas gestores e mentores podem gerar tarefas com IA.", "warning");
     return;
   }
   if (!backendStatus.includes("conectado")) {
-    window.alert("Conecte ao Supabase para gerar tarefas com IA.");
+    notifyUser("Conecte ao Supabase para gerar tarefas com IA.", "warning");
     return;
   }
   const session = mentorshipSessionsVisibleToUser().find((item) => item.id === sessionId);
@@ -6028,9 +6091,9 @@ async function generateMentorshipTasks(sessionId) {
     expandedMentorshipSessionIds.add(sessionId);
     editingMentorshipSessionId = null;
     editingMentorshipTaskId = null;
-    window.alert("Tarefas sugeridas. Revise e salve apenas o que fizer sentido.");
+    notifyUser("Tarefas sugeridas. Revise e salve apenas o que fizer sentido.", "success");
   } catch (error) {
-    window.alert(error.message || "Não foi possível gerar tarefas com IA.");
+    notifyUser(friendlyAiErrorMessage(error) || "Não foi possível gerar tarefas com IA.", "error");
   } finally {
     generatingMentorshipTasksId = null;
     render();
@@ -6040,7 +6103,7 @@ async function generateMentorshipTasks(sessionId) {
 async function saveMentorshipTaskDraft(event, sessionId, draftIndex) {
   event.preventDefault();
   if (!isManager() && !isEvaluator()) {
-    window.alert("Apenas gestores e mentores podem salvar tarefas pós-sessão.");
+    notifyUser("Apenas gestores e mentores podem salvar tarefas pós-sessão.", "warning");
     return;
   }
   const session = mentorshipSessionsVisibleToUser().find((item) => item.id === sessionId);
@@ -6062,7 +6125,7 @@ async function saveMentorshipTaskDraft(event, sessionId, draftIndex) {
     createdAt: new Date().toISOString(),
   };
   if (!task.title) {
-    window.alert("Informe o título da tarefa.");
+    notifyUser("Informe o título da tarefa.", "warning");
     return;
   }
   try {
@@ -6078,9 +6141,9 @@ async function saveMentorshipTaskDraft(event, sessionId, draftIndex) {
     } else {
       delete mentorshipTaskDrafts[sessionId];
     }
-    window.alert("Tarefa salva no plano de ação.");
+    notifyUser("Tarefa salva no plano de ação.", "success");
   } catch (error) {
-    window.alert(error.message || "Não foi possível salvar a tarefa sugerida.");
+    notifyUser(error.message || "Não foi possível salvar a tarefa sugerida.", "error");
   }
   render();
 }
@@ -6104,13 +6167,13 @@ function clearMentorshipTaskDrafts(sessionId) {
 async function addMentorshipTask(event) {
   event.preventDefault();
   if (!isManager() && !isEvaluator()) {
-    window.alert("Apenas gestores e mentores podem criar tarefas pós-sessão.");
+    notifyUser("Apenas gestores e mentores podem criar tarefas pós-sessão.", "warning");
     return;
   }
   const data = Object.fromEntries(new FormData(event.target).entries());
   const session = mentorshipSessionsVisibleToUser().find((item) => item.id === data.sessionId && item.status !== "canceled");
   if (!session) {
-    window.alert("Selecione uma sessão válida.");
+    notifyUser("Selecione uma sessão válida.", "warning");
     return;
   }
   const task = {
@@ -6135,9 +6198,9 @@ async function addMentorshipTask(event) {
       mentorshipTasks.unshift(task);
     }
     event.target.reset();
-    window.alert("Tarefa pós-sessão criada.");
+    notifyUser("Tarefa pós-sessão criada.", "success");
   } catch (error) {
-    window.alert(error.message || "Não foi possível criar a tarefa.");
+    notifyUser(error.message || "Não foi possível criar a tarefa.", "error");
   }
   render();
 }
@@ -6153,7 +6216,7 @@ async function changeMentorshipTaskStatus(taskId, status) {
       task.status = status;
     }
   } catch (error) {
-    window.alert(error.message || "Não foi possível atualizar a tarefa.");
+    notifyUser(error.message || "Não foi possível atualizar a tarefa.", "error");
   }
   render();
 }
@@ -6161,7 +6224,7 @@ async function changeMentorshipTaskStatus(taskId, status) {
 async function editMentorshipTask(event, taskId) {
   event.preventDefault();
   if (!isManager() && !isEvaluator()) {
-    window.alert("Apenas gestores e mentores podem editar tarefas pós-sessão.");
+    notifyUser("Apenas gestores e mentores podem editar tarefas pós-sessão.", "warning");
     return;
   }
   const task = mentorshipTasksVisibleToUser().find((item) => item.id === taskId);
@@ -6186,9 +6249,9 @@ async function editMentorshipTask(event, taskId) {
       Object.assign(task, updates);
     }
     editingMentorshipTaskId = null;
-    window.alert("Tarefa atualizada.");
+    notifyUser("Tarefa atualizada.", "success");
   } catch (error) {
-    window.alert(error.message || "Não foi possível atualizar a tarefa.");
+    notifyUser(error.message || "Não foi possível atualizar a tarefa.", "error");
   }
   render();
 }
@@ -6196,18 +6259,18 @@ async function editMentorshipTask(event, taskId) {
 async function submitMentorshipSessionFeedback(event, sessionId) {
   event.preventDefault();
   if (normalizedRole() !== "empreendedor") {
-    window.alert("A avaliação da sessão é feita pela startup.");
+    notifyUser("A avaliação da sessão é feita pela startup.", "warning");
     return;
   }
   const session = mentorshipSessionsVisibleToUser().find((item) => item.id === sessionId && item.status === "completed");
   if (!session) {
-    window.alert("Apenas sessões concluídas podem ser avaliadas pela startup.");
+    notifyUser("Apenas sessões concluídas podem ser avaliadas pela startup.", "warning");
     return;
   }
   const data = Object.fromEntries(new FormData(event.currentTarget).entries());
   const rating = Math.max(1, Math.min(5, Number.parseInt(String(data.rating || ""), 10)));
   if (!Number.isFinite(rating)) {
-    window.alert("Informe uma nota válida para a sessão.");
+    notifyUser("Informe uma nota válida para a sessão.", "warning");
     return;
   }
   const existing = feedbackForSession(session.id);
@@ -6232,9 +6295,9 @@ async function submitMentorshipSessionFeedback(event, sessionId) {
     } else {
       mentorshipSessionFeedback.unshift(feedback);
     }
-    window.alert("Avaliação da sessão salva.");
+    notifyUser("Avaliação da sessão salva.", "success");
   } catch (error) {
-    window.alert(error.message || "Não foi possível salvar a avaliação da sessão.");
+    notifyUser(error.message || "Não foi possível salvar a avaliação da sessão.", "error");
   }
   render();
 }
