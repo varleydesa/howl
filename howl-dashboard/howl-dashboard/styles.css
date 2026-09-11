@@ -2399,9 +2399,24 @@ textarea {
 }
 
 .mentorship-card-actions {
-  display: grid;
-  gap: 6px;
-  max-width: 240px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: none;
+}
+
+.mentorship-card-actions label {
+  flex: 0 0 100%;
+}
+
+.mentorship-card-actions select {
+  flex: 0 1 220px;
+}
+
+.mentorship-card-actions .btn {
+  flex: 0 1 auto;
+  min-width: 148px;
 }
 
 .mentorship-inline-form,
@@ -3457,6 +3472,17 @@ textarea {
   .mentorship-card-actions {
     width: 100%;
     max-width: none;
+  }
+
+  .mentorship-card-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .mentorship-card-actions .btn,
+  .mentorship-card-actions select {
+    width: 100%;
+    min-width: 0;
   }
 
   .choice-row {
