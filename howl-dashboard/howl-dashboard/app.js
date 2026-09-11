@@ -331,6 +331,7 @@ let editingUserId = null;
 let creatingMentorshipSession = false;
 let expandedMentorshipSessionIds = new Set();
 let editingMentorshipSessionId = null;
+let recordingMentorshipSessionId = null;
 let editingMentorshipTaskId = null;
 let generatingMentorshipBriefingId = null;
 let generatingMentorshipTasksId = null;
@@ -3822,12 +3823,15 @@ function mentorshipTabPanel(tab, data) {
   }
   const sessionList = mentorshipSessionsCard(data.visibleSessions, data.activeLinks);
   const createSessionModal = creatingMentorshipSession ? mentorshipSessionModal(data.activeLinks) : "";
+  const recordSession = data.visibleSessions.find((session) => session.id === recordingMentorshipSessionId);
+  const recordSessionModal = recordSession ? mentorshipPostSessionRecordModal(recordSession) : "";
   if (isManager() || isEvaluator()) {
-    return `<div class="mentorship-stacked">${sessionList}${createSessionModal}</div>`;
+    return `<div class="mentorship-stacked">${sessionList}${createSessionModal}${recordSessionModal}</div>`;
   }
   return `<div class="mentorship-stacked startup-mentorship-view">
     ${mentorPortfolioCard(data.activeLinks)}
     ${sessionList}
+    ${recordSessionModal}
   </div>`;
 }
 
@@ -3836,6 +3840,7 @@ function setMentorshipTab(tab) {
   creatingMentorshipSession = false;
   expandedMentorshipSessionIds = new Set();
   editingMentorshipSessionId = null;
+  recordingMentorshipSessionId = null;
   editingMentorshipTaskId = null;
   render();
 }
@@ -3889,8 +3894,6 @@ function mentorshipSessionFormFields(activeLinks, isModal = false) {
       <div class="field"><label>Duração</label><input name="durationMinutes" type="number" min="15" step="15" value="60" required></div>
       <div class="field wide"><label>Pauta</label><input name="topic" required placeholder="Ex.: validação de pricing, vendas enterprise, roadmap"></div>
       <div class="field wide"><label>Contexto pré-sessão</label><textarea name="agenda" placeholder="Contexto, métricas e perguntas para preparar a mentoria."></textarea></div>
-      <div class="field wide"><label>Resumo pós-sessão</label><textarea name="summary" placeholder="Preencha depois da sessão, quando houver."></textarea></div>
-      <div class="field wide"><label>Decisões e próximos passos</label><textarea name="nextSteps" placeholder="Decisões tomadas, responsáveis e próximos passos."></textarea></div>
       <label class="checkbox-field wide"><input name="createGoogleMeet" type="checkbox" ${canCreateGoogleMeet ? "checked" : "disabled"}> Criar evento com Google Meet${canCreateGoogleMeet ? "" : " após conectar o Google Calendar"}</label>
     </div>
     <div class="modal-actions">
@@ -3918,6 +3921,29 @@ function mentorshipTaskForm(visibleSessions) {
     </div>
     <button class="btn primary" type="submit" ${sessions.length ? "" : "disabled"}>Criar tarefa</button>
   </form>`;
+}
+
+function mentorshipPostSessionRecordModal(session) {
+  return `<div class="modal-backdrop" role="presentation">
+    <form class="modal-card startup-form mentorship-form" role="dialog" aria-modal="true" aria-labelledby="mentorship-record-modal-title" onsubmit="saveMentorshipSessionRecord(event, ${escapeJsString(session.id)})">
+      <div class="row between wrap">
+        <div>
+          <span class="metric-label">${escapeHtml(startupName(session.startupId))} • ${formatDateTime(session.scheduledAt)}</span>
+          <h2 id="mentorship-record-modal-title">Registrar pós-sessão</h2>
+        </div>
+        <button class="btn ghost" type="button" onclick="closeMentorshipEditors()">Fechar</button>
+      </div>
+      <div class="form-grid compact">
+        <div class="field wide"><label>Resumo da sessão</label><textarea name="summary" placeholder="O que foi discutido? Quais aprendizados ou pontos críticos apareceram?">${escapeHtml(session.summary || "")}</textarea></div>
+        <div class="field wide"><label>Decisões tomadas</label><textarea name="decisions" placeholder="Registre decisões, acordos e encaminhamentos definidos.">${escapeHtml(session.decisions || "")}</textarea></div>
+        <div class="field wide"><label>Próximos passos</label><textarea name="nextSteps" placeholder="Liste responsáveis, ações combinadas e evidências esperadas.">${escapeHtml(session.nextSteps || "")}</textarea></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn primary" type="submit">Salvar registro</button>
+        <button class="btn" type="button" onclick="closeMentorshipEditors()">Cancelar</button>
+      </div>
+    </form>
+  </div>`;
 }
 
 function mentorshipWorkflowCard() {
@@ -4047,10 +4073,12 @@ function mentorshipSessionsCard(sessions, activeLinks = []) {
             ${mentorshipSessionCycleStatus(session)}
             <div class="mentorship-notes">
               ${mentorshipNote("Contexto", session.agenda || "Sem contexto registrado.")}
-              ${mentorshipNote("Registro", session.summary || session.nextSteps || "Aguardando resumo pós-sessão.")}
+              ${mentorshipNote("Resumo pós-sessão", session.summary || "Registro pós-sessão pendente.")}
+              ${mentorshipNote("Decisões", session.decisions || "Nenhuma decisão registrada.")}
+              ${mentorshipNote("Próximos passos", session.nextSteps || "Nenhum próximo passo registrado.")}
             </div>
             ${feedback ? `<div class="mentorship-feedback-summary"><strong>Avaliação da startup</strong><span>${"★".repeat(feedback.rating)}${"☆".repeat(5 - feedback.rating)} • ${escapeHtml(feedback.comment || "Sem comentário")}</span></div>` : ""}
-            ${canEdit ? `<div class="mentorship-card-actions"><label>Atualizar</label>${mentorshipStatusSelect(session)}${session.googleMeetUrl ? "" : `<button class="btn" type="button" onclick='createGoogleMeetForSession(${JSON.stringify(session.id)})'>Gerar Meet</button>`}<button class="btn" type="button" onclick='openMentorshipSessionEditor(${JSON.stringify(session.id)})'>Editar sessão</button><button class="btn" type="button" onclick='generateMentorshipBriefing(${JSON.stringify(session.id)})' ${generatingMentorshipBriefingId ? "disabled" : ""}>${generatingMentorshipBriefingId === session.id ? "Gerando..." : "Gerar briefing com IA"}</button><button class="btn" type="button" onclick='generateMentorshipTasks(${JSON.stringify(session.id)})' ${generatingMentorshipTasksId ? "disabled" : ""}>${generatingMentorshipTasksId === session.id ? "Gerando..." : "Gerar tarefas com IA"}</button></div>` : ""}
+            ${canEdit ? `<div class="mentorship-card-actions"><label>Atualizar</label>${mentorshipStatusSelect(session)}${session.googleMeetUrl ? "" : `<button class="btn" type="button" onclick='createGoogleMeetForSession(${JSON.stringify(session.id)})'>Gerar Meet</button>`}<button class="btn ${session.summary || session.decisions || session.nextSteps ? "" : "primary"}" type="button" onclick='openMentorshipSessionRecord(${JSON.stringify(session.id)})'>Registrar pós-sessão</button><button class="btn" type="button" onclick='openMentorshipSessionEditor(${JSON.stringify(session.id)})'>Editar sessão</button><button class="btn" type="button" onclick='generateMentorshipBriefing(${JSON.stringify(session.id)})' ${generatingMentorshipBriefingId ? "disabled" : ""}>${generatingMentorshipBriefingId === session.id ? "Gerando..." : "Gerar briefing com IA"}</button><button class="btn" type="button" onclick='generateMentorshipTasks(${JSON.stringify(session.id)})' ${generatingMentorshipTasksId ? "disabled" : ""}>${generatingMentorshipTasksId === session.id ? "Gerando..." : "Gerar tarefas com IA"}</button></div>` : ""}
             ${editingMentorshipSessionId === session.id ? mentorshipSessionEditForm(session) : ""}
             ${canEdit ? mentorshipTaskDraftCard(session) : ""}
             ${canEvaluate ? mentorshipSessionFeedbackForm(session, feedback) : ""}
@@ -4084,7 +4112,7 @@ function mentorshipNote(label, text) {
 function mentorshipSessionCycleStatus(session) {
   const relatedTasks = mentorshipTasksVisibleToUser().filter((task) => task.sessionId === session.id);
   const hasBriefing = Boolean(String(session.agenda || "").trim());
-  const hasRecord = Boolean(String(session.summary || session.nextSteps || "").trim());
+  const hasRecord = Boolean(String(session.summary || session.decisions || session.nextSteps || "").trim());
   const canReconnectGoogle = (isManager() || isEvaluator()) && backendStatus.includes("conectado") && !googleCalendarAccessToken();
   const meetStatus = session.googleMeetUrl
     ? ["Meet", "Criado", "success"]
@@ -4194,14 +4222,50 @@ function mentorshipSessionEditForm(session) {
       <div class="field"><label>Duração</label><input name="durationMinutes" type="number" min="15" max="360" step="1" value="${session.durationMinutes || 60}" required></div>
       <div class="field wide"><label>Pauta</label><input name="topic" value="${escapeHtml(session.topic)}" required></div>
       <div class="field wide"><label>Contexto pré-sessão</label><textarea name="agenda">${escapeHtml(agendaDraft)}</textarea></div>
-      <div class="field wide"><label>Resumo pós-sessão</label><textarea name="summary">${escapeHtml(session.summary || "")}</textarea></div>
-      <div class="field wide"><label>Decisões e próximos passos</label><textarea name="nextSteps">${escapeHtml(session.nextSteps || "")}</textarea></div>
     </div>
     <div class="row wrap">
       <button class="btn primary" type="submit">Salvar edição</button>
       <button class="btn" type="button" onclick="closeMentorshipEditors()">Cancelar</button>
     </div>
   </form>`;
+}
+
+async function saveMentorshipSessionRecord(event, sessionId) {
+  event.preventDefault();
+  if (!isManager() && !isEvaluator()) {
+    notifyUser("Apenas gestores e mentores podem registrar o pós-sessão.", "warning");
+    return;
+  }
+  const session = mentorshipSessionsVisibleToUser().find((item) => item.id === sessionId);
+  if (!session) return;
+  const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+  const updates = {
+    summary: String(data.summary || "").trim(),
+    decisions: String(data.decisions || "").trim(),
+    nextSteps: String(data.nextSteps || "").trim(),
+  };
+  if (!updates.summary && !updates.decisions && !updates.nextSteps) {
+    notifyUser("Preencha pelo menos um campo do registro pós-sessão.", "warning");
+    return;
+  }
+  try {
+    if (backendStatus.includes("conectado")) {
+      await updateMentorshipSession(session.id, {
+        summary: updates.summary,
+        decisions: updates.decisions,
+        next_steps: updates.nextSteps,
+      });
+      await loadSupabaseData();
+    } else {
+      Object.assign(session, updates);
+    }
+    recordingMentorshipSessionId = null;
+    expandedMentorshipSessionIds.add(session.id);
+    notifyUser("Registro pós-sessão salvo. Agora você pode gerar tarefas com IA.", "success");
+  } catch (error) {
+    notifyUser(error.message || "Não foi possível salvar o registro pós-sessão.", "error");
+  }
+  render();
 }
 
 function mentorshipTaskEditForm(task) {
@@ -5968,6 +6032,17 @@ function openMentorshipSessionEditor(sessionId) {
   creatingMentorshipSession = false;
   expandedMentorshipSessionIds.add(sessionId);
   editingMentorshipSessionId = sessionId;
+  recordingMentorshipSessionId = null;
+  editingMentorshipTaskId = null;
+  render();
+}
+
+function openMentorshipSessionRecord(sessionId) {
+  if (!isManager() && !isEvaluator()) return;
+  creatingMentorshipSession = false;
+  expandedMentorshipSessionIds.add(sessionId);
+  editingMentorshipSessionId = null;
+  recordingMentorshipSessionId = sessionId;
   editingMentorshipTaskId = null;
   render();
 }
@@ -5976,6 +6051,7 @@ function openMentorshipSessionCreator() {
   if (!isManager() && !isEvaluator()) return;
   creatingMentorshipSession = true;
   editingMentorshipSessionId = null;
+  recordingMentorshipSessionId = null;
   editingMentorshipTaskId = null;
   render();
 }
@@ -5985,12 +6061,14 @@ function openMentorshipTaskEditor(taskId) {
   creatingMentorshipSession = false;
   editingMentorshipTaskId = taskId;
   editingMentorshipSessionId = null;
+  recordingMentorshipSessionId = null;
   render();
 }
 
 function closeMentorshipEditors() {
   creatingMentorshipSession = false;
   editingMentorshipSessionId = null;
+  recordingMentorshipSessionId = null;
   editingMentorshipTaskId = null;
   render();
 }
@@ -6014,8 +6092,6 @@ async function editMentorshipSession(event, sessionId) {
     durationMinutes: parseDurationMinutes(data.durationMinutes),
     topic: String(data.topic || "").trim(),
     agenda: String(data.agenda || "").trim(),
-    summary: String(data.summary || "").trim(),
-    nextSteps: String(data.nextSteps || "").trim(),
   };
   try {
     if (backendStatus.includes("conectado")) {
@@ -6024,8 +6100,6 @@ async function editMentorshipSession(event, sessionId) {
         duration_minutes: updates.durationMinutes,
         topic: updates.topic,
         agenda: updates.agenda,
-        summary: updates.summary,
-        next_steps: updates.nextSteps,
       });
       await loadSupabaseData();
     } else {

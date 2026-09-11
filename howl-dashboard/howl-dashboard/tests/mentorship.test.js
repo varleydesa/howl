@@ -68,6 +68,7 @@ const result = vm.runInContext(
         topic: "Validação de pricing",
         agenda: "Revisar entrevistas",
         summary: "Sessão realizada",
+        decisions: "Modelo por hectare priorizado",
         nextSteps: "Revisar hipótese de preço",
         googleMeetUrl: "https://meet.google.com/abc-defg-hij",
         googleCalendarEventUrl: "https://calendar.google.com/event?eid=teste"
@@ -132,6 +133,9 @@ const result = vm.runInContext(
     openMentorshipSessionEditor("session-alpha");
     const adminSessionEditorHtml = document.getElementById("app").innerHTML;
     closeMentorshipEditors();
+    openMentorshipSessionRecord("session-alpha");
+    const adminSessionRecordHtml = document.getElementById("app").innerHTML;
+    closeMentorshipEditors();
     mentorshipTaskDrafts["session-alpha"] = [{
       title: "Consolidar entrevistas do ICP",
       description: "Registrar dores, objeções e critérios de decisão.",
@@ -195,6 +199,7 @@ const result = vm.runInContext(
       adminCreateSessionHtml,
       adminLinks,
       adminSessionEditorHtml,
+      adminSessionRecordHtml,
       adminTaskDraftHtml,
       adminPortfolioHtml,
       adminTaskEditorHtml,
@@ -236,16 +241,30 @@ assert(result.adminExpandedSessionHtml.includes("Avaliação da startup"));
 assert(result.adminExpandedSessionHtml.includes("Editar sessão"));
 assert(result.adminExpandedSessionHtml.includes("Gerar briefing com IA"));
 assert(result.adminExpandedSessionHtml.includes("Gerar tarefas com IA"));
+assert(result.adminExpandedSessionHtml.includes("Registrar pós-sessão"));
 assert(result.adminExpandedSessionHtml.includes("Entrar no Meet"));
 assert(result.adminExpandedSessionHtml.includes("https://meet.google.com/abc-defg-hij"));
 assert(result.adminExpandedSessionHtml.includes("Status do ciclo da sessão"));
 assert(result.adminExpandedSessionHtml.includes("Briefing"));
-assert(result.adminExpandedSessionHtml.includes("Registro"));
+assert(result.adminExpandedSessionHtml.includes("Resumo pós-sessão"));
+assert(result.adminExpandedSessionHtml.includes("Sessão realizada"));
+assert(result.adminExpandedSessionHtml.includes("Decisões"));
+assert(result.adminExpandedSessionHtml.includes("Modelo por hectare priorizado"));
+assert(result.adminExpandedSessionHtml.includes("Próximos passos"));
 assert(result.adminExpandedSessionHtml.includes("1 criada"));
 assert(result.adminSessionEditorHtml.includes("Salvar edição"));
-assert(result.adminSessionEditorHtml.includes("Resumo pós-sessão"));
+assert(!result.adminSessionEditorHtml.includes('name="summary"'));
+assert(!result.adminSessionEditorHtml.includes('name="nextSteps"'));
 assert(result.adminSessionEditorHtml.includes("Briefing gerado com IA"));
 assert(result.adminSessionEditorHtml.includes("Situação atual: revisar pricing antes da sessão."));
+assert(result.adminSessionRecordHtml.includes("Registrar pós-sessão"));
+assert(result.adminSessionRecordHtml.includes("Resumo da sessão"));
+assert(result.adminSessionRecordHtml.includes("Decisões tomadas"));
+assert(result.adminSessionRecordHtml.includes("Próximos passos"));
+assert(result.adminSessionRecordHtml.includes("Salvar registro"));
+assert(result.adminSessionRecordHtml.includes("Sessão realizada"));
+assert(result.adminSessionRecordHtml.includes("Modelo por hectare priorizado"));
+assert(result.adminSessionRecordHtml.includes("Revisar hipótese de preço"));
 assert(result.adminTaskDraftHtml.includes("Tarefas sugeridas por IA"));
 assert(result.adminTaskDraftHtml.includes("Consolidar entrevistas do ICP"));
 assert(result.adminTaskDraftHtml.includes("Salvar tarefa"));
