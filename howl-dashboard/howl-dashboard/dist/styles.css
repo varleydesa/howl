@@ -85,6 +85,25 @@
   color: #70695d;
 }
 
+:root[data-theme="light"] .mentor-dashboard-tabs {
+  border: 1px solid #e2dccf;
+  background: #ffffff;
+}
+
+:root[data-theme="light"] .mentor-dashboard-tabs button {
+  color: #70695d;
+}
+
+:root[data-theme="light"] .mentor-dashboard-tabs button.active {
+  color: var(--gold-dark);
+  background: #fff4d8;
+  border-color: #d9b65a;
+}
+
+:root[data-theme="light"] .mentor-dashboard-tabs small {
+  color: #70695d;
+}
+
 :root[data-theme="light"] .program-kpi {
   background: linear-gradient(135deg, #fff, #f8f1df);
 }
@@ -173,6 +192,15 @@
 :root[data-theme="light"] .startup-identity-card,
 :root[data-theme="light"] .mentor-profile-card {
   background: linear-gradient(135deg, #fffaf0, #f7fbff);
+}
+
+:root[data-theme="light"] .mentor-portfolio-card {
+  background: #fffdfa;
+}
+
+:root[data-theme="light"] .mentor-portfolio-metrics div,
+:root[data-theme="light"] .mentor-portfolio-details div {
+  background: #ffffff;
 }
 
 :root[data-theme="light"] .startup-task-group {
