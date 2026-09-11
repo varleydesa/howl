@@ -4044,6 +4044,7 @@ function mentorshipSessionsCard(sessions, activeLinks = []) {
           </div>
           ${isExpanded ? `<div class="mentorship-session-details">
             ${session.googleMeetUrl ? `<a class="btn primary meet-link" href="${escapeHtml(session.googleMeetUrl)}" target="_blank" rel="noopener">Entrar no Meet</a>` : ""}
+            ${mentorshipSessionCycleStatus(session)}
             <div class="mentorship-notes">
               ${mentorshipNote("Contexto", session.agenda || "Sem contexto registrado.")}
               ${mentorshipNote("Registro", session.summary || session.nextSteps || "Aguardando resumo pós-sessão.")}
@@ -4078,6 +4079,30 @@ function toggleMentorshipSession(sessionId) {
 
 function mentorshipNote(label, text) {
   return `<p><strong>${escapeHtml(label)}</strong><span class="mentorship-note-text">${escapeHtml(text)}</span></p>`;
+}
+
+function mentorshipSessionCycleStatus(session) {
+  const relatedTasks = mentorshipTasksVisibleToUser().filter((task) => task.sessionId === session.id);
+  const hasBriefing = Boolean(String(session.agenda || "").trim());
+  const hasRecord = Boolean(String(session.summary || session.nextSteps || "").trim());
+  const canReconnectGoogle = (isManager() || isEvaluator()) && backendStatus.includes("conectado") && !googleCalendarAccessToken();
+  const meetStatus = session.googleMeetUrl
+    ? ["Meet", "Criado", "success"]
+    : canReconnectGoogle
+      ? ["Meet", "Reconectar Google", "warning"]
+      : ["Meet", "Pendente", "pending"];
+  const items = [
+    meetStatus,
+    ["Briefing", hasBriefing ? "Gerado" : "Pendente", hasBriefing ? "success" : "pending"],
+    ["Registro", hasRecord ? "Preenchido" : "Pendente", hasRecord ? "success" : "pending"],
+    ["Tarefas", relatedTasks.length ? `${relatedTasks.length} criada${relatedTasks.length > 1 ? "s" : ""}` : "Pendente", relatedTasks.length ? "success" : "pending"],
+  ];
+  return `<div class="mentorship-cycle-status" aria-label="Status do ciclo da sessão">
+    ${items.map(([label, value, status]) => `<div class="cycle-status-item ${status}">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </div>`).join("")}
+  </div>`;
 }
 
 function mentorshipTaskDraftCard(session) {

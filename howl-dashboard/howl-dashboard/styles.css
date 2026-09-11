@@ -2596,6 +2596,58 @@ textarea {
   white-space: pre-line;
 }
 
+.mentorship-cycle-status {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cycle-status-item {
+  display: grid;
+  gap: 4px;
+  min-height: 68px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  padding: 10px 12px;
+}
+
+.cycle-status-item span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cycle-status-item strong {
+  color: var(--navy);
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.cycle-status-item.success {
+  border-color: rgba(49, 201, 137, 0.42);
+  background: rgba(49, 201, 137, 0.08);
+}
+
+.cycle-status-item.success strong {
+  color: var(--green);
+}
+
+.cycle-status-item.warning {
+  border-color: rgba(245, 130, 32, 0.65);
+  background: rgba(245, 130, 32, 0.1);
+}
+
+.cycle-status-item.warning strong {
+  color: #f58220;
+}
+
+.cycle-status-item.pending strong {
+  color: var(--muted);
+}
+
 .meet-link {
   justify-self: start;
   border-color: #1aa98f;
@@ -3701,6 +3753,10 @@ textarea {
   .mentorship-card-actions select {
     width: 100%;
     min-width: 0;
+  }
+
+  .mentorship-cycle-status {
+    grid-template-columns: 1fr 1fr;
   }
 
   .choice-row {
