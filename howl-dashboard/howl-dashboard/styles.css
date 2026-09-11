@@ -151,6 +151,48 @@
   background: #fffdfa;
 }
 
+:root[data-theme="light"] .mentor-link-card,
+:root[data-theme="light"] .mentor-session-card,
+:root[data-theme="light"] .task-card {
+  background: #fffdfa;
+}
+
+:root[data-theme="light"] .session-expand-button {
+  background: #ffffff;
+  color: var(--gold-dark);
+}
+
+:root[data-theme="light"] .session-expand-button:hover {
+  background: #fff7e4;
+}
+
+:root[data-theme="light"] .mentorship-session-details {
+  border-top-color: #ded2bf;
+}
+
+:root[data-theme="light"] .meet-link {
+  border-color: #0d8c75;
+  background: #0f7a69;
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .meet-link:hover {
+  border-color: #0aa98a;
+  background: #0d8c75;
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .mentorship-inline-form,
+:root[data-theme="light"] .mentorship-feedback-summary,
+:root[data-theme="light"] .mentorship-ai-task-drafts {
+  border-color: #e6cf99;
+  background: #fffaf0;
+}
+
+:root[data-theme="light"] .mentorship-ai-draft {
+  background: #f7f0e2;
+}
+
 :root[data-theme="light"] .public-topbar {
   border-bottom-color: rgba(226, 220, 207, 0.86);
   background: rgba(252, 251, 248, 0.94);
