@@ -69,6 +69,22 @@
   background: #f1f2f4;
 }
 
+:root[data-theme="light"] .mentorship-tabs {
+  border-color: #e2dccf;
+  background: #ffffff;
+}
+
+:root[data-theme="light"] .mentorship-tabs button.active {
+  color: var(--gold-dark);
+  background: #fff4d8;
+  border-color: #d9b65a;
+}
+
+:root[data-theme="light"] .mentorship-tabs small {
+  background: #f3eee2;
+  color: #70695d;
+}
+
 :root[data-theme="light"] .program-kpi {
   background: linear-gradient(135deg, #fff, #f8f1df);
 }
@@ -112,6 +128,18 @@
   color: #08784c;
   background: #e7f7ef;
   border-color: #bfe9d3;
+}
+
+:root[data-theme="light"] .startup-event-chip.blue {
+  color: #3154a3;
+  background: #eef3ff;
+  border-color: #c7d6ff;
+}
+
+:root[data-theme="light"] .startup-event-chip.amber {
+  color: #795716;
+  background: #fff4dc;
+  border-color: #efcf8b;
 }
 
 :root[data-theme="light"] .badge.red {
@@ -168,6 +196,19 @@
 
 :root[data-theme="light"] .mentorship-session-details {
   border-top-color: #ded2bf;
+}
+
+:root[data-theme="light"] .mentor-day-card {
+  background: #fffdfa;
+}
+
+:root[data-theme="light"] .mentor-day-card.active {
+  border-color: #d9b65a;
+  background: #fff4d8;
+}
+
+:root[data-theme="light"] .mentor-day-card span {
+  color: #667085;
 }
 
 :root[data-theme="light"] .meet-link {
