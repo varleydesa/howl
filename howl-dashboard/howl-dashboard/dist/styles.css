@@ -1,20 +1,20 @@
 :root {
-  --navy: #f7ecd6;
-  --navy-2: #fff6e3;
-  --ink: #eee4d3;
-  --muted: #b8ad9a;
-  --line: #3c3222;
-  --panel: #17130d;
-  --paper: #0c0a07;
-  --soft: #231b10;
-  --blue: #d19a2f;
-  --cyan: #efd184;
+  --navy: #f6f2ea;
+  --navy-2: #ffffff;
+  --ink: #e5ded2;
+  --muted: #a79f92;
+  --line: #332c22;
+  --panel: #14110d;
+  --paper: #080706;
+  --soft: #1d1812;
+  --blue: #5f8df7;
+  --cyan: #45c6d8;
   --green: #31c989;
   --amber: #d7a13a;
   --red: #ff6870;
-  --violet: #c6a45a;
-  --gold: #d19a2f;
-  --gold-dark: #efd184;
+  --violet: #a891ff;
+  --gold: #d8a63a;
+  --gold-dark: #f2cf75;
   --chart-blue: #6c8cff;
   --chart-cyan: #2bc8df;
   --chart-green: #31c989;
@@ -195,8 +195,8 @@ button {
 }
 
 .sidebar {
-  background: #050504;
-  color: #fff8e8;
+  background: #050505;
+  color: #f6f2ea;
   padding: 28px 20px;
   display: flex;
   flex-direction: column;
@@ -242,7 +242,7 @@ button {
 
 .brand span,
 .user-card span {
-  color: #bdb39f;
+  color: #aaa296;
   font-size: 12px;
 }
 
@@ -266,7 +266,7 @@ button {
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: #e4ddce;
+  color: #e8e2d8;
   text-align: left;
   padding: 12px 12px;
   display: flex;
@@ -359,7 +359,7 @@ button {
 .topbar {
   min-height: 72px;
   padding: 16px 32px;
-  background: rgba(13, 10, 7, 0.92);
+  background: rgba(8, 7, 6, 0.92);
   backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line);
   display: grid;
@@ -455,8 +455,8 @@ button {
 .topbar-action:hover,
 .topbar-logout:hover,
 .topbar-icon:hover {
-  border-color: #d8bb72;
-  background: #21190e;
+  border-color: rgba(216, 166, 58, 0.68);
+  background: #1d1812;
 }
 
 .topbar-icon {
@@ -579,23 +579,23 @@ button {
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
-  background: linear-gradient(135deg, #17130d, #241a0b);
+  background: linear-gradient(135deg, #14110d, #181510);
 }
 
 .program-kpi.green {
-  background: linear-gradient(135deg, #17130d, #102219);
+  background: linear-gradient(135deg, #14110d, #102018);
 }
 
 .program-kpi.amber {
-  background: linear-gradient(135deg, #17130d, #2a1f0d);
+  background: linear-gradient(135deg, #14110d, #21190e);
 }
 
 .program-kpi.gray {
-  background: linear-gradient(135deg, #17130d, #181a1e);
+  background: linear-gradient(135deg, #14110d, #17191d);
 }
 
 .program-kpi.red {
-  background: linear-gradient(135deg, #17130d, #2b1114);
+  background: linear-gradient(135deg, #14110d, #261013);
 }
 
 .program-kpi span {
@@ -626,7 +626,7 @@ button {
   border-radius: 8px;
   display: grid;
   place-items: center;
-  background: rgba(184, 137, 45, 0.12);
+  background: rgba(95, 141, 247, 0.12);
   color: var(--blue);
   font-style: normal;
   font-size: 26px;
@@ -1757,9 +1757,9 @@ label {
 }
 
 .btn.primary {
-  border-color: var(--blue);
-  background: var(--blue);
-  color: #fff8e8;
+  border-color: var(--gold);
+  background: var(--gold);
+  color: #0b0906;
 }
 
 .btn.dark {
@@ -1779,16 +1779,16 @@ label {
   justify-content: center;
   gap: 8px;
   flex: 0 0 auto;
-  border-color: #d8bb72;
-  background: #21190e;
-  color: var(--cyan);
+  border-color: rgba(216, 166, 58, 0.55);
+  background: #1d1812;
+  color: var(--gold-dark);
   white-space: nowrap;
 }
 
 .download-btn:hover {
   border-color: var(--blue);
-  background: #2b210f;
-  color: var(--cyan);
+  background: rgba(95, 141, 247, 0.1);
+  color: #dbe6ff;
 }
 
 .download-btn:focus-visible {
@@ -1825,9 +1825,9 @@ label {
 }
 
 .badge.amber {
-  color: var(--cyan);
-  background: #2a1f0d;
-  border-color: #f4d394;
+  color: #f4d394;
+  background: rgba(216, 166, 58, 0.12);
+  border-color: rgba(216, 166, 58, 0.5);
 }
 
 .badge.red {
@@ -1837,9 +1837,9 @@ label {
 }
 
 .badge.blue {
-  color: var(--cyan);
-  background: #2b210f;
-  border-color: #e8d095;
+  color: #c8d7ff;
+  background: rgba(95, 141, 247, 0.13);
+  border-color: rgba(95, 141, 247, 0.42);
 }
 
 .badge.gray {
@@ -2274,7 +2274,7 @@ textarea {
   gap: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #18140e;
+  background: #15120e;
   padding: 14px;
 }
 
@@ -2298,7 +2298,7 @@ textarea {
   height: 34px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--paper);
+  background: #0d0b09;
   color: var(--gold);
   font-size: 24px;
   line-height: 1;
@@ -2307,6 +2307,7 @@ textarea {
 
 .session-expand-button:hover {
   border-color: var(--gold);
+  background: rgba(216, 166, 58, 0.12);
 }
 
 .session-summary-main {
@@ -2386,6 +2387,15 @@ textarea {
 
 .meet-link {
   justify-self: start;
+  border-color: #1aa98f;
+  background: #0f6f61;
+  color: #f4fffb;
+}
+
+.meet-link:hover {
+  border-color: #35cbb0;
+  background: #12806f;
+  color: #ffffff;
 }
 
 .mentorship-card-actions {
@@ -2398,9 +2408,9 @@ textarea {
 .mentorship-feedback-summary {
   display: grid;
   gap: 12px;
-  border: 1px solid #ead7a9;
+  border: 1px solid rgba(216, 166, 58, 0.5);
   border-radius: 8px;
-  background: #21190e;
+  background: #17130e;
   padding: 14px;
 }
 
@@ -2415,7 +2425,7 @@ textarea {
 }
 
 .mentorship-feedback-form {
-  border-color: #d8bb72;
+  border-color: rgba(216, 166, 58, 0.68);
 }
 
 .mentorship-feedback-summary strong {
@@ -2433,7 +2443,7 @@ textarea {
   padding: 12px 14px;
   border-left: 4px solid var(--gold);
   border-radius: 8px;
-  background: #2a200f;
+  background: #1e1912;
 }
 
 .mentorship-ai-draft strong {
@@ -2448,9 +2458,9 @@ textarea {
 .mentorship-ai-task-drafts {
   display: grid;
   gap: 14px;
-  border: 1px solid #ead7a9;
+  border: 1px solid rgba(216, 166, 58, 0.5);
   border-radius: 8px;
-  background: #21190e;
+  background: #17130e;
   padding: 14px;
 }
 
@@ -2496,7 +2506,7 @@ textarea {
   gap: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #18140e;
+  background: #15120e;
   padding: 14px;
 }
 
