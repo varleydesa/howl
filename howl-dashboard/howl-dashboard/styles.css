@@ -1,12 +1,16 @@
 :root {
   --navy: #f6f2ea;
   --navy-2: #ffffff;
-  --ink: #e5ded2;
-  --muted: #a79f92;
-  --line: #332c22;
-  --panel: #14110d;
-  --paper: #080706;
-  --soft: #1d1812;
+  --ink: #eee8dd;
+  --muted: #bdb3a4;
+  --line: #514737;
+  --line-strong: #756347;
+  --panel: #191714;
+  --paper: #0b0a09;
+  --soft: #29251e;
+  --item: #24201a;
+  --inset: #11100e;
+  --selected: #3a2b16;
   --blue: #5f8df7;
   --cyan: #45c6d8;
   --green: #31c989;
@@ -28,11 +32,15 @@
   --navy: #090909;
   --navy-2: #1b1710;
   --ink: #211f1a;
-  --muted: #70695d;
-  --line: #e2dccf;
+  --muted: #5e574e;
+  --line: #d3c9b9;
+  --line-strong: #b8a98f;
   --panel: #ffffff;
-  --paper: #faf8f3;
-  --soft: #f3eee2;
+  --paper: #f4f5f6;
+  --soft: #eaeef1;
+  --item: #f8f9fa;
+  --inset: #ffffff;
+  --selected: #fff0cb;
   --blue: #b8892d;
   --cyan: #e1bd63;
   --green: #129c66;
@@ -51,11 +59,11 @@
 }
 
 :root[data-theme="light"] body {
-  background: #fcfbf8;
+  background: var(--paper);
 }
 
 :root[data-theme="light"] .topbar {
-  background: rgba(250, 248, 243, 0.9);
+  background: rgba(255, 255, 255, 0.94);
 }
 
 :root[data-theme="light"] .topbar-action:hover,
@@ -201,7 +209,7 @@
 }
 
 :root[data-theme="light"] .mentor-portfolio-card {
-  background: #fffdfa;
+  background: var(--item);
 }
 
 :root[data-theme="light"] .mentor-portfolio-metrics div,
@@ -210,13 +218,13 @@
 }
 
 :root[data-theme="light"] .startup-task-group {
-  background: #fffdfa;
+  background: var(--item);
 }
 
 :root[data-theme="light"] .mentor-link-card,
 :root[data-theme="light"] .mentor-session-card,
 :root[data-theme="light"] .task-card {
-  background: #fffdfa;
+  background: var(--item);
 }
 
 :root[data-theme="light"] .session-expand-button {
@@ -233,12 +241,12 @@
 }
 
 :root[data-theme="light"] .mentor-day-card {
-  background: #fffdfa;
+  background: var(--item);
 }
 
 :root[data-theme="light"] .mentor-day-card.active {
   border-color: #d9b65a;
-  background: #fff4d8;
+  background: var(--selected);
 }
 
 :root[data-theme="light"] .mentor-day-card span {
@@ -573,7 +581,7 @@ button {
 .topbar-logout:hover,
 .topbar-icon:hover {
   border-color: rgba(216, 166, 58, 0.68);
-  background: #1d1812;
+  background: var(--soft);
 }
 
 .topbar-icon {
@@ -649,7 +657,7 @@ button {
   gap: 4px;
   border: 0;
   border-radius: 8px;
-  background: #14120d;
+  background: var(--soft);
 }
 
 .program-tabs button {
@@ -971,12 +979,12 @@ button {
 
 .program-agent-card:hover {
   border-color: #d8bb72;
-  background: #18140e;
+  background: var(--item);
 }
 
 .program-agent-card.active {
   border-color: var(--gold);
-  background: #2a200f;
+  background: var(--selected);
   box-shadow: 0 0 0 2px rgba(190, 139, 36, 0.12);
 }
 
@@ -1086,7 +1094,7 @@ button {
 }
 
 .mentor-ai-message.user {
-  background: #2a200f;
+  background: var(--selected);
 }
 
 .mentor-ai-message span {
@@ -1286,7 +1294,7 @@ button {
 
 .startup-event-chip.blue {
   border-color: #d8bb72;
-  background: #21190e;
+  background: var(--selected);
 }
 
 .startup-event-chip.green {
@@ -1296,7 +1304,7 @@ button {
 
 .startup-event-chip.amber {
   border-color: #f4d394;
-  background: #2a1f0d;
+  background: var(--selected);
 }
 
 .startup-growth-card {
@@ -1450,7 +1458,7 @@ button {
   gap: 5px;
   border: 0;
   border-radius: 8px;
-  background: #14120d;
+  background: var(--soft);
 }
 
 .mentor-dashboard-tabs button {
@@ -1462,7 +1470,7 @@ button {
   border: 0;
   border-bottom: 0;
   border-radius: 7px;
-  color: #697587;
+  color: var(--muted);
   font-weight: 850;
 }
 
@@ -1546,20 +1554,20 @@ button {
   justify-items: center;
   align-content: start;
   gap: 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
-  background: #18140e;
+  background: var(--item);
   padding: 16px 10px;
   text-align: center;
 }
 
 .mentor-day-card.active {
-  border-color: #d8bb72;
-  background: #2a200f;
+  border-color: var(--gold);
+  background: var(--selected);
 }
 
 .mentor-day-card span {
-  color: #667085;
+  color: var(--muted);
   font-size: 14px;
   font-weight: 800;
 }
@@ -1621,9 +1629,9 @@ button {
   display: grid;
   grid-template-rows: auto auto auto 1fr auto;
   gap: 14px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
-  background: #18140e;
+  background: var(--item);
   padding: 16px;
 }
 
@@ -1658,7 +1666,7 @@ button {
 .mentor-portfolio-details div {
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--paper);
+  background: var(--inset);
   padding: 10px;
 }
 
@@ -1703,9 +1711,9 @@ button {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
-  background: var(--paper);
+  background: var(--item);
   padding: 12px;
 }
 
@@ -2353,7 +2361,7 @@ textarea {
 
 .mentorship-tabs {
   margin: 0 0 16px;
-  background: var(--panel);
+  background: var(--inset);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 6px;
@@ -2373,7 +2381,7 @@ textarea {
 
 .mentorship-tabs button.active {
   color: var(--cyan);
-  background: #2b210f;
+  background: var(--selected);
   border-color: #e8d095;
 }
 
@@ -2483,9 +2491,9 @@ textarea {
 .task-card {
   display: grid;
   gap: 12px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
-  background: #15120e;
+  background: var(--item);
   padding: 14px;
 }
 
@@ -2509,7 +2517,7 @@ textarea {
   height: 34px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #0d0b09;
+  background: var(--inset);
   color: var(--gold);
   font-size: 24px;
   line-height: 1;
@@ -2608,7 +2616,7 @@ textarea {
   min-height: 68px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--paper);
+  background: var(--inset);
   padding: 10px 12px;
 }
 
@@ -2688,7 +2696,7 @@ textarea {
   gap: 12px;
   border: 1px solid rgba(216, 166, 58, 0.5);
   border-radius: 8px;
-  background: #17130e;
+  background: var(--inset);
   padding: 14px;
 }
 
@@ -2721,7 +2729,7 @@ textarea {
   padding: 12px 14px;
   border-left: 4px solid var(--gold);
   border-radius: 8px;
-  background: #1e1912;
+  background: var(--soft);
 }
 
 .mentorship-ai-draft strong {
@@ -2738,7 +2746,7 @@ textarea {
   gap: 14px;
   border: 1px solid rgba(216, 166, 58, 0.5);
   border-radius: 8px;
-  background: #17130e;
+  background: var(--inset);
   padding: 14px;
 }
 
@@ -2782,9 +2790,9 @@ textarea {
 .startup-task-group {
   display: grid;
   gap: 12px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
-  background: #15120e;
+  background: var(--item);
   padding: 14px;
 }
 
@@ -2813,7 +2821,7 @@ textarea {
 .startup-task-counts span {
   border: 1px solid #ead7a9;
   border-radius: 999px;
-  background: #2a200f;
+  background: var(--selected);
   color: var(--gold-dark);
   padding: 4px 9px;
   font-size: 12px;
@@ -2833,7 +2841,7 @@ textarea {
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--paper);
+  background: var(--inset);
   padding: 10px;
 }
 
@@ -3048,7 +3056,7 @@ textarea {
 
 .choice:hover,
 .choice.active {
-  background: #2a200f;
+  background: var(--selected);
   color: var(--blue);
 }
 
@@ -3184,8 +3192,8 @@ textarea {
   margin: 0;
   padding: 14px;
   border-left: 4px solid var(--gold);
-  background: #21190e;
-  color: #352d1f;
+  background: var(--soft);
+  color: var(--ink);
   line-height: 1.55;
 }
 
@@ -3214,10 +3222,10 @@ textarea {
 
 .alert {
   border-left: 4px solid var(--amber);
-  background: #23190a;
+  background: var(--selected);
   padding: 12px 14px;
   border-radius: 6px;
-  color: var(--cyan);
+  color: var(--ink);
   font-size: 14px;
 }
 
