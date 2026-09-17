@@ -380,7 +380,7 @@ function statusColor(textOrScore) {
   const text = String(textOrScore);
   if (text.includes("Alta") || text.includes("Forte") || text.includes("Excelente") || text.includes("+")) return "green";
   if (text.includes("Crítico") || text.includes("frágil") || text.includes("-")) return "red";
-  if (text.includes("Inicial") || text.includes("Hipótese") || text.includes("Alerta") || text.includes("atenção")) return "amber";
+  if (text.includes("Inicial") || text.includes("Hipótese") || text.includes("Alerta") || text.includes("atenção") || text.includes("Aguardando")) return "amber";
   return "blue";
 }
 
@@ -443,22 +443,16 @@ function generateNarrativeReport(startup, result) {
 function buildAssessments() {
   const allAssessments = [];
   startups.forEach((startup) => {
-    months.forEach((period, monthIndex) => {
-      const journeyResults = JOURNEYS.map((journey, journeyIndex) => {
-        if (!scoreProfiles[startup.id]) scoreProfiles[startup.id] = defaultScoreProfile(startups.indexOf(startup) + 1);
-        const target = scoreProfiles[startup.id][monthIndex]?.[journeyIndex] ?? null;
+    months.forEach((period) => {
+      const journeyResults = JOURNEYS.map((journey) => {
         const questions = journey.questions.map((text, questionIndex) => {
-          const wave = ((questionIndex % 5) - 2) * 0.16;
-          const entrepreneurBias = startup.id === "healthflow" ? 0.82 : startup.id === "agrosense" ? 0.32 : 0.18;
-          const consultantBias = startup.id === "healthflow" ? -0.42 : -0.08;
           const saved = savedQuestionResponse(startup.id, period.month, period.year, journey.id, questionIndex);
-          const simulatedEntrepreneurScore = target === null ? 0 : clampScore((target + wave + entrepreneurBias).toFixed(1));
-          const simulatedConsultantScore = target === null ? 0 : clampScore((target - wave + consultantBias).toFixed(1));
           const hasEntrepreneurAnswer = saved.entrepreneurScore !== null && saved.entrepreneurScore !== undefined;
           const hasConsultantAnswer = saved.consultantScore !== null && saved.consultantScore !== undefined;
-          const entrepreneurScore = hasEntrepreneurAnswer ? saved.entrepreneurScore : simulatedEntrepreneurScore;
-          const consultantScore = hasConsultantAnswer ? saved.consultantScore : simulatedConsultantScore;
-          const finalScore = calculateQuestionScore(entrepreneurScore, consultantScore);
+          const entrepreneurScore = hasEntrepreneurAnswer ? Number(saved.entrepreneurScore) : null;
+          const consultantScore = hasConsultantAnswer ? Number(saved.consultantScore) : null;
+          const complete = hasEntrepreneurAnswer && hasConsultantAnswer;
+          const finalScore = complete ? calculateQuestionScore(entrepreneurScore, consultantScore) : null;
           return {
             id: `${startup.id}-${period.month}-${journey.id}-${questionIndex + 1}`,
             journeyId: journey.id,
@@ -466,45 +460,43 @@ function buildAssessments() {
             text,
             order: questionIndex + 1,
             hasResponse: hasEntrepreneurAnswer || hasConsultantAnswer,
+            complete,
             entrepreneurScore,
             consultantScore,
             finalScore,
-            gap: calculateQuestionGap(entrepreneurScore, consultantScore),
+            gap: complete ? calculateQuestionGap(entrepreneurScore, consultantScore) : null,
             entrepreneurComment: saved.entrepreneurComment || "",
-            consultantComment:
-              saved.consultantComment ||
-              (finalScore < 3
-                ? "Necessário transformar hipótese em evidência mensurável."
-                : "Boa base, com oportunidade de documentar aprendizados."),
+            consultantComment: saved.consultantComment || "",
             entrepreneurUpdatedAt: saved.entrepreneurUpdatedAt || null,
             consultantUpdatedAt: saved.consultantUpdatedAt || null,
           };
         });
-        const entrepreneurAverage = average(questions.map((q) => q.entrepreneurScore));
-        const consultantAverage = average(questions.map((q) => q.consultantScore));
-        const finalAverage = average(questions.map((q) => q.finalScore));
+        const complete = questions.length > 0 && questions.every((question) => question.complete);
+        const entrepreneurAverage = average(questions.filter((q) => q.entrepreneurScore !== null).map((q) => q.entrepreneurScore));
+        const consultantAverage = average(questions.filter((q) => q.consultantScore !== null).map((q) => q.consultantScore));
+        const finalAverage = complete ? average(questions.map((q) => q.finalScore)) : null;
         return {
           id: journey.id,
           name: journey.name,
           gate: journey.gate,
-          hasResponses: questions.some((question) => question.hasResponse),
+          hasResponses: complete,
           entrepreneurAverage,
           consultantAverage,
           finalAverage,
-          gap: entrepreneurAverage - consultantAverage,
-          status: classifyJourneyStatus(finalAverage),
+          gap: complete ? entrepreneurAverage - consultantAverage : null,
+          status: complete ? classifyJourneyStatus(finalAverage) : "Aguardando respostas",
           questions,
         };
       });
-      const previous = allAssessments.filter((a) => a.startupId === startup.id).at(-1);
+      const previous = allAssessments.filter((a) => a.startupId === startup.id && a.hasResponses).at(-1);
       allAssessments.push(finalizeAssessment({
         id: `${startup.id}-${period.month}-${period.year}`,
         startupId: startup.id,
         month: period.month,
         year: period.year,
         label: period.label,
-        hasResponses: journeyResults.some((journey) => journey.hasResponses),
-        status: "Concluída",
+        hasResponses: journeyResults.length > 0 && journeyResults.every((journey) => journey.hasResponses),
+        status: journeyResults.length > 0 && journeyResults.every((journey) => journey.hasResponses) ? "Concluída" : "Pendente",
         journeyResults,
       }, previous));
     });
@@ -513,32 +505,44 @@ function buildAssessments() {
 }
 
 function finalizeAssessment(assessment, previous) {
-  const generalAverage = average(assessment.journeyResults.map((j) => j.finalAverage));
-  const howlScore = generalAverage * 20;
-  const strongestJourney = maxBy(assessment.journeyResults, "finalAverage");
-  const weakestJourney = minBy(assessment.journeyResults, "finalAverage");
-  const mainGapJourney = assessment.journeyResults.reduce((acc, item) =>
+  const waitingForEntrepreneur = assessment.journeyResults.some((journey) => journey.questions.some((question) => question.entrepreneurScore === null));
+  const waitingForEvaluator = assessment.journeyResults.some((journey) => journey.questions.some((question) => question.consultantScore === null));
+  const waitingLabel = waitingForEntrepreneur && waitingForEvaluator
+    ? "Aguardando respostas do empreendedor e do avaliador"
+    : waitingForEntrepreneur
+      ? "Aguardando respostas do empreendedor"
+      : waitingForEvaluator
+        ? "Aguardando respostas do avaliador"
+        : "Avaliação completa";
+  const incomplete = !assessment.hasResponses;
+  const generalAverage = incomplete ? null : average(assessment.journeyResults.map((j) => j.finalAverage));
+  const howlScore = incomplete ? null : generalAverage * 20;
+  const strongestJourney = incomplete ? null : maxBy(assessment.journeyResults, "finalAverage");
+  const weakestJourney = incomplete ? null : minBy(assessment.journeyResults, "finalAverage");
+  const mainGapJourney = incomplete ? null : assessment.journeyResults.reduce((acc, item) =>
     Math.abs(item.gap) > Math.abs(acc.gap) ? item : acc
   );
-  const currentTrail = determineCurrentTrail(assessment.journeyResults);
-  const monthlyEvolution = previous ? howlScore - previous.howlScore : 0;
+  const currentTrail = incomplete ? null : determineCurrentTrail(assessment.journeyResults);
+  const monthlyEvolution = incomplete ? null : previous ? howlScore - previous.howlScore : 0;
   const result = {
     ...assessment,
     generalAverage,
     howlScore,
-    classification: classifyHowlScore(howlScore),
+    classification: incomplete ? waitingLabel : classifyHowlScore(howlScore),
+    waitingLabel,
+    hasAnyResponses: assessment.journeyResults.some((journey) => journey.questions.some((question) => question.hasResponse)),
     strongestJourney,
     weakestJourney,
     mainGapJourney,
     currentTrail,
     monthlyEvolution,
   };
-  result.strategicRecommendation = generateStrategicRecommendation(result);
+  result.strategicRecommendation = incomplete ? waitingLabel : generateStrategicRecommendation(result);
   result.journeyResults = result.journeyResults.map((journey) => {
     const previousJourney = previous?.journeyResults.find((j) => j.id === journey.id);
     return {
       ...journey,
-      evolution: previousJourney ? journey.finalAverage - previousJourney.finalAverage : 0,
+      evolution: incomplete ? null : previousJourney ? journey.finalAverage - previousJourney.finalAverage : 0,
     };
   });
   return result;
@@ -682,13 +686,12 @@ function minBy(items, key) {
 
 function latestAssessment(startupId = selectedStartupId) {
   const history = assessments.filter((a) => a.startupId === startupId);
-  return history.filter((assessment) => assessment.hasResponses).at(-1) || history.at(-1);
+  return history.filter((assessment) => assessment.hasAnyResponses).at(-1) || history.at(-1);
 }
 
 function historyFor(startupId = selectedStartupId) {
   const history = assessments.filter((a) => a.startupId === startupId);
-  const answeredHistory = history.filter((assessment) => assessment.hasResponses);
-  return answeredHistory.length ? answeredHistory : history;
+  return history.filter((assessment) => assessment.hasResponses);
 }
 
 function selectedPeriodAssessment(startupId = selectedStartupId) {
@@ -2384,7 +2387,7 @@ function renderDashboard() {
   const ownResult = latestAssessment(selectedStartupId);
   const ownStartup = startups.find((s) => s.id === selectedStartupId);
   const isFounderDashboard = activeUser().role === "empreendedor";
-  const scoreDelta = ownResult.howlScore - generalStats.avgScore;
+  const scoreDelta = ownResult?.hasResponses && generalStats.evaluated ? ownResult.howlScore - generalStats.avgScore : null;
   const selectedProgram = programById(selectedDashboardProgramId);
   const programFilterActive = isAdmin() && selectedDashboardProgramId !== "all";
   const introText = isFounderDashboard
@@ -2480,8 +2483,9 @@ function renderStartupFounderDashboard({ ownStartup, ownResult, generalStats, sc
   const tasks = mentorshipTasksVisibleToUser();
   const openTasks = tasks.filter((task) => task.status !== "done");
   const mentorLabel = activeLinks.length ? mentorName(activeLinks[0].mentorId) : "Pendente";
-  const progress = Math.round(ownResult.howlScore);
-  const health = startupHealthLabel(ownResult.howlScore);
+  const scoreReady = Boolean(ownResult?.hasResponses);
+  const progress = scoreReady ? Math.round(ownResult.howlScore) : null;
+  const health = scoreReady ? startupHealthLabel(ownResult.howlScore) : ownResult.waitingLabel;
   return `
     <section class="page startup-dashboard-page">
       <div class="startup-dashboard-layout">
@@ -2495,19 +2499,19 @@ function renderStartupFounderDashboard({ ownStartup, ownResult, generalStats, sc
           </div>
           ${startupIdentityCard(ownStartup, health)}
           <div class="startup-kpi-grid">
-            ${startupKpiCard("Progresso", `${progress}%`, `${scoreDelta >= 0 ? "+" : ""}${fmt(scoreDelta, 0)} vs média`, `Meta: 100%`, progress, "◎", statusColor(evolutionText(scoreDelta)))}
+            ${startupKpiCard("Progresso", scoreReady ? `${progress}%` : "—", scoreReady && scoreDelta !== null ? `${scoreDelta >= 0 ? "+" : ""}${fmt(scoreDelta, 0)} vs média` : ownResult.waitingLabel, `Meta: 100%`, progress, "◎", scoreReady ? statusColor(evolutionText(scoreDelta || 0)) : "gray")}
             ${startupKpiCard("Estágio", ownStartup.stage || "Não informado", "atual", "Jornada de crescimento", null, "♢", "blue")}
-            ${startupKpiCard("Status", health, ownResult.classification, "Saúde atual", null, "↗", statusColor(ownResult.classification))}
+            ${startupKpiCard("Status", scoreReady ? health : "Avaliação pendente", scoreReady ? ownResult.classification : ownResult.waitingLabel, "Saúde atual", null, "↗", scoreReady ? statusColor(ownResult.classification) : "gray")}
             ${startupKpiCard("Mentor", mentorLabel, activeLinks.length ? "Vinculado" : "Aguardando", `${sessions.length} sessões`, null, "♧", activeLinks.length ? "green" : "gray")}
           </div>
           ${startupEventsCard(sessions, openTasks)}
-          ${startupGrowthJourneyCard(ownResult)}
+          ${scoreReady ? startupGrowthJourneyCard(ownResult) : `<div class="card pad startup-growth-card"><h2>Jornada de Crescimento</h2><p>${escapeHtml(ownResult.waitingLabel)}. A evolução será exibida quando a avaliação estiver completa.</p></div>`}
           <div class="grid two startup-dashboard-grid">
             ${startupActionPlanCard(openTasks)}
             ${startupMentorshipCard(activeLinks, sessions)}
           </div>
           <div class="grid two startup-dashboard-grid">
-            ${startupRouteAnalysisCard(ownResult, generalStats, scoreDelta)}
+            ${scoreReady && scoreDelta !== null ? startupRouteAnalysisCard(ownResult, generalStats, scoreDelta) : `<div class="card pad startup-panel-card"><span class="metric-label">Análise de rota</span><h2>Próximo foco</h2><p>${escapeHtml(ownResult.waitingLabel)}.</p></div>`}
             ${startupResourcesCard()}
           </div>
         </div>
@@ -2752,7 +2756,7 @@ function mentorDashboardPanel(tab, context) {
       <div class="program-kpi-grid mentor-kpi-grid compact">
         ${programKpiCard("Startups acompanhadas", context.activeLinks.length, "vínculos ativos", "◎")}
         ${programKpiCard("Tarefas abertas", context.openTasks.length, "plano de ação", "☑", context.openTasks.length ? "amber" : "green")}
-        ${programKpiCard("Progresso médio", fmt(context.mentorStats.avgScore, 0), "startups acompanhadas", "↗")}
+        ${programKpiCard("Progresso médio", context.mentorStats.evaluated ? fmt(context.mentorStats.avgScore, 0) : "—", context.mentorStats.evaluated ? "startups acompanhadas" : "Aguardando avaliações completas", "↗")}
       </div>
       <div class="grid two mentor-dashboard-grid">
         ${mentorPortfolioDashboardCard(context.activeLinks)}
@@ -2875,7 +2879,7 @@ function mentorPortfolioDashboardCard(activeLinks) {
       ${activeLinks.map((link) => {
         const startup = startups.find((item) => item.id === link.startupId);
         const result = latestAssessment(link.startupId);
-        const health = result?.hasResponses ? startupHealthLabel(result.howlScore) : "Sem avaliação";
+        const health = result?.hasResponses ? startupHealthLabel(result.howlScore) : result?.waitingLabel || "Aguardando avaliação";
         const score = result?.hasResponses ? Math.round(result.howlScore) : 0;
         const startupSessions = sessions.filter((session) => session.startupId === link.startupId);
         const nextSession = nextMentorSessionForStartup(startupSessions);
@@ -2935,7 +2939,7 @@ function mentorAnalyticsPanel(context) {
     : 0;
   return `<div class="mentor-dashboard-panel">
     <div class="program-kpi-grid mentor-kpi-grid">
-      ${programKpiCard("Progresso médio", fmt(context.mentorStats.avgScore, 0), "startups acompanhadas", "↗")}
+      ${programKpiCard("Progresso médio", context.mentorStats.evaluated ? fmt(context.mentorStats.avgScore, 0) : "—", context.mentorStats.evaluated ? "startups acompanhadas" : "Aguardando avaliações completas", "↗")}
       ${programKpiCard("Evolução média", `${averageEvolution >= 0 ? "+" : ""}${fmt(averageEvolution, 1)}`, "pontos no ciclo", "◷", averageEvolution >= 0 ? "green" : "red")}
       ${programKpiCard("Sessões concluídas", context.completedSessions.length, `${context.scheduledSessions.length} agendadas`, "✓", "green")}
       ${programKpiCard("Avaliação média", context.averageRating ? fmt(context.averageRating, 1) : "—", context.averageRating ? "feedback das sessões" : "aguardando avaliação", "☆", context.averageRating ? "green" : "gray")}
@@ -2969,7 +2973,7 @@ function mentorImpactDashboardCard(stats, latestLinked) {
     <span class="metric-label">Impacto</span>
     <h2>Impacto por jornada</h2>
     <div class="alerts mentor-impact-summary">
-      <div class="alert"><strong>${fmt(stats.avgScore, 0)}</strong> pontos de média nas startups acompanhadas.</div>
+      <div class="alert">${evaluated ? `<strong>${fmt(stats.avgScore, 0)}</strong> pontos de média nas startups acompanhadas.` : "Aguardando avaliações completas para calcular a média."}</div>
       <div class="alert"><strong>${evaluated}</strong> startups com avaliação respondida no ciclo atual.</div>
     </div>
     ${mentorJourneyBars(stats)}
@@ -3016,8 +3020,8 @@ function mentorFocusAlertsCard(context, noRecentSession, averageEvolution) {
   const overdueTasks = context.openTasks.filter((task) => task.dueDate && new Date(task.dueDate) < new Date());
   const alerts = [
     noRecentSession.length ? `${noRecentSession.length} startup(s) sem sessão recente. Priorize agenda antes de abrir novas tarefas.` : "Agenda em dia para as startups vinculadas.",
-    context.activeLinks.length ? `Jornada prioritária do portfólio: ${weakest.name}, média ${fmt(weakest.avg)}/5.` : "Nenhuma startup vinculada para calcular jornada prioritária.",
-    atRisk.length ? `${atRisk.length} startup(s) abaixo de 60 pontos exigem acompanhamento mais próximo.` : "Nenhuma startup vinculada está abaixo de 60 pontos.",
+    context.mentorStats.evaluated ? `Jornada prioritária do portfólio: ${weakest.name}, média ${fmt(weakest.avg)}/5.` : "Aguardando avaliações completas para calcular a jornada prioritária.",
+    atRisk.length ? `${atRisk.length} startup(s) abaixo de 60 pontos exigem acompanhamento mais próximo.` : context.mentorStats.evaluated ? "Nenhuma startup vinculada está abaixo de 60 pontos." : "Aguardando avaliações completas para identificar risco por score.",
     overdueTasks.length ? `${overdueTasks.length} tarefa(s) abertas estão com prazo vencido.` : "Não há tarefas vencidas no portfólio do mentor.",
     averageEvolution < 0 ? "O portfólio recuou no ciclo; revise causas com o gestor do programa." : "O portfólio não apresenta queda média no ciclo atual.",
   ];
@@ -3196,7 +3200,7 @@ function programExecutivePanel(context) {
       ${programKpiCard("Startups", context.visibleStartups.length, `${context.completionRate}% com avaliação`, "♢", "blue")}
       ${programKpiCard("Mentores", context.visibleMentors.length, `${context.links.filter((link) => link.status === "active").length} mentorias ativas`, "♧", "blue")}
       ${programKpiCard("Sessões", context.sessions.length, `${context.scheduledSessions.length} agendadas`, "▣", "green")}
-      ${programKpiCard("Avaliação Média", fmt(context.dashboardStats.avgScore, 1), classifyHowlScore(context.dashboardStats.avgScore), "☆", "amber")}
+      ${programKpiCard("Avaliação Média", context.dashboardStats.evaluated ? fmt(context.dashboardStats.avgScore, 1) : "—", context.dashboardStats.evaluated ? classifyHowlScore(context.dashboardStats.avgScore) : "Aguardando avaliações completas", "☆", "amber")}
     </div>
     <div class="grid two program-card-grid">
       <div class="card pad chart-card">
@@ -3242,8 +3246,8 @@ function programProgressPanel(context) {
       <span class="metric-label">Leitura de progresso</span>
       <h2>Prioridades do ciclo</h2>
       <div class="alerts">
-        <div class="alert"><strong>Jornada mais forte:</strong> ${escapeHtml(strongest.name)} com média ${fmt(strongest.avg)}/5.</div>
-        <div class="alert"><strong>Jornada prioritária:</strong> ${escapeHtml(weakest.name)} com média ${fmt(weakest.avg)}/5.</div>
+        <div class="alert"><strong>Jornada mais forte:</strong> ${context.dashboardStats.evaluated ? `${escapeHtml(strongest.name)} com média ${fmt(strongest.avg)}/5.` : "Aguardando avaliações completas."}</div>
+        <div class="alert"><strong>Jornada prioritária:</strong> ${context.dashboardStats.evaluated ? `${escapeHtml(weakest.name)} com média ${fmt(weakest.avg)}/5.` : "Aguardando avaliações completas."}</div>
         <div class="alert"><strong>Evolução:</strong> ${context.dashboardStats.evolved} startups evoluíram e ${context.dashboardStats.regressed} regrediram no ciclo.</div>
       </div>
     </div>
@@ -3367,11 +3371,11 @@ function programStartupsPanel(context) {
       return `<article class="card pad program-entity-card">
         <div class="row between wrap">
           <span class="metric-label">${escapeHtml(startup.sector)} • ${escapeHtml(startup.stage)}</span>
-          <span class="badge ${result?.hasResponses ? statusColor(result.classification) : "gray"}">${result?.hasResponses ? result.classification : "Sem avaliação"}</span>
+          <span class="badge ${result?.hasResponses ? statusColor(result.classification) : "amber"}">${result?.hasResponses ? result.classification : escapeHtml(result?.waitingLabel || "Aguardando avaliação")}</span>
         </div>
         <h2>${escapeHtml(startup.name)}</h2>
         <p>${escapeHtml(startup.city)}/${escapeHtml(startup.state)} • ${escapeHtml(startup.founder)}</p>
-        <div class="bar value"><span style="width:${result?.hasResponses ? result.howlScore : 0}%;background:var(--blue)"><b>${result?.hasResponses ? fmt(result.howlScore, 0) : "0"}</b></span></div>
+        <div class="bar value"><span style="width:${result?.hasResponses ? result.howlScore : 0}%;background:var(--blue)"><b>${result?.hasResponses ? fmt(result.howlScore, 0) : ""}</b></span></div>
       </article>`;
     }).join("") || `<div class="card pad empty-state"><span class="metric-label">Startups</span><h2>Nenhuma startup neste escopo.</h2></div>`}
   </div>`;
@@ -3424,7 +3428,7 @@ function programTasksPanel(context) {
 
 function programMemoryPanel(context) {
   const insights = [
-    [`Etapa prioritária`, `${context.dashboardStats.weakestJourney.name} é a jornada com menor média no escopo atual.`],
+    [`Etapa prioritária`, context.dashboardStats.evaluated ? `${context.dashboardStats.weakestJourney.name} é a jornada com menor média no escopo atual.` : "Aguardando avaliações completas."],
     [`Mentorias`, `${context.scheduledSessions.length} sessões agendadas e ${context.completedSessions.length} concluídas.`],
     [`Execução`, `${context.tasks.filter((task) => task.status !== "done").length} tarefas ainda abertas no plano de ação.`],
     [`Inscrições`, `${context.pendingApplications.length} inscrições pendentes para análise.`],
@@ -3479,7 +3483,7 @@ function programHealthCard(context) {
     <h2>Status operacional</h2>
     <div class="program-health-list">
       <div><strong>${evaluated}</strong><span>startups avaliadas</span></div>
-      <div><strong>${atRisk}</strong><span>abaixo de 60 pontos</span></div>
+      <div><strong>${evaluated ? atRisk : "—"}</strong><span>abaixo de 60 pontos</span></div>
       <div><strong>${noAssessment}</strong><span>sem avaliação preenchida</span></div>
       <div><strong>${context.completionRate}%</strong><span>com avaliação</span></div>
     </div>
@@ -3496,8 +3500,8 @@ function programHighlightsCard(context) {
     <h2>Leitura rápida</h2>
     <div class="alerts">
       <div class="alert">${best ? `<strong>${escapeHtml(startupName(best.startupId))}</strong> lidera o portfólio com ${fmt(best.howlScore, 0)} pontos.` : "Ainda não há avaliações suficientes para destacar uma startup líder."}</div>
-      <div class="alert"><strong>${escapeHtml(strongest.name)}</strong> é a jornada mais forte do escopo atual.</div>
-      <div class="alert"><strong>${escapeHtml(weakest.name)}</strong> deve orientar mentorias e tarefas do próximo ciclo.</div>
+      <div class="alert">${latest.length ? `<strong>${escapeHtml(strongest.name)}</strong> é a jornada mais forte do escopo atual.` : "Aguardando avaliações completas para identificar a jornada mais forte."}</div>
+      <div class="alert">${latest.length ? `<strong>${escapeHtml(weakest.name)}</strong> deve orientar mentorias e tarefas do próximo ciclo.` : "Aguardando avaliações completas para definir a prioridade do próximo ciclo."}</div>
     </div>
   </div>`;
 }
@@ -3670,6 +3674,7 @@ function portfolioStats(results) {
 }
 
 function portfolioJourneyBars(stats) {
+  if (!stats.evaluated) return `<p class="chart-note">Aguardando avaliações completas para calcular a média por jornada.</p>`;
   return `<div class="chart-block">
     ${chartLegend([{ label: "Média geral dos projetos", color: "#2458ff" }])}
     <div class="journey-bars">${stats.journeyAverages.map((journey) => journeyBar({ name: journey.name, finalAverage: journey.avg })).join("")}</div>
@@ -3721,10 +3726,10 @@ function renderStartups() {
       <td>${escapeHtml(programById(startup.programId)?.name || "—")}</td>
       <td>${escapeHtml(startup.sector)}</td><td>${escapeHtml(startup.city)}/${escapeHtml(startup.state)}</td><td>${escapeHtml(startup.stage)}</td>
       <td><strong>${hasResponses ? fmt(result.howlScore, 0) : "—"}</strong></td>
-      <td><span class="badge ${hasResponses ? "blue" : "gray"}">${hasResponses ? result.currentTrail : "Sem avaliação"}</span></td>
+      <td><span class="badge ${hasResponses ? "blue" : "amber"}">${hasResponses ? result.currentTrail : escapeHtml(result.waitingLabel)}</span></td>
       <td>${hasResponses ? result.weakestJourney.name : "—"}</td>
       <td><span class="badge ${hasResponses ? statusColor(evolutionText(result.monthlyEvolution)) : "gray"}">${hasResponses ? evolutionText(result.monthlyEvolution) : "Aguardando"}</span></td>
-      <td><span class="badge ${hasResponses ? statusColor(result.classification) : "gray"}">${hasResponses ? result.classification : "Sem avaliação"}</span></td>
+      <td><span class="badge ${hasResponses ? statusColor(result.classification) : "amber"}">${hasResponses ? result.classification : escapeHtml(result.waitingLabel)}</span></td>
     </tr>`;
   });
   return `
@@ -4445,12 +4450,12 @@ function renderPortfolio() {
       <div class="section-title"><h1>Portfólio</h1><p>${isClient() ? "Visão agregada das startups do seu programa." : "Visão agregada para admin, aceleradora, hub de inovação e banca executiva."}</p></div>
       <div class="grid kpis" style="margin-top:18px">
         ${metric("Startups avaliadas", evaluated.length, `${latest.length} cadastradas no total`)}
-        ${metric("Score médio", fmt(avgScore, 0), classifyHowlScore(avgScore))}
-        ${metric("Jornada média mais forte", strongest.name, `${fmt(strongest.avg)}/5`)}
-        ${metric("Jornada média mais fraca", weakest.name, `${fmt(weakest.avg)}/5`)}
+        ${metric("Score médio", evaluated.length ? fmt(avgScore, 0) : "—", evaluated.length ? classifyHowlScore(avgScore) : "Aguardando avaliações completas")}
+        ${metric("Jornada média mais forte", evaluated.length ? strongest.name : "—", evaluated.length ? `${fmt(strongest.avg)}/5` : "Aguardando avaliações completas")}
+        ${metric("Jornada média mais fraca", evaluated.length ? weakest.name : "—", evaluated.length ? `${fmt(weakest.avg)}/5` : "Aguardando avaliações completas")}
       </div>
       <div class="grid two" style="margin-top:16px">
-        <div class="card pad"><h2>Média por jornada</h2><div class="journey-bars">${allJourneys.map((j) => journeyBar({ name: j.name, finalAverage: j.avg })).join("")}</div></div>
+        <div class="card pad"><h2>Média por jornada</h2>${evaluated.length ? `<div class="journey-bars">${allJourneys.map((j) => journeyBar({ name: j.name, finalAverage: j.avg })).join("")}</div>` : `<p class="chart-note">Aguardando avaliações completas para calcular as médias.</p>`}</div>
         <div class="card pad"><h2>Distribuição por trilha atual</h2>${distributionChart(latest)}</div>
       </div>
       <div class="grid two" style="margin-top:16px">
@@ -4473,7 +4478,7 @@ function renderAssessment() {
       ? "Avaliador preenche a coluna do consultor para qualquer startup do seu programa."
       : "Empreendedor preenche somente sua autoavaliação para a própria startup.";
   const statusText = isManager()
-    ? "Modo leitura • respostas detalhadas"
+    ? result.waitingLabel
     : draftSaved
       ? `Rascunho salvo • ${answeredCount}/${totalQuestions} da sua parte`
       : `Em preenchimento • ${answeredCount}/${totalQuestions} da sua parte`;
@@ -4488,10 +4493,11 @@ function renderAssessment() {
         <div class="form-grid">
           <div class="field"><label>Startup</label><select onchange="selectStartup(this.value)">${accessibleStartups().map((s) => `<option value="${s.id}" ${s.id === selectedStartupId ? "selected" : ""}>${s.name}</option>`).join("")}</select></div>
           <div class="field"><label>Mês</label><select onchange="selectedMonthIndex=Number(this.value)">${months.map((m, i) => `<option value="${i}" ${i === selectedMonthIndex ? "selected" : ""}>${m.label}</option>`).join("")}</select></div>
-          <div class="field"><label>Status</label><input value="${statusText}" readonly></div>
+          <div class="field"><label>Status da sua parte</label><input value="${escapeHtml(statusText)}" readonly></div>
           <div class="field"><label>Ações</label>${actionHtml}</div>
         </div>
       </div>
+      <div class="badge ${result.hasResponses ? "green" : "amber"}" style="margin-top:12px">${escapeHtml(result.waitingLabel)}</div>
       <div class="tabs">${JOURNEYS.map((j) => `<button class="${j.id === activeJourney ? "active" : ""}" onclick="setJourney('${j.id}')">${j.name}</button>`).join("")}</div>
       <div class="card pad assessment-intro">
         <div>
@@ -4522,7 +4528,7 @@ function renderAssessment() {
             return `<article class="question-card">
               <div class="question-head">
                 <div class="row"><span class="question-number">${index + 1}</span><strong>${q}</strong></div>
-                <span class="badge ${hasBothScores ? statusColor(classifyGap(gap)) : "gray"}">${hasBothScores ? `Gap ${fmt(gap)}` : "Aguardando resposta"}</span>
+                <span class="badge ${hasBothScores ? statusColor(classifyGap(gap)) : "gray"}">${hasBothScores ? `Gap ${fmt(gap)}` : answer.entrepreneurScore === null && answer.consultantScore === null ? "Aguardando ambos" : answer.entrepreneurScore === null ? "Aguardando empreendedor" : "Aguardando avaliador"}</span>
               </div>
               <div class="choice-grid">
                 <div class="field">
@@ -4609,6 +4615,10 @@ function isAnswerCompleteForRole(answer) {
 
 function renderHistory() {
   const history = historyFor();
+  const pending = latestAssessment();
+  const pendingNotice = pending && !pending.hasResponses
+    ? `<div class="badge amber" style="margin-top:18px">${escapeHtml(pending.waitingLabel)}${pending.hasAnyResponses ? ` no ciclo ${escapeHtml(pending.label)}` : ""}</div>`
+    : "";
   const rows = history
     .map(
       (a) => `<tr><td>${a.label}</td>${a.journeyResults
@@ -4616,11 +4626,14 @@ function renderHistory() {
         .join("")}<td><strong>${fmt(a.howlScore, 0)}</strong></td><td>${a.currentTrail}</td><td>${a.classification}</td><td>${evolutionText(a.monthlyEvolution)}</td></tr>`
     )
     .join("");
-  return `<section class="page"><div class="section-title"><h1>Histórico de evolução</h1><p>Linha do tempo mensal e comparação de maturidade por jornada.</p></div><div class="card pad" style="margin-top:18px">${journeyMonthlyBarChart(history)}</div><div style="margin-top:16px">${table(["Mês", "Conceito", "Produto", "Negócios", "Crescimento", "HOWL", "Trilha", "Classificação", "Evolução"], rows)}</div></section>`;
+  return `<section class="page"><div class="section-title"><h1>Histórico de evolução</h1><p>Linha do tempo mensal e comparação de maturidade por jornada.</p></div>${pendingNotice}<div class="card pad" style="margin-top:18px">${journeyMonthlyBarChart(history)}</div><div style="margin-top:16px">${history.length ? table(["Mês", "Conceito", "Produto", "Negócios", "Crescimento", "HOWL", "Trilha", "Classificação", "Evolução"], rows) : `<div class="card pad">Nenhuma avaliação completa para exibir no histórico.</div>`}</div></section>`;
 }
 
 function renderCompare() {
   const result = latestAssessment();
+  if (!result?.hasResponses) {
+    return `<section class="page"><div class="section-title"><h1>Comparativo empreendedor x consultor</h1><p>${escapeHtml(result?.waitingLabel || "Aguardando respostas do empreendedor e do avaliador")}.</p></div></section>`;
+  }
   return `
     <section class="page">
       <div class="section-title"><h1>Comparativo empreendedor x consultor</h1><p>Leitura dos gaps de percepção e risco de desalinhamento estratégico.</p></div>
@@ -4639,6 +4652,9 @@ function renderReports() {
   }
   const result = latestAssessment();
   const startup = startups.find((s) => s.id === selectedStartupId);
+  if (!result?.hasResponses) {
+    return `<section class="page"><div class="section-title"><h1>Relatório executivo</h1><p>${escapeHtml(startup?.name || "Startup")}</p></div><div class="card pad" style="margin-top:18px"><h2>Relatório aguardando conclusão</h2><p>${escapeHtml(result?.waitingLabel || "Aguardando respostas do empreendedor e do avaliador")}. O relatório será liberado quando todas as perguntas tiverem as duas respostas.</p></div></section>`;
+  }
   const narrative = generateNarrativeReport(startup, result);
   return `
     <section class="page">
@@ -5356,7 +5372,7 @@ function exportCsv() {
     ["Startup", "Mês", "Score", "Trilha", "Classificação", "Mais forte", "Mais fraca", "Evolução"],
     ...assessments.filter((a) => allowedIds.includes(a.startupId)).map((a) => {
       const startup = startups.find((s) => s.id === a.startupId);
-      return [startup.name, a.label, fmt(a.howlScore, 0), a.currentTrail, a.classification, a.strongestJourney.name, a.weakestJourney.name, fmt(a.monthlyEvolution)];
+      return [startup.name, a.label, a.hasResponses ? fmt(a.howlScore, 0) : "", a.hasResponses ? a.currentTrail : "", a.classification, a.hasResponses ? a.strongestJourney.name : "", a.hasResponses ? a.weakestJourney.name : "", a.hasResponses ? fmt(a.monthlyEvolution) : ""];
     }),
   ];
   const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
