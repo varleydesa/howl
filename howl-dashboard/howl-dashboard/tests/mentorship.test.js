@@ -161,6 +161,10 @@ const result = vm.runInContext(
     openAiAgent("mentor");
     const mentorAiReopenedHtml = document.getElementById("app").innerHTML;
     closeAiAgent();
+    openAiAgent("data");
+    const dataAiHtml = document.getElementById("app").innerHTML;
+    const adminDataSnapshot = dataAiSnapshot();
+    closeAiAgent();
     activeRoute = "mentorship";
     const highDemandMessage = friendlyAiErrorMessage(new Error("This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."));
     const creditsMessage = friendlyAiErrorMessage(new Error("You have no credits remaining. Add credits to continue using the API at https://platform.openai.com/settings/organization/billing/."));
@@ -180,6 +184,7 @@ const result = vm.runInContext(
     closeMentorshipEditors();
     const mentorLinks = mentorshipLinksVisibleToUser().map((link) => link.id);
     const mentorSessions = mentorshipSessionsVisibleToUser().map((session) => session.id);
+    const mentorDataSnapshot = dataAiSnapshot();
 
     activeUserId = "empreendedor-demo";
     activeRoute = "mentorship";
@@ -191,6 +196,7 @@ const result = vm.runInContext(
     const founderExpandedSessionHtml = document.getElementById("app").innerHTML;
     const founderLinks = mentorshipLinksVisibleToUser().map((link) => link.id);
     const founderTasks = mentorshipTasksVisibleToUser().map((task) => task.id);
+    const founderDataSnapshot = dataAiSnapshot();
     const missingMentorLabel = mentorName("mentor-ausente");
 
     ({
@@ -206,6 +212,8 @@ const result = vm.runInContext(
       mentorAiHtml,
       mentorAiExpandedHtml,
       mentorAiReopenedHtml,
+      dataAiHtml,
+      adminDataSnapshot,
       highDemandMessage,
       creditsMessage,
       mentorHtml,
@@ -213,10 +221,12 @@ const result = vm.runInContext(
       mentorCreateSessionHtml,
       mentorLinks,
       mentorSessions,
+      mentorDataSnapshot,
       founderHtml,
       founderExpandedSessionHtml,
       founderLinks,
       founderTasks,
+      founderDataSnapshot,
       missingMentorLabel
     });
   `,
@@ -276,7 +286,17 @@ assert(result.adminTaskEditorHtml.includes("Sessão de origem"));
 assert(result.adminTaskEditorHtml.includes("Validação de pricing"));
 assert(result.mentorAiHtml.includes("Conversa contextual"));
 assert(result.mentorAiHtml.includes("Pergunte sobre foco da próxima mentoria"));
-assert(result.mentorAiHtml.includes("Use o Mentor IA"));
+assert(result.mentorAiHtml.includes("2 disponíveis"));
+assert(result.mentorAiHtml.includes("Analisador de Estratégia"));
+assert(result.mentorAiHtml.includes("Em breve"));
+assert(result.dataAiHtml.includes("Análise dos indicadores"));
+assert(result.dataAiHtml.includes("Avaliações completas"));
+assert(result.dataAiHtml.includes("Pergunte sobre avaliações"));
+assert.strictEqual(result.adminDataSnapshot.sessionsCompleted, 2);
+assert.strictEqual(result.adminDataSnapshot.tasksOpen, 1);
+assert.strictEqual(result.mentorDataSnapshot.startups, 1);
+assert.strictEqual(result.mentorDataSnapshot.sessionsCompleted, 1);
+assert.strictEqual(result.founderDataSnapshot.startups, 1);
 assert(result.mentorAiHtml.includes("Expandir"));
 assert(!result.mentorAiHtml.includes("mentor-ai-chat expanded"));
 assert(result.mentorAiExpandedHtml.includes("mentor-ai-chat expanded"));

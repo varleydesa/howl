@@ -1085,6 +1085,45 @@ button {
   max-height: min(520px, calc(100vh - 300px));
 }
 
+.data-ai-overview {
+  display: grid;
+  gap: 10px;
+  overflow: auto;
+  max-height: 175px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--item);
+}
+
+.data-ai-overview > small {
+  color: var(--muted);
+}
+
+.data-ai-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.data-ai-metrics > div {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
+}
+
+.data-ai-metrics strong {
+  color: var(--navy);
+  font-size: 18px;
+}
+
+.data-ai-metrics span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
 .mentor-ai-message {
   display: grid;
   gap: 4px;

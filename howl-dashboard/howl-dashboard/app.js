@@ -41,6 +41,7 @@ let mentorshipBriefingDrafts = {};
 let mentorshipTaskDrafts = {};
 let activeAiAgent = null;
 let mentorAiMessages = [];
+let dataAiMessages = [];
 let mentorAiLoading = false;
 let mentorAiExpanded = false;
 let googleCalendarConnecting = false;
@@ -2232,7 +2233,7 @@ function appShell(content) {
         ${content}
       </main>
     </div>
-    ${activeAiAgent === "mentor" ? mentorAiChatPanel() : ""}
+    ${activeAiAgent === "mentor" || activeAiAgent === "data" ? mentorAiChatPanel() : ""}
   `;
 }
 
@@ -3520,47 +3521,93 @@ function programAiAgentsPanel() {
         <span class="metric-label">Agentes de IA</span>
         <h2>Agentes de IA</h2>
       </div>
-      <span class="badge green">1 disponível</span>
+      <span class="badge green">2 disponíveis</span>
     </div>
-    <p>Use o Mentor IA para conversar com os dados reais já registrados na plataforma.</p>
+    <p>Converse com o Mentor IA ou analise os indicadores reais no Processador de Dados.</p>
     <div class="program-agent-list">
       ${agents.map(([id, icon, title, subtitle, color]) => `<button type="button" class="program-agent-card ${activeAiAgent === id ? "active" : ""}" onclick="openAiAgent(${escapeJsString(id)})">
         <span class="${color}" aria-hidden="true">${icon}</span>
         <strong>${title}</strong>
         <small>${subtitle}</small>
-        <b>${id === "mentor" ? "Conversar" : "Em breve"}</b>
+        <b>${id === "mentor" ? "Conversar" : id === "data" ? "Analisar" : "Em breve"}</b>
       </button>`).join("")}
     </div>
   </aside>`;
 }
 
 function mentorAiChatPanel() {
-  const messages = mentorAiMessages.length
-    ? mentorAiMessages
-    : [{ role: "assistant", content: "Olá. Posso ajudar a interpretar mentorias, tarefas, avaliações e próximos passos com base nos dados reais disponíveis para o seu perfil." }];
-  return `<section class="mentor-ai-chat ${mentorAiExpanded ? "expanded" : ""}" aria-label="Conversa com Mentor IA">
+  const isData = activeAiAgent === "data";
+  const title = isData ? "Processador de Dados" : "Mentor IA";
+  const history = isData ? dataAiMessages : mentorAiMessages;
+  const messages = history.length
+    ? history
+    : [{ role: "assistant", content: isData
+      ? "Analiso os indicadores disponíveis para o seu perfil. Pergunte sobre avaliações, sessões ou tarefas; dados pendentes não entram nas médias."
+      : "Olá. Posso ajudar a interpretar mentorias, tarefas, avaliações e próximos passos com base nos dados reais disponíveis para o seu perfil." }];
+  return `<section class="mentor-ai-chat ${mentorAiExpanded ? "expanded" : ""}" aria-label="Conversa com ${title}">
     <div class="mentor-ai-chat-head">
       <div>
-        <span class="metric-label">Mentor IA</span>
-        <h3>Conversa contextual</h3>
+        <span class="metric-label">${title}</span>
+        <h3>${isData ? "Análise dos indicadores" : "Conversa contextual"}</h3>
       </div>
       <div class="mentor-ai-actions">
         <button class="btn ghost" type="button" onclick="toggleMentorAiExpanded()">${mentorAiExpanded ? "Reduzir" : "Expandir"}</button>
         <button class="btn ghost" type="button" onclick="closeAiAgent()">Fechar</button>
       </div>
     </div>
+    ${isData ? dataAiMetricsPanel() : ""}
     <div class="mentor-ai-messages">
       ${messages.map((message) => `<article class="mentor-ai-message ${message.role === "user" ? "user" : "assistant"}">
-        <span>${message.role === "user" ? "Você" : "Mentor IA"}</span>
+        <span>${message.role === "user" ? "Você" : title}</span>
         <p>${formatAiMessageContent(message.content)}</p>
       </article>`).join("")}
-      ${mentorAiLoading ? `<article class="mentor-ai-message assistant"><span>Mentor IA</span><p>Consultando os dados e preparando resposta...</p></article>` : ""}
+      ${mentorAiLoading ? `<article class="mentor-ai-message assistant"><span>${title}</span><p>Consultando os dados e preparando resposta...</p></article>` : ""}
     </div>
     <form class="mentor-ai-form" onsubmit="submitMentorAiQuestion(event)">
-      <textarea name="message" placeholder="Pergunte sobre foco da próxima mentoria, riscos, tarefas ou evolução da startup..." ${mentorAiLoading ? "disabled" : ""} required></textarea>
+      <textarea name="message" placeholder="${isData ? "Pergunte sobre avaliações, sessões, tarefas ou tendências..." : "Pergunte sobre foco da próxima mentoria, riscos, tarefas ou evolução da startup..."}" ${mentorAiLoading ? "disabled" : ""} required></textarea>
       <button class="btn primary" type="submit" ${mentorAiLoading ? "disabled" : ""}>Enviar</button>
     </form>
   </section>`;
+}
+
+function dataAiSnapshot() {
+  const user = activeUser();
+  const linkedIds = new Set(mentorshipLinksVisibleToUser().map((link) => link.startupId));
+  const visible = dashboardStartups().filter((startup) => !isEvaluator() || linkedIds.has(startup.id));
+  const startupIds = new Set(visible.map((startup) => startup.id));
+  const sessions = mentorshipSessionsVisibleToUser().filter((session) => startupIds.has(session.startupId));
+  const tasks = mentorshipTasksVisibleToUser().filter((task) => startupIds.has(task.startupId));
+  const complete = visible.map((startup) => latestAssessment(startup.id)).filter((result) => result?.hasResponses && Number.isFinite(result.howlScore));
+  const pending = visible.length - complete.length;
+  return {
+    scope: isAdmin() && selectedDashboardProgramId !== "all" ? programById(selectedDashboardProgramId)?.name || "Programa selecionado" : user?.roleLabel || "Perfil atual",
+    startups: visible.length,
+    assessmentsComplete: complete.length,
+    assessmentsPending: pending,
+    averageScore: complete.length ? Math.round(complete.reduce((sum, result) => sum + result.howlScore, 0) / complete.length) : null,
+    sessionsScheduled: sessions.filter((session) => session.status === "scheduled").length,
+    sessionsCompleted: sessions.filter((session) => session.status === "completed").length,
+    tasksOpen: tasks.filter((task) => task.status !== "done").length,
+    tasksDone: tasks.filter((task) => task.status === "done").length,
+  };
+}
+
+function dataAiMetricsPanel() {
+  const snapshot = dataAiSnapshot();
+  const items = [
+    ["Startups", snapshot.startups],
+    ["Avaliações completas", snapshot.assessmentsComplete],
+    ["Aguardando respostas", snapshot.assessmentsPending],
+    ["Score médio", snapshot.averageScore === null ? "—" : snapshot.averageScore],
+    ["Sessões agendadas", snapshot.sessionsScheduled],
+    ["Sessões concluídas", snapshot.sessionsCompleted],
+    ["Tarefas abertas", snapshot.tasksOpen],
+    ["Tarefas concluídas", snapshot.tasksDone],
+  ];
+  return `<div class="data-ai-overview" aria-label="Indicadores do escopo atual">
+    <small>${escapeHtml(snapshot.scope)} · dados do perfil atual</small>
+    <div class="data-ai-metrics">${items.map(([label, value]) => `<div><strong>${value}</strong><span>${label}</span></div>`).join("")}</div>
+  </div>`;
 }
 
 function setProgramDashboardTab(tab) {
@@ -3569,11 +3616,11 @@ function setProgramDashboardTab(tab) {
 }
 
 function openAiAgent(agentId) {
-  if (agentId !== "mentor") {
+  if (agentId !== "mentor" && agentId !== "data") {
     notifyUser("Este agente entra em uma próxima etapa. Começamos pelo Mentor IA.", "info");
     return;
   }
-  activeAiAgent = "mentor";
+  activeAiAgent = agentId;
   render();
 }
 
@@ -3591,20 +3638,26 @@ function toggleMentorAiExpanded() {
 async function submitMentorAiQuestion(event) {
   event.preventDefault();
   if (!backendStatus.includes("conectado")) {
-    notifyUser("Conecte ao Supabase para usar o Mentor IA.", "warning");
+    notifyUser("Conecte ao Supabase para conversar com a IA.", "warning");
     return;
   }
   const data = Object.fromEntries(new FormData(event.currentTarget).entries());
   const message = String(data.message || "").trim();
   if (!message) return;
-  mentorAiMessages.push({ role: "user", content: message });
+  const isData = activeAiAgent === "data";
+  const history = isData ? dataAiMessages : mentorAiMessages;
+  history.push({ role: "user", content: message });
   mentorAiLoading = true;
   render();
   try {
-    const answer = await requestMentorAiResponse(message);
-    mentorAiMessages.push({ role: "assistant", content: answer });
+    const snapshot = isData ? dataAiSnapshot() : null;
+    const prompt = isData
+      ? `Atue como analista de dados. Responda à pergunta abaixo usando os indicadores verificados deste perfil. Não trate avaliações pendentes como nota zero e não invente séries ou tendências sem dados suficientes. Diferencie fatos de hipóteses. Indicadores: ${JSON.stringify(snapshot)}. Pergunta: ${message}`
+      : message;
+    const answer = await requestMentorAiResponse(prompt);
+    history.push({ role: "assistant", content: answer });
   } catch (error) {
-    mentorAiMessages.push({
+    history.push({
       role: "assistant",
       content: friendlyAiErrorMessage(error),
     });
