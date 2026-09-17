@@ -42,6 +42,10 @@ let mentorshipTaskDrafts = {};
 let activeAiAgent = null;
 let mentorAiMessages = [];
 let dataAiMessages = [];
+let contentStartupId = null;
+let contentPeriod = "90";
+let contentDraft = "";
+let contentLoading = false;
 let mentorAiLoading = false;
 let mentorAiExpanded = false;
 let googleCalendarConnecting = false;
@@ -1706,14 +1710,14 @@ async function requestMentorshipTasks(sessionId) {
   return data;
 }
 
-async function requestMentorAiResponse(message) {
+async function requestMentorAiResponse(message, startupIdOverride = null) {
   const client = requireSupabase();
   const startupId = selectedStartupId || (activeUser()?.startupIds || [])[0] || null;
   const { data, error } = await client.functions.invoke("mentor-ai-chat", {
     body: {
       message,
       route: activeRoute,
-      startupId,
+      startupId: startupIdOverride || startupId,
       programId: selectedDashboardProgramId !== "all" ? selectedDashboardProgramId : activeUser()?.programId || null,
     },
   });
@@ -2234,6 +2238,7 @@ function appShell(content) {
       </main>
     </div>
     ${activeAiAgent === "mentor" || activeAiAgent === "data" ? mentorAiChatPanel() : ""}
+    ${activeAiAgent === "content" ? contentAgentPanel() : ""}
   `;
 }
 
@@ -3521,15 +3526,15 @@ function programAiAgentsPanel() {
         <span class="metric-label">Agentes de IA</span>
         <h2>Agentes de IA</h2>
       </div>
-      <span class="badge green">2 disponíveis</span>
+      <span class="badge green">3 disponíveis</span>
     </div>
-    <p>Converse com o Mentor IA ou analise os indicadores reais no Processador de Dados.</p>
+    <p>Converse, analise indicadores ou prepare relatórios com os dados registrados.</p>
     <div class="program-agent-list">
       ${agents.map(([id, icon, title, subtitle, color]) => `<button type="button" class="program-agent-card ${activeAiAgent === id ? "active" : ""}" onclick="openAiAgent(${escapeJsString(id)})">
         <span class="${color}" aria-hidden="true">${icon}</span>
         <strong>${title}</strong>
         <small>${subtitle}</small>
-        <b>${id === "mentor" ? "Conversar" : id === "data" ? "Analisar" : "Em breve"}</b>
+        <b>${id === "mentor" ? "Conversar" : id === "data" ? "Analisar" : id === "content" ? "Gerar relatório" : "Em breve"}</b>
       </button>`).join("")}
     </div>
   </aside>`;
@@ -3610,17 +3615,158 @@ function dataAiMetricsPanel() {
   </div>`;
 }
 
+function contentAgentStartups() {
+  const linkedIds = new Set(mentorshipLinksVisibleToUser().filter((link) => link.status === "active").map((link) => link.startupId));
+  return dashboardStartups().filter((startup) => !isEvaluator() || linkedIds.has(startup.id));
+}
+
+function contentAgentPanel() {
+  const visible = contentAgentStartups();
+  const selected = visible.find((startup) => startup.id === contentStartupId) || visible[0];
+  return `<section class="modal-backdrop content-agent-backdrop" aria-label="Gerador de Conteúdo">
+    <div class="modal-card content-agent-card">
+      <div class="content-agent-head">
+        <div><span class="metric-label">Gerador de Conteúdo</span><h2>Relatório de mentoria</h2></div>
+        <button class="btn ghost" type="button" onclick="closeAiAgent()">Fechar</button>
+      </div>
+      <div class="content-agent-filters">
+        <label>Startup<select onchange="selectContentStartup(this.value)" ${contentLoading ? "disabled" : ""}>
+          ${visible.map((startup) => `<option value="${escapeHtml(startup.id)}" ${startup.id === selected?.id ? "selected" : ""}>${escapeHtml(startup.name)}</option>`).join("")}
+        </select></label>
+        <label>Período<select onchange="selectContentPeriod(this.value)" ${contentLoading ? "disabled" : ""}>
+          <option value="30" ${contentPeriod === "30" ? "selected" : ""}>Últimos 30 dias</option>
+          <option value="90" ${contentPeriod === "90" ? "selected" : ""}>Últimos 90 dias</option>
+          <option value="all" ${contentPeriod === "all" ? "selected" : ""}>Todo o histórico</option>
+        </select></label>
+      </div>
+      <div class="content-agent-actions">
+        <button class="btn primary" type="button" onclick="generateContentReport()" ${!selected || contentLoading ? "disabled" : ""}>${contentLoading ? "Gerando..." : contentDraft ? "Gerar novamente" : "Gerar rascunho"}</button>
+        ${contentDraft ? `<button class="btn" type="button" onclick="downloadContentReport()">Baixar .md</button>` : ""}
+      </div>
+      ${!selected ? `<p>Nenhuma startup disponível para este perfil.</p>` : contentDraft
+        ? `<label class="content-agent-editor">Revise o relatório antes de usar<textarea oninput="updateContentDraft(this.value)" spellcheck="true">${escapeHtml(contentDraft)}</textarea></label>`
+        : `<p class="content-agent-empty">O rascunho reunirá sessões, tarefas e avaliações do período selecionado. Dados ausentes serão indicados no texto.</p>`}
+    </div>
+  </section>`;
+}
+
+function selectContentStartup(startupId) {
+  if (!contentAgentStartups().some((startup) => startup.id === startupId)) return;
+  contentStartupId = startupId;
+  contentDraft = "";
+  render();
+}
+
+function selectContentPeriod(period) {
+  if (!["30", "90", "all"].includes(period)) return;
+  contentPeriod = period;
+  contentDraft = "";
+  render();
+}
+
+function contentReportFacts(startupId, period = contentPeriod, now = new Date()) {
+  const startup = contentAgentStartups().find((item) => item.id === startupId);
+  if (!startup) return null;
+  const cutoff = period === "all" ? null : new Date(now.getTime() - Number(period) * 86400000);
+  const inPeriod = (value) => {
+    if (!value) return false;
+    const date = new Date(value);
+    return !Number.isNaN(date.getTime()) && (!cutoff || date >= cutoff) && date <= now;
+  };
+  const sessions = mentorshipSessionsVisibleToUser()
+    .filter((session) => session.startupId === startupId && inPeriod(session.scheduledAt))
+    .sort((a, b) => new Date(b.scheduledAt) - new Date(a.scheduledAt));
+  const tasks = mentorshipTasksVisibleToUser().filter((task) => task.startupId === startupId && (period === "all" || inPeriod(task.createdAt) || sessions.some((session) => session.id === task.sessionId)));
+  const evaluations = assessments.filter((result) => result.startupId === startupId && result.hasResponses && inPeriod(new Date(Number(result.year), Number(result.month) - 1, 1)));
+  return { startup, sessions, tasks, evaluations, period, generatedAt: now };
+}
+
+function contentReportMarkdown(facts, synthesis = "") {
+  const { startup, sessions, tasks, evaluations, period, generatedAt } = facts;
+  const line = (value) => String(value || "Não registrado.").replaceAll(/\s+/g, " ").trim();
+  const periodLabel = period === "all" ? "Todo o histórico" : `Últimos ${period} dias`;
+  const parts = [
+    `# Relatório de mentoria — ${startup.name}`,
+    `Período: ${periodLabel} | Gerado em: ${formatDate(generatedAt)}`,
+    "",
+    "## Síntese",
+    synthesis || "Síntese automática indisponível. Revise os registros abaixo para compor esta seção.",
+    "",
+    "## Sessões",
+    sessions.length ? sessions.map((session) => [
+      `### ${formatDateTime(session.scheduledAt)} — ${line(session.topic)}`,
+      `Status: ${mentorshipStatusLabel(session.status)} | Referência: sessão ${session.id}`,
+      `Contexto: ${line(session.agenda)}`,
+      `Registro pós-sessão: ${line(session.summary)}`,
+      `Decisões: ${line(session.decisions)}`,
+      `Próximos passos: ${line(session.nextSteps)}`,
+    ].join("\n")).join("\n\n") : "Nenhuma sessão registrada neste período.",
+    "",
+    "## Plano de ação",
+    tasks.length ? tasks.map((task) => `- ${line(task.title)} — ${task.status === "done" ? "Concluída" : task.status === "in_progress" ? "Em andamento" : "A fazer"}. Detalhes: ${line(task.description)} Prazo: ${task.dueDate ? formatDate(task.dueDate) : "não registrado"}. Referência: tarefa ${task.id}.`).join("\n") : "Nenhuma tarefa registrada neste período.",
+    "",
+    "## Avaliações concluídas",
+    evaluations.length ? evaluations.map((result) => `- ${result.label || `${result.month}/${result.year}`}: score ${Math.round(result.howlScore)}. Referência: avaliação ${result.startupId}, ${result.month}/${result.year}.`).join("\n") : "Nenhuma avaliação completa registrada neste período; respostas pendentes não entram no score.",
+    "",
+    "## Revisão",
+    "Rascunho para conferência. Confirme informações e linguagem antes de compartilhar.",
+  ];
+  return parts.join("\n");
+}
+
+async function generateContentReport() {
+  if (contentLoading) return;
+  const selected = contentAgentStartups().find((startup) => startup.id === contentStartupId) || contentAgentStartups()[0];
+  if (!selected) return;
+  contentStartupId = selected.id;
+  const facts = contentReportFacts(selected.id);
+  contentLoading = true;
+  render();
+  let synthesis = "";
+  if (backendStatus.includes("conectado")) {
+    try {
+      const prompt = `Produza APENAS uma síntese breve para um relatório de mentoria da startup ${selected.name}, período ${contentPeriod === "all" ? "todo o histórico" : `últimos ${contentPeriod} dias`}. Use somente registros deste período. Considere ${facts.sessions.length} sessões, ${facts.tasks.length} tarefas e ${facts.evaluations.length} avaliações completas. Não invente fatos, fontes, métricas ou resultados; declare lacunas. Não inclua título nem diga que salvou algo.`;
+      synthesis = await requestMentorAiResponse(prompt, selected.id);
+    } catch (error) {
+      notifyUser(`Rascunho criado sem síntese de IA: ${friendlyAiErrorMessage(error)}`, "warning");
+    }
+  } else {
+    notifyUser("Rascunho criado sem síntese de IA: conecte ao Supabase para incluir a interpretação.", "info");
+  }
+  contentDraft = contentReportMarkdown(facts, synthesis);
+  contentLoading = false;
+  render();
+}
+
+function updateContentDraft(value) {
+  contentDraft = value;
+}
+
+function downloadContentReport() {
+  if (!contentDraft.trim()) return;
+  const blob = new Blob([contentDraft], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `relatorio-mentoria-${String(contentStartupId || "startup").replaceAll(/[^a-z0-9_-]/gi, "-")}.md`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function setProgramDashboardTab(tab) {
   activeProgramDashboardTab = tab;
   render();
 }
 
 function openAiAgent(agentId) {
-  if (agentId !== "mentor" && agentId !== "data") {
+  if (agentId !== "mentor" && agentId !== "data" && agentId !== "content") {
     notifyUser("Este agente entra em uma próxima etapa. Começamos pelo Mentor IA.", "info");
     return;
   }
   activeAiAgent = agentId;
+  if (agentId === "content" && !contentAgentStartups().some((startup) => startup.id === contentStartupId)) {
+    contentStartupId = contentAgentStartups()[0]?.id || null;
+  }
   render();
 }
 
@@ -6886,6 +7032,7 @@ Object.assign(window, {
   changeMentorshipTaskStatus,
   clearMentorshipTaskDrafts,
   closeAiAgent,
+  downloadContentReport,
   closeMentorshipEditors,
   closeUserEditor,
   connectGoogleCalendar,
@@ -6903,6 +7050,7 @@ Object.assign(window, {
   fillGeneratedPassword,
   generateMentorshipBriefing,
   generateMentorshipTasks,
+  generateContentReport,
   go,
   handleProgramSessionSearch,
   handleTopbarSearch,
@@ -6921,6 +7069,8 @@ Object.assign(window, {
   saveDraft,
   saveMentorshipTaskDraft,
   selectDashboardProgram,
+  selectContentPeriod,
+  selectContentStartup,
   selectStartup,
   setDraftScore,
   setJourney,
@@ -6933,6 +7083,7 @@ Object.assign(window, {
   shiftMentorCalendarWeek,
   submitMentorshipSessionFeedback,
   submitMentorAiQuestion,
+  updateContentDraft,
   submitPublicApplication,
   toggleMentorshipSession,
   toggleMentorAiExpanded,

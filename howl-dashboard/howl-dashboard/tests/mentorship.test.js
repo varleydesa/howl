@@ -129,6 +129,12 @@ const result = vm.runInContext(
     const adminCreateSessionHtml = document.getElementById("app").innerHTML;
     closeMentorshipEditors();
     const adminLinks = mentorshipLinksVisibleToUser().map((link) => link.id);
+    openAiAgent("content");
+    const contentAgentHtml = document.getElementById("app").innerHTML;
+    const reportFacts = contentReportFacts("agrosense", "30", new Date("2026-09-17T12:00:00.000Z"));
+    const reportText = contentReportMarkdown(reportFacts);
+    const oldReportFacts = contentReportFacts("agrosense", "30", new Date("2026-11-17T12:00:00.000Z"));
+    closeAiAgent();
     mentorshipBriefingDrafts["session-alpha"] = "Situação atual: revisar pricing antes da sessão.";
     openMentorshipSessionEditor("session-alpha");
     const adminSessionEditorHtml = document.getElementById("app").innerHTML;
@@ -184,6 +190,7 @@ const result = vm.runInContext(
     closeMentorshipEditors();
     const mentorLinks = mentorshipLinksVisibleToUser().map((link) => link.id);
     const mentorSessions = mentorshipSessionsVisibleToUser().map((session) => session.id);
+    const mentorReportStartups = contentAgentStartups().map((startup) => startup.id);
     const mentorDataSnapshot = dataAiSnapshot();
 
     activeUserId = "empreendedor-demo";
@@ -196,6 +203,7 @@ const result = vm.runInContext(
     const founderExpandedSessionHtml = document.getElementById("app").innerHTML;
     const founderLinks = mentorshipLinksVisibleToUser().map((link) => link.id);
     const founderTasks = mentorshipTasksVisibleToUser().map((task) => task.id);
+    const founderReportStartups = contentAgentStartups().map((startup) => startup.id);
     const founderDataSnapshot = dataAiSnapshot();
     const missingMentorLabel = mentorName("mentor-ausente");
 
@@ -204,6 +212,10 @@ const result = vm.runInContext(
       adminExpandedSessionHtml,
       adminCreateSessionHtml,
       adminLinks,
+      contentAgentHtml,
+      reportText,
+      reportSessionCount: reportFacts.sessions.length,
+      oldReportSessionCount: oldReportFacts.sessions.length,
       adminSessionEditorHtml,
       adminSessionRecordHtml,
       adminTaskDraftHtml,
@@ -221,11 +233,13 @@ const result = vm.runInContext(
       mentorCreateSessionHtml,
       mentorLinks,
       mentorSessions,
+      mentorReportStartups,
       mentorDataSnapshot,
       founderHtml,
       founderExpandedSessionHtml,
       founderLinks,
       founderTasks,
+      founderReportStartups,
       founderDataSnapshot,
       missingMentorLabel
     });
@@ -234,6 +248,15 @@ const result = vm.runInContext(
 );
 
 assert(result.adminHtml.includes("Mentores, vínculos e mentorias"));
+assert(result.contentAgentHtml.includes("Relatório de mentoria"));
+assert(result.contentAgentHtml.includes("Gerar rascunho"));
+assert(result.contentAgentHtml.includes("Startup Alpha"));
+assert.strictEqual(result.reportSessionCount, 1);
+assert.strictEqual(result.oldReportSessionCount, 0);
+assert(result.reportText.includes("Validação de pricing"));
+assert(result.reportText.includes("Modelo por hectare priorizado"));
+assert(result.reportText.includes("Referência: sessão session-alpha"));
+assert(!result.reportText.includes("Funil comercial"));
 assert(result.adminHtml.includes("Agenda"));
 assert(result.adminHtml.includes("Portfólio"));
 assert(result.adminHtml.includes("Plano de Ação"));
@@ -286,7 +309,7 @@ assert(result.adminTaskEditorHtml.includes("Sessão de origem"));
 assert(result.adminTaskEditorHtml.includes("Validação de pricing"));
 assert(result.mentorAiHtml.includes("Conversa contextual"));
 assert(result.mentorAiHtml.includes("Pergunte sobre foco da próxima mentoria"));
-assert(result.mentorAiHtml.includes("2 disponíveis"));
+assert(result.mentorAiHtml.includes("3 disponíveis"));
 assert(result.mentorAiHtml.includes("Analisador de Estratégia"));
 assert(result.mentorAiHtml.includes("Em breve"));
 assert(result.dataAiHtml.includes("Análise dos indicadores"));
@@ -318,6 +341,7 @@ assert(result.mentorCreateSessionHtml.includes("Criar evento com Google Meet"));
 assert(result.mentorCreateSessionHtml.includes("modal-card"));
 assert.deepStrictEqual(Array.from(result.mentorLinks), ["link-alpha"]);
 assert.deepStrictEqual(Array.from(result.mentorSessions), ["session-alpha"]);
+assert.deepStrictEqual(Array.from(result.mentorReportStartups), ["agrosense"]);
 
 assert(result.founderHtml.includes("Minha mentoria"));
 assert(result.founderHtml.includes("Avaliador Demo 1"));
@@ -328,6 +352,7 @@ assert(result.founderExpandedSessionHtml.includes("Avaliação da sessão"));
 assert(result.founderExpandedSessionHtml.includes("Atualizar avaliação"));
 assert.deepStrictEqual(Array.from(result.founderLinks), ["link-alpha"]);
 assert.deepStrictEqual(Array.from(result.founderTasks), ["task-alpha"]);
+assert.deepStrictEqual(Array.from(result.founderReportStartups), ["agrosense"]);
 assert.strictEqual(result.missingMentorLabel, "Mentor não identificado");
 assert.strictEqual(
   vm.runInContext(`averageSessionEvaluation(mentorshipSessionsVisibleToUser())`, context),

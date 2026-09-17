@@ -1124,6 +1124,68 @@ button {
   line-height: 1.25;
 }
 
+.content-agent-card {
+  width: min(900px, 100%);
+}
+
+.content-agent-head,
+.content-agent-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.content-agent-head h2 {
+  margin: 4px 0 0;
+  color: var(--navy);
+  font-size: 22px;
+}
+
+.content-agent-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.content-agent-filters label,
+.content-agent-editor {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.content-agent-filters select {
+  width: 100%;
+}
+
+.content-agent-actions {
+  justify-content: flex-start;
+}
+
+.content-agent-editor textarea {
+  width: 100%;
+  min-height: min(52vh, 480px);
+  resize: vertical;
+  color: var(--ink);
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.content-agent-empty {
+  margin: 0;
+  color: var(--muted);
+}
+
+@media (max-width: 560px) {
+  .content-agent-filters {
+    grid-template-columns: 1fr;
+  }
+}
+
 .mentor-ai-message {
   display: grid;
   gap: 4px;
