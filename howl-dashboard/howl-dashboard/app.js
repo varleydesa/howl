@@ -4853,7 +4853,7 @@ function renderAssessment() {
   return `
     <section class="page">
       <div class="section-title"><h1>${isManager() ? "Respostas em detalhe" : "Responder perguntas HOWL"}</h1><p>${roleInstruction}</p></div>
-      <div class="card pad" style="margin-top:18px">
+      <div class="card pad assessment-toolbar">
         <div class="form-grid">
           <div class="field"><label>Startup</label><select onchange="selectStartup(this.value)">${accessibleStartups().map((s) => `<option value="${s.id}" ${s.id === selectedStartupId ? "selected" : ""}>${s.name}</option>`).join("")}</select></div>
           <div class="field"><label>Mês</label><select onchange="selectedMonthIndex=Number(this.value)">${months.map((m, i) => `<option value="${i}" ${i === selectedMonthIndex ? "selected" : ""}>${m.label}</option>`).join("")}</select></div>
@@ -4861,8 +4861,11 @@ function renderAssessment() {
           <div class="field"><label>Ações</label>${actionHtml}</div>
         </div>
       </div>
-      <div class="badge ${result.hasResponses ? "green" : "amber"}" style="margin-top:12px">${escapeHtml(result.waitingLabel)}</div>
-      <div class="tabs">${JOURNEYS.map((j) => `<button class="${j.id === activeJourney ? "active" : ""}" onclick="setJourney('${j.id}')">${j.name}</button>`).join("")}</div>
+      <div class="assessment-progress" aria-live="polite">
+        <span class="badge ${result.hasResponses ? "green" : "amber"}">${escapeHtml(result.waitingLabel)}</span>
+        ${!isManager() ? `<span>${answeredCount} de ${totalQuestions} perguntas respondidas pela sua função</span>` : ""}
+      </div>
+      <div class="tabs assessment-tabs" role="tablist" aria-label="Jornadas da avaliação">${JOURNEYS.map((j) => `<button type="button" role="tab" aria-selected="${j.id === activeJourney}" class="${j.id === activeJourney ? "active" : ""}" onclick="setJourney('${j.id}')">${j.name}</button>`).join("")}</div>
       <div class="card pad assessment-intro">
         <div>
           <span class="metric-label">Perguntas da jornada</span>
@@ -4889,17 +4892,22 @@ function renderAssessment() {
               ? calculateQuestionScore(answer.entrepreneurScore, answer.consultantScore)
               : null;
             const gap = hasBothScores ? calculateQuestionGap(answer.entrepreneurScore, answer.consultantScore) : null;
-            return `<article class="question-card">
+            const waitingLabel = answer.entrepreneurScore === null && answer.consultantScore === null
+              ? "Aguardando ambos"
+              : answer.entrepreneurScore === null
+                ? "Aguardando empreendedor"
+                : "Aguardando avaliador";
+            return `<article class="question-card ${hasBothScores ? "is-complete" : "is-pending"}" aria-labelledby="question-${activeJourney}-${index}">
               <div class="question-head">
-                <div class="row"><span class="question-number">${index + 1}</span><strong>${q}</strong></div>
-                <span class="badge ${hasBothScores ? statusColor(classifyGap(gap)) : "gray"}">${hasBothScores ? `Gap ${fmt(gap)}` : answer.entrepreneurScore === null && answer.consultantScore === null ? "Aguardando ambos" : answer.entrepreneurScore === null ? "Aguardando empreendedor" : "Aguardando avaliador"}</span>
+                <div class="question-title"><span class="question-number">${index + 1}</span><strong id="question-${activeJourney}-${index}">${escapeHtml(q)}</strong></div>
+                <span class="badge ${hasBothScores ? statusColor(classifyGap(gap)) : "gray"}">${hasBothScores ? `Gap ${fmt(gap)}` : waitingLabel}</span>
               </div>
               <div class="choice-grid">
-                <div class="field">
+                <div class="field assessment-answer ${canEditScoreField("entrepreneurScore") ? "is-editable" : "is-readonly"}">
                   <label>Resposta do empreendedor ${activeUser().role === "empreendedor" ? "• editável" : ""}</label>
                   ${scoreChoices("entrepreneurScore", activeJourney, index, answer.entrepreneurScore)}
                 </div>
-                <div class="field">
+                <div class="field assessment-answer ${canEditScoreField("consultantScore") ? "is-editable" : "is-readonly"}">
                   <label>Resposta do consultor ${isEvaluator() ? "• editável" : ""}</label>
                   ${scoreChoices("consultantScore", activeJourney, index, answer.consultantScore)}
                 </div>
@@ -4910,8 +4918,8 @@ function renderAssessment() {
                 <div class="bar"><span style="width:${hasBothScores ? Math.min(100, Math.abs(gap) * 30) : 0}%;background:${hasBothScores && Math.abs(gap) > 1.5 ? "var(--amber)" : "var(--green)"}"></span></div>
               </div>
               <div class="score-inputs">
-                <div class="field" style="grid-column:span 2"><label>Comentário empreendedor</label><textarea placeholder="Comentário opcional" ${canEditScoreField("entrepreneurScore") ? `oninput="updateDraftComment('${activeJourney}', ${index}, 'entrepreneurComment', this.value)"` : "readonly"}>${answer.entrepreneurComment}</textarea></div>
-                <div class="field" style="grid-column:span 2"><label>Comentário consultor</label><textarea placeholder="Comentário opcional" ${canEditScoreField("consultantScore") ? `oninput="updateDraftComment('${activeJourney}', ${index}, 'consultantComment', this.value)"` : "readonly"}>${answer.consultantComment}</textarea></div>
+                <div class="field assessment-comment"><label>Comentário empreendedor <span>${canEditScoreField("entrepreneurScore") ? "Editável" : "Somente leitura"}</span></label><textarea placeholder="Comentário opcional" ${canEditScoreField("entrepreneurScore") ? `oninput="updateDraftComment('${activeJourney}', ${index}, 'entrepreneurComment', this.value)"` : "readonly"}>${escapeHtml(answer.entrepreneurComment)}</textarea></div>
+                <div class="field assessment-comment"><label>Comentário consultor <span>${canEditScoreField("consultantScore") ? "Editável" : "Somente leitura"}</span></label><textarea placeholder="Comentário opcional" ${canEditScoreField("consultantScore") ? `oninput="updateDraftComment('${activeJourney}', ${index}, 'consultantComment', this.value)"` : "readonly"}>${escapeHtml(answer.consultantComment)}</textarea></div>
               </div>
             </article>`;
           })
@@ -4946,11 +4954,11 @@ function getDraftAnswer(journeyId, questionIndex) {
 
 function scoreChoices(field, journeyId, questionIndex, selectedValue) {
   const locked = !canEditScoreField(field);
-  return `<div class="choice-scale ${selectedValue === null ? "empty" : ""}" style="--selected-index:${selectedValue ?? 0}">
+  return `<div class="choice-scale ${selectedValue === null ? "empty" : ""} ${locked ? "is-locked" : ""}" style="--selected-index:${selectedValue ?? 0}" role="group" aria-label="Escala de 0 a 5">
     <div class="choice-arrow" aria-hidden="true"></div>
     <div class="choice-row">${SCORE_OPTIONS.map(
     (option) =>
-      `<button class="choice ${selectedValue === option.value ? "active" : ""}" ${locked ? "disabled" : ""} aria-label="Nota ${option.value}" title="${locked ? "Bloqueado para este perfil" : `Nota ${option.value}`}" ${locked ? "" : `onclick="setDraftScore('${journeyId}', ${questionIndex}, '${field}', ${option.value})"`}>${option.value}</button>`
+      `<button type="button" class="choice ${selectedValue === option.value ? "active" : ""}" ${locked ? "disabled" : ""} aria-pressed="${selectedValue === option.value}" aria-label="Nota ${option.value}: ${escapeHtml(option.label)}" title="${locked ? "Somente leitura para este perfil" : `Nota ${option.value}: ${option.label}`}" ${locked ? "" : `onclick="setDraftScore('${journeyId}', ${questionIndex}, '${field}', ${option.value})"`}>${option.value}</button>`
   ).join("")}</div>
   </div>`;
 }
