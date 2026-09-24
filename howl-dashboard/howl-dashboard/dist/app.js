@@ -2778,7 +2778,7 @@ function mentorDashboardTabs(context) {
     ["analytics", "▥", "Analytics", context.latestLinked.filter((result) => result?.hasResponses).length],
   ];
   return `<div class="tabs mentor-dashboard-tabs" role="tablist" aria-label="Áreas do dashboard do mentor">
-    ${tabs.map(([id, icon, label, count]) => `<button type="button" class="${activeMentorDashboardTab === id ? "active" : ""}" onclick="setMentorDashboardTab('${id}')" aria-selected="${activeMentorDashboardTab === id}">
+    ${tabs.map(([id, icon, label, count]) => `<button type="button" role="tab" class="${activeMentorDashboardTab === id ? "active" : ""}" onclick="setMentorDashboardTab('${id}')" aria-selected="${activeMentorDashboardTab === id}">
       <span aria-hidden="true">${icon}</span>
       <strong>${label}</strong>
       <small>${count}</small>
@@ -3207,7 +3207,7 @@ function programDashboardTabs(activeTab, context) {
     ["memory", "✧", "Memória", "IA"],
   ];
   return `<div class="tabs program-tabs" role="tablist" aria-label="Áreas do dashboard do programa">
-    ${tabs.map(([id, icon, label, count]) => `<button type="button" class="${activeTab === id ? "active" : ""}" onclick="setProgramDashboardTab('${id}')" aria-selected="${activeTab === id}">
+    ${tabs.map(([id, icon, label, count]) => `<button type="button" role="tab" class="${activeTab === id ? "active" : ""}" onclick="setProgramDashboardTab('${id}')" aria-selected="${activeTab === id}">
       <span aria-hidden="true">${icon}</span>${label}<small>${count}</small>
     </button>`).join("")}
   </div>`;
@@ -3653,10 +3653,10 @@ function contentAgentStartups() {
 function contentAgentPanel() {
   const visible = contentAgentStartups();
   const selected = visible.find((startup) => startup.id === contentStartupId) || visible[0];
-  return `<section class="modal-backdrop content-agent-backdrop" aria-label="Gerador de Conteúdo">
-    <div class="modal-card content-agent-card">
+  return `<section class="modal-backdrop content-agent-backdrop" role="presentation">
+    <div class="modal-card content-agent-card" role="dialog" aria-modal="true" aria-labelledby="content-agent-title">
       <div class="content-agent-head">
-        <div><span class="metric-label">Gerador de Conteúdo</span><h2>Relatório de mentoria</h2></div>
+        <div><span class="metric-label">Gerador de Conteúdo</span><h2 id="content-agent-title">Relatório de mentoria</h2></div>
         <button class="btn ghost" type="button" onclick="closeAiAgent()">Fechar</button>
       </div>
       <div class="content-agent-filters">
@@ -3830,10 +3830,10 @@ function strategyAgentPanel() {
   const visible = strategyAgentStartups();
   const selected = visible.find((startup) => startup.id === strategyStartupId) || visible[0];
   const facts = selected ? strategyFacts(selected.id) : null;
-  return `<section class="modal-backdrop strategy-agent-backdrop" aria-label="Analisador de Estratégia">
-    <div class="modal-card strategy-agent-card">
+  return `<section class="modal-backdrop strategy-agent-backdrop" role="presentation">
+    <div class="modal-card strategy-agent-card" role="dialog" aria-modal="true" aria-labelledby="strategy-agent-title">
       <div class="content-agent-head">
-        <div><span class="metric-label">Analisador de Estratégia</span><h2>Diagnóstico estratégico</h2></div>
+        <div><span class="metric-label">Analisador de Estratégia</span><h2 id="strategy-agent-title">Diagnóstico estratégico</h2></div>
         <button class="btn ghost" type="button" onclick="closeAiAgent()">Fechar</button>
       </div>
       <div class="strategy-agent-filters">
@@ -4164,7 +4164,7 @@ function mentorshipTabs(activeTab, counts) {
     ["process", "Processo", "IA"],
   ];
   return `<div class="tabs mentorship-tabs" role="tablist" aria-label="Áreas de mentoria">
-    ${tabs.map(([id, label, count]) => `<button type="button" class="${activeTab === id ? "active" : ""}" onclick="setMentorshipTab('${id}')" aria-selected="${activeTab === id}">
+    ${tabs.map(([id, label, count]) => `<button type="button" role="tab" class="${activeTab === id ? "active" : ""}" onclick="setMentorshipTab('${id}')" aria-selected="${activeTab === id}">
       <span>${label}</span>
       <small>${count}</small>
     </button>`).join("")}
@@ -7182,6 +7182,21 @@ async function initializeApp() {
     backendStatus = "Falha ao conectar ao Supabase";
   }
   render();
+}
+
+function handleGlobalKeydown(event) {
+  if (event.key !== "Escape") return;
+  if (activeAiAgent) {
+    closeAiAgent();
+    return;
+  }
+  if (creatingMentorshipSession || recordingMentorshipSessionId) {
+    closeMentorshipEditors();
+  }
+}
+
+if (typeof document.addEventListener === "function") {
+  document.addEventListener("keydown", handleGlobalKeydown);
 }
 
 Object.assign(window, {

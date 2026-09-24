@@ -134,7 +134,8 @@ const result = vm.runInContext(
     const reportFacts = contentReportFacts("agrosense", "30", new Date("2026-09-17T12:00:00.000Z"));
     const reportText = contentReportMarkdown(reportFacts);
     const oldReportFacts = contentReportFacts("agrosense", "30", new Date("2026-11-17T12:00:00.000Z"));
-    closeAiAgent();
+    handleGlobalKeydown({ key: "Escape" });
+    const contentClosedWithEscape = activeAiAgent === null;
     mentorshipBriefingDrafts["session-alpha"] = "Situação atual: revisar pricing antes da sessão.";
     openMentorshipSessionEditor("session-alpha");
     const adminSessionEditorHtml = document.getElementById("app").innerHTML;
@@ -225,6 +226,7 @@ const result = vm.runInContext(
       adminCreateSessionHtml,
       adminLinks,
       contentAgentHtml,
+      contentClosedWithEscape,
       reportText,
       reportSessionCount: reportFacts.sessions.length,
       oldReportSessionCount: oldReportFacts.sessions.length,
@@ -270,6 +272,9 @@ const result = vm.runInContext(
 
 assert(result.adminHtml.includes("Mentores, vínculos e mentorias"));
 assert(result.contentAgentHtml.includes("Relatório de mentoria"));
+assert(result.contentAgentHtml.includes('role="dialog"'));
+assert(result.contentAgentHtml.includes('aria-modal="true"'));
+assert.strictEqual(result.contentClosedWithEscape, true);
 assert(result.contentAgentHtml.includes("Gerar rascunho"));
 assert(result.contentAgentHtml.includes("Startup Alpha"));
 assert.strictEqual(result.reportSessionCount, 1);
@@ -281,6 +286,7 @@ assert(!result.reportText.includes("Funil comercial"));
 assert(result.adminHtml.includes("Agenda"));
 assert(result.adminHtml.includes("Portfólio"));
 assert(result.adminHtml.includes("Plano de Ação"));
+assert(result.adminHtml.includes('role="tab"'));
 assert(result.adminPortfolioHtml.includes("Vincular mentor a startup"));
 assert(result.adminHtml.includes("+ Agendar"));
 assert(!result.adminHtml.includes("Nova sessão"));
@@ -334,6 +340,8 @@ assert(result.mentorAiHtml.includes("4 disponíveis"));
 assert(result.mentorAiHtml.includes("Analisador de Estratégia"));
 assert(result.mentorAiHtml.includes("Em breve"));
 assert(result.strategyAgentHtml.includes("Diagnóstico estratégico"));
+assert(result.strategyAgentHtml.includes('role="dialog"'));
+assert(result.strategyAgentHtml.includes('aria-labelledby="strategy-agent-title"'));
 assert(result.strategyAgentHtml.includes("Base factual"));
 assert(result.strategyAgentHtml.includes("Produto e proposta de valor"));
 assert(result.strategyAgentHtml.includes("Gerar análise"));

@@ -299,7 +299,7 @@ body {
     Montserrat, "Century Gothic", "Avenir Next", Avenir, ui-sans-serif, system-ui,
     -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 button,
@@ -311,6 +311,29 @@ textarea {
 
 button {
   cursor: pointer;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid rgba(216, 166, 58, 0.48);
+  outline-offset: 2px;
+}
+
+.topbar-search:focus-within {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(216, 166, 58, 0.14);
 }
 
 .shell {
@@ -565,6 +588,7 @@ button {
   justify-content: flex-end;
   gap: 12px;
   align-items: center;
+  min-width: 0;
 }
 
 .topbar-action,
@@ -854,6 +878,12 @@ button {
   border-radius: 8px;
   background: var(--panel);
   padding: 0 12px;
+}
+
+.program-session-search:focus-within,
+.program-filter-select:focus-within {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(216, 166, 58, 0.14);
 }
 
 .program-session-search span,
@@ -2022,6 +2052,7 @@ button {
 }
 
 .card {
+  min-width: 0;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -2079,7 +2110,8 @@ label {
   border-radius: 8px;
   padding: 10px 13px;
   font-weight: 760;
-  min-height: 40px;
+  min-height: 44px;
+  overflow-wrap: anywhere;
 }
 
 .btn.primary {
@@ -2095,7 +2127,7 @@ label {
 }
 
 .btn.icon {
-  width: 40px;
+  width: 44px;
   padding: 0;
 }
 
@@ -2142,6 +2174,7 @@ label {
   font-weight: 800;
   border: 1px solid transparent;
   white-space: nowrap;
+  max-width: 100%;
 }
 
 .badge.green {
@@ -2592,6 +2625,7 @@ textarea {
   padding: 2px 7px;
   background: var(--paper);
   color: var(--muted);
+  min-height: 44px;
   font-size: 11px;
   font-weight: 850;
   text-align: center;
@@ -2658,6 +2692,7 @@ textarea {
   background: var(--panel);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
   padding: 20px;
+  overscroll-behavior: contain;
 }
 
 .modal-actions,
@@ -2696,6 +2731,7 @@ textarea {
   border-radius: 8px;
   background: var(--item);
   padding: 14px;
+  min-width: 0;
 }
 
 .mentor-card-head {
@@ -2713,9 +2749,9 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 34px;
-  width: 34px;
-  height: 34px;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--inset);
@@ -2752,6 +2788,7 @@ textarea {
   color: var(--navy);
   font-size: 18px;
   line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .mentorship-meta {
@@ -2803,6 +2840,7 @@ textarea {
 .mentorship-note-text {
   display: block;
   white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
 .mentorship-cycle-status {
@@ -3074,6 +3112,7 @@ textarea {
 
 .task-card {
   background: var(--panel);
+  overflow-wrap: anywhere;
 }
 
 .task-detail-grid {
@@ -3518,7 +3557,7 @@ textarea {
 .report-narrative p {
   margin: 0 0 14px;
   max-width: 980px;
-  color: #373229;
+  color: var(--ink);
   line-height: 1.65;
 }
 
@@ -3586,6 +3625,7 @@ textarea {
 
   .topbar-actions {
     justify-self: end;
+    flex-wrap: wrap;
   }
 
   .hero,
@@ -3662,6 +3702,17 @@ textarea {
   .application-actions {
     grid-template-columns: 1fr;
   }
+
+  .strategy-evidence-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .content-agent-filters,
+  .strategy-agent-filters {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -3676,9 +3727,16 @@ textarea {
     gap: 12px;
   }
 
-  .topbar-brand,
-  .topbar-actions {
+  .topbar-brand {
     justify-content: space-between;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    justify-content: stretch;
   }
 
   .topbar-brand strong {
@@ -3690,12 +3748,26 @@ textarea {
   }
 
   .topbar-action {
-    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    padding-left: 5px;
+    padding-right: 5px;
     justify-content: center;
+    font-size: 12px;
   }
 
   .topbar-icon {
-    flex: 0 0 40px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .topbar-logout {
+    width: 100%;
+    min-width: 0;
+    padding-left: 5px;
+    padding-right: 5px;
+    justify-content: center;
+    font-size: 12px;
   }
 
   .app-notice {
@@ -3704,6 +3776,16 @@ textarea {
     left: 12px;
     width: auto;
     grid-template-columns: 30px minmax(0, 1fr) 30px;
+  }
+
+  .modal-backdrop {
+    align-items: stretch;
+    padding: 8px;
+  }
+
+  .modal-card {
+    max-height: calc(100dvh - 16px);
+    padding: 16px;
   }
 
   .nav {
@@ -3966,6 +4048,10 @@ textarea {
 
   .mentorship-cycle-status {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .strategy-evidence-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .choice-row {
