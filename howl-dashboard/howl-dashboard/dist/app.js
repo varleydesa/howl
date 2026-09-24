@@ -1715,20 +1715,9 @@ async function requestMentorshipTasks(sessionId) {
   return data;
 }
 
-async function requestMentorAiResponse(message, startupIdOverride = null) {
-  const client = requireSupabase();
-  const startupId = selectedStartupId || (activeUser()?.startupIds || [])[0] || null;
-  const { data, error } = await client.functions.invoke("mentor-ai-chat", {
-    body: {
-      message,
-      route: activeRoute,
-      startupId: startupIdOverride || startupId,
-      programId: selectedDashboardProgramId !== "all" ? selectedDashboardProgramId : activeUser()?.programId || null,
-    },
-  });
-
+async function aiFunctionErrorMessage(error) {
+  let responseMessage = error?.message;
   if (error) {
-    let responseMessage = error.message;
     try {
       if (error.context instanceof Response) {
         const details = await error.context.clone().json();
@@ -1737,16 +1726,51 @@ async function requestMentorAiResponse(message, startupIdOverride = null) {
     } catch {
       // Mantém a mensagem original do Supabase.
     }
-    throw new Error(responseMessage || "Não foi possível conversar com o Mentor IA.");
   }
-  if (data?.error) {
-    throw new Error(data.message || data.error);
+  return responseMessage || "Não foi possível conversar com o Mentor IA.";
+}
+
+function isTransientAiError(error) {
+  const message = normalizeText(error?.message || error);
+  return ["high demand", "spikes in demand", "overloaded", "temporariamente indisponivel", "temporarily unavailable", "try again later", "resource_exhausted", "rate limit", "too many requests", "unavailable"].some((term) => message.includes(term));
+}
+
+async function requestMentorAiResponse(message, startupIdOverride = null) {
+  const client = requireSupabase();
+  const startupId = selectedStartupId || (activeUser()?.startupIds || [])[0] || null;
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { data, error } = await client.functions.invoke("mentor-ai-chat", {
+      body: {
+        message,
+        route: activeRoute,
+        startupId: startupIdOverride || startupId,
+        programId: selectedDashboardProgramId !== "all" ? selectedDashboardProgramId : activeUser()?.programId || null,
+      },
+    });
+    if (error) {
+      lastError = new Error(await aiFunctionErrorMessage(error));
+      if (attempt === 0 && isTransientAiError(lastError)) {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        continue;
+      }
+      throw lastError;
+    }
+    if (data?.error) {
+      lastError = new Error(data.message || data.error);
+      if (attempt === 0 && isTransientAiError(lastError)) {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        continue;
+      }
+      throw lastError;
+    }
+    const answer = String(data?.answer || "").trim();
+    if (!answer) {
+      throw new Error("O Mentor IA não retornou uma resposta utilizável.");
+    }
+    return answer;
   }
-  const answer = String(data?.answer || "").trim();
-  if (!answer) {
-    throw new Error("O Mentor IA não retornou uma resposta utilizável.");
-  }
-  return answer;
+  throw lastError || new Error("Não foi possível conversar com o Mentor IA.");
 }
 
 async function requestMentorshipCalendarEvent(sessionId) {

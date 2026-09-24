@@ -181,6 +181,9 @@ const result = vm.runInContext(
     activeRoute = "mentorship";
     const highDemandMessage = friendlyAiErrorMessage(new Error("This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."));
     const creditsMessage = friendlyAiErrorMessage(new Error("You have no credits remaining. Add credits to continue using the API at https://platform.openai.com/settings/organization/billing/."));
+    const transientDemand = isTransientAiError(new Error("This model is currently experiencing high demand."));
+    const transientPortuguese = isTransientAiError(new Error("Serviço temporariamente indisponível."));
+    const permanentCredits = isTransientAiError(new Error("You have no credits remaining."));
 
     activeUserId = "avaliador-demo-1";
     activeRoute = "mentorship";
@@ -241,6 +244,9 @@ const result = vm.runInContext(
       strategyOpenTaskCount: strategySnapshot.openTasks.length,
       highDemandMessage,
       creditsMessage,
+      transientDemand,
+      transientPortuguese,
+      permanentCredits,
       mentorHtml,
       mentorExpandedSessionHtml,
       mentorCreateSessionHtml,
@@ -352,6 +358,9 @@ assert(result.mentorAiReopenedHtml.includes("Expandir"));
 assert(!result.mentorAiReopenedHtml.includes("mentor-ai-chat expanded"));
 assert.strictEqual(result.highDemandMessage, "O Mentor IA está temporariamente indisponível por alta demanda. Tente novamente em alguns instantes.");
 assert.strictEqual(result.creditsMessage, "O Mentor IA não conseguiu responder porque a conta de IA está sem créditos ou limite disponível. Verifique a cobrança/chave da API.");
+assert.strictEqual(result.transientDemand, true);
+assert.strictEqual(result.transientPortuguese, true);
+assert.strictEqual(result.permanentCredits, false);
 assert.deepStrictEqual(Array.from(result.adminLinks).sort(), ["link-alpha", "link-beta"]);
 
 assert(result.mentorHtml.includes("Dashboard de mentoria"));
