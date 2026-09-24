@@ -171,6 +171,10 @@ const result = vm.runInContext(
     const dataAiHtml = document.getElementById("app").innerHTML;
     const adminDataSnapshot = dataAiSnapshot();
     closeAiAgent();
+    openAiAgent("strategy");
+    const strategyAgentHtml = document.getElementById("app").innerHTML;
+    const strategySnapshot = strategyFacts("agrosense", "30", new Date("2026-09-17T12:00:00.000Z"));
+    closeAiAgent();
     activeRoute = "mentorship";
     const highDemandMessage = friendlyAiErrorMessage(new Error("This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."));
     const creditsMessage = friendlyAiErrorMessage(new Error("You have no credits remaining. Add credits to continue using the API at https://platform.openai.com/settings/organization/billing/."));
@@ -191,6 +195,7 @@ const result = vm.runInContext(
     const mentorLinks = mentorshipLinksVisibleToUser().map((link) => link.id);
     const mentorSessions = mentorshipSessionsVisibleToUser().map((session) => session.id);
     const mentorReportStartups = contentAgentStartups().map((startup) => startup.id);
+    const mentorStrategyStartups = strategyAgentStartups().map((startup) => startup.id);
     const mentorDataSnapshot = dataAiSnapshot();
 
     activeUserId = "empreendedor-demo";
@@ -204,6 +209,7 @@ const result = vm.runInContext(
     const founderLinks = mentorshipLinksVisibleToUser().map((link) => link.id);
     const founderTasks = mentorshipTasksVisibleToUser().map((task) => task.id);
     const founderReportStartups = contentAgentStartups().map((startup) => startup.id);
+    const founderStrategyStartups = strategyAgentStartups().map((startup) => startup.id);
     const founderDataSnapshot = dataAiSnapshot();
     const missingMentorLabel = mentorName("mentor-ausente");
 
@@ -226,6 +232,9 @@ const result = vm.runInContext(
       mentorAiReopenedHtml,
       dataAiHtml,
       adminDataSnapshot,
+      strategyAgentHtml,
+      strategySessionCount: strategySnapshot.sessions.length,
+      strategyOpenTaskCount: strategySnapshot.openTasks.length,
       highDemandMessage,
       creditsMessage,
       mentorHtml,
@@ -234,12 +243,14 @@ const result = vm.runInContext(
       mentorLinks,
       mentorSessions,
       mentorReportStartups,
+      mentorStrategyStartups,
       mentorDataSnapshot,
       founderHtml,
       founderExpandedSessionHtml,
       founderLinks,
       founderTasks,
       founderReportStartups,
+      founderStrategyStartups,
       founderDataSnapshot,
       missingMentorLabel
     });
@@ -309,9 +320,16 @@ assert(result.adminTaskEditorHtml.includes("Sessão de origem"));
 assert(result.adminTaskEditorHtml.includes("Validação de pricing"));
 assert(result.mentorAiHtml.includes("Conversa contextual"));
 assert(result.mentorAiHtml.includes("Pergunte sobre foco da próxima mentoria"));
-assert(result.mentorAiHtml.includes("3 disponíveis"));
+assert(result.mentorAiHtml.includes("4 disponíveis"));
 assert(result.mentorAiHtml.includes("Analisador de Estratégia"));
 assert(result.mentorAiHtml.includes("Em breve"));
+assert(result.strategyAgentHtml.includes("Diagnóstico estratégico"));
+assert(result.strategyAgentHtml.includes("Base factual"));
+assert(result.strategyAgentHtml.includes("Produto e proposta de valor"));
+assert(result.strategyAgentHtml.includes("Gerar análise"));
+assert(result.strategyAgentHtml.includes("não realiza pesquisa de mercado externa"));
+assert.strictEqual(result.strategySessionCount, 1);
+assert.strictEqual(result.strategyOpenTaskCount, 1);
 assert(result.dataAiHtml.includes("Análise dos indicadores"));
 assert(result.dataAiHtml.includes("Avaliações completas"));
 assert(result.dataAiHtml.includes("Pergunte sobre avaliações"));
@@ -342,6 +360,7 @@ assert(result.mentorCreateSessionHtml.includes("modal-card"));
 assert.deepStrictEqual(Array.from(result.mentorLinks), ["link-alpha"]);
 assert.deepStrictEqual(Array.from(result.mentorSessions), ["session-alpha"]);
 assert.deepStrictEqual(Array.from(result.mentorReportStartups), ["agrosense"]);
+assert.deepStrictEqual(Array.from(result.mentorStrategyStartups), ["agrosense"]);
 
 assert(result.founderHtml.includes("Minha mentoria"));
 assert(result.founderHtml.includes("Avaliador Demo 1"));
@@ -353,6 +372,7 @@ assert(result.founderExpandedSessionHtml.includes("Atualizar avaliação"));
 assert.deepStrictEqual(Array.from(result.founderLinks), ["link-alpha"]);
 assert.deepStrictEqual(Array.from(result.founderTasks), ["task-alpha"]);
 assert.deepStrictEqual(Array.from(result.founderReportStartups), ["agrosense"]);
+assert.deepStrictEqual(Array.from(result.founderStrategyStartups), ["agrosense"]);
 assert.strictEqual(result.missingMentorLabel, "Mentor não identificado");
 assert.strictEqual(
   vm.runInContext(`averageSessionEvaluation(mentorshipSessionsVisibleToUser())`, context),

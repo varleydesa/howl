@@ -46,6 +46,11 @@ let contentStartupId = null;
 let contentPeriod = "90";
 let contentDraft = "";
 let contentLoading = false;
+let strategyStartupId = null;
+let strategyPeriod = "90";
+let strategyFocus = "general";
+let strategyAnalysis = "";
+let strategyLoading = false;
 let mentorAiLoading = false;
 let mentorAiExpanded = false;
 let googleCalendarConnecting = false;
@@ -2239,6 +2244,7 @@ function appShell(content) {
     </div>
     ${activeAiAgent === "mentor" || activeAiAgent === "data" ? mentorAiChatPanel() : ""}
     ${activeAiAgent === "content" ? contentAgentPanel() : ""}
+    ${activeAiAgent === "strategy" ? strategyAgentPanel() : ""}
   `;
 }
 
@@ -3526,7 +3532,7 @@ function programAiAgentsPanel() {
         <span class="metric-label">Agentes de IA</span>
         <h2>Agentes de IA</h2>
       </div>
-      <span class="badge green">3 disponíveis</span>
+      <span class="badge green">4 disponíveis</span>
     </div>
     <p>Converse, analise indicadores ou prepare relatórios com os dados registrados.</p>
     <div class="program-agent-list">
@@ -3534,7 +3540,7 @@ function programAiAgentsPanel() {
         <span class="${color}" aria-hidden="true">${icon}</span>
         <strong>${title}</strong>
         <small>${subtitle}</small>
-        <b>${id === "mentor" ? "Conversar" : id === "data" ? "Analisar" : id === "content" ? "Gerar relatório" : "Em breve"}</b>
+        <b>${id === "mentor" ? "Conversar" : id === "data" ? "Analisar" : id === "content" ? "Gerar relatório" : id === "strategy" ? "Analisar estratégia" : "Em breve"}</b>
       </button>`).join("")}
     </div>
   </aside>`;
@@ -3753,19 +3759,154 @@ function downloadContentReport() {
   URL.revokeObjectURL(url);
 }
 
+function strategyAgentStartups() {
+  return contentAgentStartups();
+}
+
+function strategyFocusLabel(value = strategyFocus) {
+  return ({ general: "Visão geral", product: "Produto e proposta de valor", sales: "Mercado e vendas", growth: "Crescimento e escala", funding: "Captação e investimento" })[value] || "Visão geral";
+}
+
+function strategyFacts(startupId, period = strategyPeriod, now = new Date()) {
+  const reportFacts = contentReportFacts(startupId, period, now);
+  if (!reportFacts) return null;
+  const completed = assessments.filter((result) => result.startupId === startupId && result.hasResponses);
+  const latest = completed.at(-1) || null;
+  const openTasks = reportFacts.tasks.filter((task) => task.status !== "done");
+  const overdueTasks = openTasks.filter((task) => task.dueDate && new Date(`${task.dueDate}T23:59:59`) < now);
+  const completedSessions = reportFacts.sessions.filter((session) => session.status === "completed");
+  return {
+    ...reportFacts,
+    latestAssessment: latest,
+    openTasks,
+    overdueTasks,
+    completedSessions,
+  };
+}
+
+function strategyEvidencePanel(facts) {
+  if (!facts) return "";
+  const latest = facts.latestAssessment;
+  const items = [
+    ["Score mais recente", latest ? Math.round(latest.howlScore) : "—"],
+    ["Ciclo avaliado", latest?.label || "Pendente"],
+    ["Sessões concluídas", facts.completedSessions.length],
+    ["Tarefas abertas", facts.openTasks.length],
+    ["Tarefas atrasadas", facts.overdueTasks.length],
+    ["Registros no período", facts.sessions.length + facts.tasks.length],
+  ];
+  return `<div class="strategy-evidence">
+    <div class="strategy-evidence-head"><strong>Base factual</strong><span>Dados visíveis ao seu perfil</span></div>
+    <div class="strategy-evidence-grid">${items.map(([label, value]) => `<div><strong>${value}</strong><span>${label}</span></div>`).join("")}</div>
+    ${latest ? `<p>Jornada mais forte: <strong>${escapeHtml(latest.strongestJourney?.name || "Não identificada")}</strong>. Principal fragilidade: <strong>${escapeHtml(latest.weakestJourney?.name || "Não identificada")}</strong>.</p>` : `<p>Não há avaliação completa. O agente deve tratar qualquer conclusão sobre maturidade como hipótese.</p>`}
+  </div>`;
+}
+
+function strategyAgentPanel() {
+  const visible = strategyAgentStartups();
+  const selected = visible.find((startup) => startup.id === strategyStartupId) || visible[0];
+  const facts = selected ? strategyFacts(selected.id) : null;
+  return `<section class="modal-backdrop strategy-agent-backdrop" aria-label="Analisador de Estratégia">
+    <div class="modal-card strategy-agent-card">
+      <div class="content-agent-head">
+        <div><span class="metric-label">Analisador de Estratégia</span><h2>Diagnóstico estratégico</h2></div>
+        <button class="btn ghost" type="button" onclick="closeAiAgent()">Fechar</button>
+      </div>
+      <div class="strategy-agent-filters">
+        <label>Startup<select onchange="selectStrategyStartup(this.value)" ${strategyLoading ? "disabled" : ""}>
+          ${visible.map((startup) => `<option value="${escapeHtml(startup.id)}" ${startup.id === selected?.id ? "selected" : ""}>${escapeHtml(startup.name)}</option>`).join("")}
+        </select></label>
+        <label>Horizonte<select onchange="selectStrategyPeriod(this.value)" ${strategyLoading ? "disabled" : ""}>
+          <option value="30" ${strategyPeriod === "30" ? "selected" : ""}>Últimos 30 dias</option>
+          <option value="90" ${strategyPeriod === "90" ? "selected" : ""}>Últimos 90 dias</option>
+          <option value="all" ${strategyPeriod === "all" ? "selected" : ""}>Todo o histórico</option>
+        </select></label>
+        <label>Foco<select onchange="selectStrategyFocus(this.value)" ${strategyLoading ? "disabled" : ""}>
+          <option value="general" ${strategyFocus === "general" ? "selected" : ""}>Visão geral</option>
+          <option value="product" ${strategyFocus === "product" ? "selected" : ""}>Produto e proposta de valor</option>
+          <option value="sales" ${strategyFocus === "sales" ? "selected" : ""}>Mercado e vendas</option>
+          <option value="growth" ${strategyFocus === "growth" ? "selected" : ""}>Crescimento e escala</option>
+          <option value="funding" ${strategyFocus === "funding" ? "selected" : ""}>Captação e investimento</option>
+        </select></label>
+      </div>
+      ${strategyEvidencePanel(facts)}
+      <div class="content-agent-actions">
+        <button class="btn primary" type="button" onclick="generateStrategyAnalysis()" ${!selected || strategyLoading ? "disabled" : ""}>${strategyLoading ? "Analisando..." : strategyAnalysis ? "Analisar novamente" : "Gerar análise"}</button>
+      </div>
+      ${!selected ? `<p>Nenhuma startup disponível para este perfil.</p>` : strategyAnalysis
+        ? `<article class="strategy-analysis"><span class="metric-label">Análise gerada</span><div>${formatAiMessageContent(strategyAnalysis)}</div><small>Interpretação para apoio à decisão. Valide hipóteses antes de executar.</small></article>`
+        : `<p class="content-agent-empty">A análise usará somente os registros da plataforma. Ela não realiza pesquisa de mercado externa nem substitui a decisão do mentor ou gestor.</p>`}
+    </div>
+  </section>`;
+}
+
+function selectStrategyStartup(startupId) {
+  if (!strategyAgentStartups().some((startup) => startup.id === startupId)) return;
+  strategyStartupId = startupId;
+  strategyAnalysis = "";
+  render();
+}
+
+function selectStrategyPeriod(period) {
+  if (!["30", "90", "all"].includes(period)) return;
+  strategyPeriod = period;
+  strategyAnalysis = "";
+  render();
+}
+
+function selectStrategyFocus(focus) {
+  if (!["general", "product", "sales", "growth", "funding"].includes(focus)) return;
+  strategyFocus = focus;
+  strategyAnalysis = "";
+  render();
+}
+
+async function generateStrategyAnalysis() {
+  if (strategyLoading) return;
+  const selected = strategyAgentStartups().find((startup) => startup.id === strategyStartupId) || strategyAgentStartups()[0];
+  if (!selected) return;
+  if (!backendStatus.includes("conectado")) {
+    notifyUser("Conecte ao Supabase para gerar a análise estratégica.", "warning");
+    return;
+  }
+  strategyStartupId = selected.id;
+  const facts = strategyFacts(selected.id);
+  strategyLoading = true;
+  render();
+  try {
+    const latest = facts.latestAssessment;
+    const prompt = [
+      `Atue como Analisador de Estratégia da startup ${selected.name}.`,
+      `Foco: ${strategyFocusLabel()}. Horizonte: ${strategyPeriod === "all" ? "todo histórico" : `${strategyPeriod} dias`}.`,
+      `Evidências verificadas: ${facts.completedSessions.length} sessões concluídas, ${facts.openTasks.length} tarefas abertas, ${facts.overdueTasks.length} atrasadas, score ${latest ? Math.round(latest.howlScore) : "indisponível"}, força ${latest?.strongestJourney?.name || "indisponível"}, fragilidade ${latest?.weakestJourney?.name || "indisponível"}.`,
+      "Responda em português com cinco seções: Evidências, Riscos, Oportunidades, Hipóteses a validar e Próximos experimentos. Em Evidências, cite os registros do contexto. Não invente mercado, concorrentes ou métricas. Marque inferências como hipótese. Sugira no máximo 3 experimentos mensuráveis.",
+    ].join(" ");
+    strategyAnalysis = await requestMentorAiResponse(prompt, selected.id);
+  } catch (error) {
+    strategyAnalysis = "";
+    notifyUser(friendlyAiErrorMessage(error), "error");
+  } finally {
+    strategyLoading = false;
+    render();
+  }
+}
+
 function setProgramDashboardTab(tab) {
   activeProgramDashboardTab = tab;
   render();
 }
 
 function openAiAgent(agentId) {
-  if (agentId !== "mentor" && agentId !== "data" && agentId !== "content") {
+  if (agentId !== "mentor" && agentId !== "data" && agentId !== "content" && agentId !== "strategy") {
     notifyUser("Este agente entra em uma próxima etapa. Começamos pelo Mentor IA.", "info");
     return;
   }
   activeAiAgent = agentId;
   if (agentId === "content" && !contentAgentStartups().some((startup) => startup.id === contentStartupId)) {
     contentStartupId = contentAgentStartups()[0]?.id || null;
+  }
+  if (agentId === "strategy" && !strategyAgentStartups().some((startup) => startup.id === strategyStartupId)) {
+    strategyStartupId = strategyAgentStartups()[0]?.id || null;
   }
   render();
 }
@@ -7051,6 +7192,7 @@ Object.assign(window, {
   generateMentorshipBriefing,
   generateMentorshipTasks,
   generateContentReport,
+  generateStrategyAnalysis,
   go,
   handleProgramSessionSearch,
   handleTopbarSearch,
@@ -7071,6 +7213,9 @@ Object.assign(window, {
   selectDashboardProgram,
   selectContentPeriod,
   selectContentStartup,
+  selectStrategyFocus,
+  selectStrategyPeriod,
+  selectStrategyStartup,
   selectStartup,
   setDraftScore,
   setJourney,
