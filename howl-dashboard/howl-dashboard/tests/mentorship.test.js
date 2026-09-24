@@ -171,10 +171,13 @@ const result = vm.runInContext(
     const dataAiHtml = document.getElementById("app").innerHTML;
     const adminDataSnapshot = dataAiSnapshot();
     closeAiAgent();
+    appNotice = { id: 1, type: "error", title: "Não foi possível concluir", message: "Tente novamente." };
     openAiAgent("strategy");
     const strategyAgentHtml = document.getElementById("app").innerHTML;
+    const strategyNoticeAboveModal = strategyAgentHtml.indexOf("app-notice-error") > strategyAgentHtml.indexOf("strategy-agent-backdrop");
     const strategySnapshot = strategyFacts("agrosense", "30", new Date("2026-09-17T12:00:00.000Z"));
     closeAiAgent();
+    appNotice = null;
     activeRoute = "mentorship";
     const highDemandMessage = friendlyAiErrorMessage(new Error("This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."));
     const creditsMessage = friendlyAiErrorMessage(new Error("You have no credits remaining. Add credits to continue using the API at https://platform.openai.com/settings/organization/billing/."));
@@ -233,6 +236,7 @@ const result = vm.runInContext(
       dataAiHtml,
       adminDataSnapshot,
       strategyAgentHtml,
+      strategyNoticeAboveModal,
       strategySessionCount: strategySnapshot.sessions.length,
       strategyOpenTaskCount: strategySnapshot.openTasks.length,
       highDemandMessage,
@@ -328,6 +332,8 @@ assert(result.strategyAgentHtml.includes("Base factual"));
 assert(result.strategyAgentHtml.includes("Produto e proposta de valor"));
 assert(result.strategyAgentHtml.includes("Gerar análise"));
 assert(result.strategyAgentHtml.includes("não realiza pesquisa de mercado externa"));
+assert(result.strategyAgentHtml.includes('role="alert"'));
+assert.strictEqual(result.strategyNoticeAboveModal, true);
 assert.strictEqual(result.strategySessionCount, 1);
 assert.strictEqual(result.strategyOpenTaskCount, 1);
 assert(result.dataAiHtml.includes("Análise dos indicadores"));

@@ -2238,13 +2238,13 @@ function appShell(content) {
       </aside>
       <main class="main">
         ${appTopbar(user)}
-        ${renderAppNotice()}
         ${content}
       </main>
     </div>
     ${activeAiAgent === "mentor" || activeAiAgent === "data" ? mentorAiChatPanel() : ""}
     ${activeAiAgent === "content" ? contentAgentPanel() : ""}
     ${activeAiAgent === "strategy" ? strategyAgentPanel() : ""}
+    ${renderAppNotice()}
   `;
 }
 
